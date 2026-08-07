@@ -1,0 +1,525 @@
+/* Factory metrics dashboard — chrome and palette.
+ *
+ * Colors are the validated reference palette (see docs/dataviz-notes.md).
+ * Every value is declared as a role token so light/dark swap in one place and
+ * the chart code never touches a raw hex. Dark is declared under both the OS
+ * media query and the [data-theme] scope, so the in-page toggle wins both ways.
+ */
+
+:root {
+  color-scheme: light;
+
+  --page:            #f9f9f7;
+  --surface-1:       #fcfcfb;
+  --text-primary:    #0b0b0b;
+  --text-secondary:  #52514e;
+  --text-muted:      #898781;
+  --grid:            #e1e0d9;
+  --axis:            #c3c2b7;
+  --border:          rgba(11, 11, 11, 0.10);
+  --hover-wash:      rgba(11, 11, 11, 0.04);
+  --success-text:    #006300;
+
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+  --series-other: #898781;
+
+  /* Status tokens are fixed — never themed, never reused as a series color. */
+  --status-good:     #0ca30c;
+  --status-warning:  #fab219;
+  --status-serious:  #ec835a;
+  --status-critical: #d03b3b;
+
+  --sequential-350: #5598e7;
+
+  --radius: 10px;
+  --card-pad: 20px;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+
+    --page:           #0d0d0d;
+    --surface-1:      #1a1a19;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --grid:           #2c2c2a;
+    --axis:           #383835;
+    --border:         rgba(255, 255, 255, 0.10);
+    --hover-wash:     rgba(255, 255, 255, 0.06);
+    --success-text:   #0ca30c;
+
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+
+    --sequential-350: #5598e7;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --page:           #0d0d0d;
+  --surface-1:      #1a1a19;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --grid:           #2c2c2a;
+  --axis:           #383835;
+  --border:         rgba(255, 255, 255, 0.10);
+  --hover-wash:     rgba(255, 255, 255, 0.06);
+  --success-text:   #0ca30c;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+}
+
+/* ------------------------------------------------------------------ base */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0 24px 64px;
+  background: var(--page);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1360px; margin: 0 auto; }
+
+/* ---------------------------------------------------------------- header */
+
+.masthead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 20px;
+  padding: 28px 0 16px;
+}
+
+.masthead h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.masthead .meta {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.masthead .spacer { flex: 1 1 auto; }
+
+.theme-toggle {
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.theme-toggle:hover { background: var(--hover-wash); }
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--status-warning);
+  background: var(--surface-1);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.banner strong { color: var(--text-primary); }
+.banner .icon { font-size: 15px; line-height: 1.3; }
+.banner[hidden] { display: none; }
+
+/* ---------------------------------------------------------------- filters */
+
+/* One row, above everything it scopes. Every card below re-renders against
+ * the same slice, so the numbers always agree. */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 16px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.filter { display: flex; flex-direction: column; gap: 5px; }
+
+.filter > span {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.filter select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 10px;
+  min-width: 130px;
+}
+
+.range-group { display: flex; gap: 2px; }
+
+.range-group button {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.range-group button:first-child { border-radius: 7px 0 0 7px; }
+.range-group button:last-child { border-radius: 0 7px 7px 0; }
+.range-group button:hover { background: var(--hover-wash); }
+
+.range-group button[aria-pressed="true"] {
+  color: var(--text-primary);
+  font-weight: 600;
+  border-color: var(--text-muted);
+  background: var(--hover-wash);
+}
+
+.filters .spacer { flex: 1 1 auto; }
+
+.filters .count {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding-bottom: 7px;
+}
+
+/* ------------------------------------------------------------------- hero */
+
+.headline {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) 3fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 900px) {
+  .headline { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--card-pad);
+}
+
+.hero .label,
+.tile .label {
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+/* Proportional figures, system sans — never a display face, never tabular. */
+.hero .value {
+  font-size: 52px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.hero .unit {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 16px;
+}
+
+.tile .value {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.tile .foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+  min-height: 20px;
+}
+
+.delta { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+.delta.good { color: var(--success-text); }
+.delta.bad { color: var(--status-critical); }
+.delta .cue { font-weight: 600; }
+
+.spark { display: block; }
+
+/* ------------------------------------------------------------------ cards */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (max-width: 720px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.card.full { grid-column: 1 / -1; }
+
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+.card-head h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.card-head .sub {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.card-head .spacer { flex: 1 1 auto; }
+
+.view-toggle {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.view-toggle:hover { background: var(--hover-wash); }
+.view-toggle[aria-pressed="true"] { color: var(--text-primary); background: var(--hover-wash); }
+
+/* Legend: always present for two or more series; a rect for bars/areas, a
+ * short stroke for lines — the legend mirrors the mark. */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 10px 0 2px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+.legend .item { display: flex; align-items: center; gap: 7px; }
+.legend .key-rect { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+.legend .key-line { width: 15px; height: 2px; border-radius: 1px; flex: none; }
+
+.plot { position: relative; }
+.plot svg { display: block; width: 100%; overflow: visible; }
+
+.gridline { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
+.axisline { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
+.tick { fill: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.axis-title { fill: var(--text-muted); font-size: 11px; }
+.point-label { fill: var(--text-secondary); font-size: 11px; font-weight: 600; }
+
+.crosshair { stroke: var(--axis); stroke-width: 1; pointer-events: none; }
+.hit { fill: transparent; cursor: crosshair; }
+
+.mark:focus { outline: none; }
+.mark:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 1px; }
+
+.plot:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; border-radius: 4px; }
+
+/* -------------------------------------------------------------- tooltip */
+
+.tooltip {
+  position: absolute;
+  z-index: 20;
+  min-width: 150px;
+  padding: 9px 11px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  pointer-events: none;
+  font-size: 12.5px;
+  opacity: 0;
+  transition: opacity 90ms linear;
+}
+
+.tooltip[data-open="true"] { opacity: 1; }
+
+.tooltip .tt-head {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  margin-bottom: 6px;
+}
+
+.tooltip .tt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+/* Values lead, labels follow — the legend's hierarchy, inverted. */
+.tooltip .tt-value {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+}
+
+.tooltip .tt-name { color: var(--text-secondary); }
+.tooltip .tt-key { width: 14px; height: 2px; border-radius: 1px; flex: none; }
+.tooltip .tt-key.block { height: 10px; width: 10px; border-radius: 3px; }
+
+/* --------------------------------------------------------------- tables */
+
+.table-wrap { overflow-x: auto; margin-top: 10px; }
+.table-wrap[hidden] { display: none; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The card head already names the table; the caption stays for screen readers
+ * rather than repeating the heading on screen. */
+caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+th, td {
+  text-align: right;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--grid);
+  white-space: nowrap;
+}
+
+th:first-child, td:first-child { text-align: left; }
+
+thead th {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-bottom-color: var(--axis);
+}
+
+tbody tr:hover { background: var(--hover-wash); }
+
+td .swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 7px;
+  vertical-align: baseline;
+}
+
+/* A status color never carries meaning alone — it always ships with a label,
+ * and here with a glyph too. */
+.status { display: inline-flex; align-items: center; gap: 6px; }
+.status .glyph { font-size: 11px; }
+.status.pass { color: var(--success-text); }
+.status.fail { color: var(--status-critical); }
+.status.error { color: var(--status-serious); }
+.status.unknown { color: var(--text-muted); }
+
+.empty {
+  padding: 32px 8px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+footer.notes {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+footer.notes code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+/* Stale-data affordance: hold the previous render at reduced opacity rather
+ * than flashing a skeleton. */
+.refreshing { opacity: 0.55; transition: opacity 120ms linear; }
+
+@media print {
+  body { background: #fff; }
+  .filters, .theme-toggle, .view-toggle { display: none; }
+}

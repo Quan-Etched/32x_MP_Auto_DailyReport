@@ -1,0 +1,18 @@
+# Secrets — never commit the EOS API key
+.env
+
+# Fetched payloads and generated metrics
+data/raw/
+data/processed/
+dashboard/data/*.js
+!dashboard/data/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# macOS
+.DS_Store
