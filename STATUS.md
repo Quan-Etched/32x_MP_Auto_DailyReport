@@ -4,6 +4,13 @@
 API, and what is still open. Metric definitions live in `docs/metrics.md`; the
 verified API schema in `docs/api-usage.md`.
 
+## Published
+
+**https://cuddly-enigma-pz3pz29.pages.github.io/** — private GitHub Pages
+(`public: false`), Etched org login required; an anonymous fetch gets the login
+page and no data. Served from the `gh-pages` branch, replaced by a single orphan
+commit on each publish so the hourly bundles never accumulate in history.
+
 ## State: working end to end on live data
 
 The full path — fetch → normalize → hourly metrics → dashboard — runs against
@@ -13,7 +20,8 @@ production EOS. Nothing is stubbed.
 make trust             # one-time: internal CA
 make refresh           # collect 30 days + rebuild both dashboards
 make schedule-install  # hourly launchd agent, :05 past the hour
-make serve             # http://127.0.0.1:8787/stations.html
+make publish           # push to the private Pages site
+make serve             # http://127.0.0.1:8787/  (station yield)
 ```
 
 | Check | Result |
@@ -95,9 +103,11 @@ against the MDM-installed root in the system keychain.
 - Drill-down from the Failure Pareto into a test's `log_file` trace. The paths
   are already collected and stored per failure; nothing is wired to open them.
 - Hourly roll-up of per-test durations (collected per run, not aggregated).
-- **Publishing.** The hourly agent refreshes locally; nothing pushes the built
-  page anywhere. A static host (or committing `dashboard/data/` to a Pages
-  branch) is the next step if others should see it.
+- **The publisher is one Mac.** The hourly agent both collects and publishes, so
+  the site goes stale whenever that machine is asleep or off the VPN. CI cannot
+  take over — EOS is on a private address a GitHub runner cannot reach. A
+  always-on host inside the network would fix it. The page's "last fetch" panel
+  is what makes the staleness visible rather than silent.
 - The seven root-cause rules added for EOS signatures should be **ported back to
   `test-daily/tools/build_dashboard.py`**, or the two dashboards will bucket the
   same failure differently.
@@ -112,8 +122,8 @@ against the MDM-installed root in the system keychain.
 src/factory/   eos_client · parse · collect · hourly · build_dashboard
                stations · rootcause · daily · fetchstate · build_stations
                demo_data · trust · cli · config
-dashboard/     stations.html (station yield) · index.html (hourly) · styles.css
-tools/         hourly_refresh.sh    deploy/launchd/  the hourly agent
+dashboard/     index.html (station yield) · hourly.html (rates) · styles.css
+tools/         hourly_refresh.sh · publish.sh   deploy/launchd/  hourly agent
 docs/          api-usage.md · metrics.md · dataviz-notes.md
 tests/         83 tests over parsing, metrics, stations and fetch state
 ```

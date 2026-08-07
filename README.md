@@ -20,7 +20,7 @@ No API key needed to see it working:
 
 ```sh
 make demo          # generate synthetic runs + build the dashboard bundle
-make serve         # http://127.0.0.1:8787/
+make serve         # http://127.0.0.1:8787/  (station yield)
 ```
 
 Against real data:
@@ -41,15 +41,41 @@ address.
 
 `make report` prints the same metrics as text if you just want numbers.
 
+## Live site (Etched org members only)
+
+**https://cuddly-enigma-pz3pz29.pages.github.io/**
+
+GitHub Pages, served from the `gh-pages` branch. The site is **private**
+(`public: false`): the URL is unguessable and an anonymous request is redirected
+to a GitHub login, so only authenticated Etched org members can open it. Verified
+— an unauthenticated fetch returns the login page and no data.
+
+It still carries real factory data (DUT serials, failure signatures, yield), so
+keep it private. Same posture as the existing `test-daily` dashboard.
+
+```sh
+make publish          # push dashboard/ to gh-pages
+make refresh-publish  # collect + publish, what the hourly agent runs
+```
+
+Each publish is a **single orphan commit that replaces the branch**. The bundles
+are ~650 KB and rebuild hourly; committing them onto a branch with history would
+grow the repository by that much every hour forever. `main` keeps all the code
+and none of the data.
+
+> CI cannot do the collection: EOS resolves to a private address, so a GitHub
+> runner cannot reach it. The Mac running the launchd agent fetches and pushes;
+> GitHub only serves.
+
 ## Two dashboards
 
-**`dashboard/stations.html` — station yield.** Per-station daily yield, yield by
+**`dashboard/index.html` — station yield (the landing page).** Per-station daily yield, yield by
 software release, failure Pareto by root-cause area, and retest. Stations are
 test stages (MLT, L10 FAT / SFT / RIN, SLT, chip screening), defined in
 `src/factory/stations.py`. Format follows the existing daily dashboard
 (`go/test-dashboard`) so the two read alike.
 
-**`dashboard/index.html` — hourly rates.** Throughput, yield, cycle time and
+**`dashboard/hourly.html` — hourly rates.** Throughput, yield, cycle time and
 failure Pareto bucketed by hour.
 
 ## Hourly refresh
@@ -114,8 +140,8 @@ src/factory/
 
 dashboard/
   styles.css          palette + chrome (light/dark as role tokens)
-  index.html/app.js   the hourly page
-  stations.html/.js/.css   the station-yield page
+  index.html + stations.js + stations.css   station yield (landing)
+  hourly.html + app.js                      hourly rates
   data/*.js           generated bundles (gitignored)
 
 tools/hourly_refresh.sh    launchd wrapper (locking, logging, log rotation)

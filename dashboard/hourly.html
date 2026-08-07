@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Factory metrics — hourly</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Factory metrics — hourly</h1>
+    <span class="meta" id="meta"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" href="index.html">← Station yield</a>
+    <button type="button" class="theme-toggle" id="theme-toggle" aria-live="polite">Theme: system</button>
+  </header>
+
+  <div class="banner" id="demo-banner" hidden>
+    <span class="icon" aria-hidden="true">&#9888;</span>
+    <span>
+      <strong>Demo data.</strong>
+      These are synthetic runs from <code>src/factory/demo_data.py</code>, not factory output.
+      Run <code>make collect build</code> with a valid <code>EOS_API_KEY</code> to replace them.
+    </span>
+  </div>
+
+  <!-- One filter row, above everything it scopes. -->
+  <form class="filters" id="filters" aria-label="Filters">
+    <label class="filter">
+      <span>Time range</span>
+      <span class="range-group" id="range-group" role="group" aria-label="Time range">
+        <button type="button" data-range="12" aria-pressed="false">12h</button>
+        <button type="button" data-range="24" aria-pressed="false">24h</button>
+        <button type="button" data-range="48" aria-pressed="false">48h</button>
+        <button type="button" data-range="all" aria-pressed="true">All</button>
+      </span>
+    </label>
+
+    <label class="filter">
+      <span>Level</span>
+      <select id="filter-level"><option value="">All levels</option></select>
+    </label>
+
+    <label class="filter" id="filter-station-wrap">
+      <span>Station</span>
+      <select id="filter-station"><option value="">All stations</option></select>
+    </label>
+
+    <label class="filter" id="filter-suite-wrap">
+      <span>Suite</span>
+      <select id="filter-suite"><option value="">All suites</option></select>
+    </label>
+
+    <label class="filter" id="filter-version-wrap">
+      <span>Version</span>
+      <select id="filter-version"><option value="">All versions</option></select>
+    </label>
+
+    <label class="filter">
+      <span>Group by</span>
+      <select id="filter-groupby"></select>
+    </label>
+
+    <span class="spacer"></span>
+    <span class="count" id="slice-count" aria-live="polite"></span>
+  </form>
+
+  <main id="content">
+    <!-- Exactly one hero figure per view. -->
+    <section class="headline">
+      <div class="card hero">
+        <div class="label">Throughput</div>
+        <div class="value" id="hero-value">—</div>
+        <div class="unit" id="hero-unit">units started per active hour</div>
+      </div>
+      <div class="tiles" id="tiles"></div>
+    </section>
+
+    <section class="grid" id="charts">
+
+      <div class="card" data-card="outcome">
+        <div class="card-head">
+          <div>
+            <h2>Runs per hour by outcome</h2>
+            <p class="sub">Counted in the hour the run started</p>
+          </div>
+          <span class="spacer"></span>
+          <button type="button" class="view-toggle" data-toggle="outcome" aria-pressed="false">Table</button>
+        </div>
+        <div class="legend" id="legend-outcome"></div>
+        <div class="plot" id="plot-outcome"></div>
+        <div class="table-wrap" id="table-outcome" hidden></div>
+      </div>
+
+      <div class="card" data-card="yield">
+        <div class="card-head">
+          <div>
+            <h2>Yield by hour</h2>
+            <p class="sub">First-pass yield and overall pass rate</p>
+          </div>
+          <span class="spacer"></span>
+          <button type="button" class="view-toggle" data-toggle="yield" aria-pressed="false">Table</button>
+        </div>
+        <div class="legend" id="legend-yield"></div>
+        <div class="plot" id="plot-yield"></div>
+        <div class="table-wrap" id="table-yield" hidden></div>
+      </div>
+
+      <div class="card" data-card="cycle">
+        <div class="card-head">
+          <div>
+            <h2>Cycle time by hour</h2>
+            <p class="sub">Median and 90th percentile run duration</p>
+          </div>
+          <span class="spacer"></span>
+          <button type="button" class="view-toggle" data-toggle="cycle" aria-pressed="false">Table</button>
+        </div>
+        <div class="legend" id="legend-cycle"></div>
+        <div class="plot" id="plot-cycle"></div>
+        <div class="table-wrap" id="table-cycle" hidden></div>
+      </div>
+
+      <div class="card" data-card="group">
+        <div class="card-head">
+          <div>
+            <h2 id="group-title">Runs per hour by group</h2>
+            <p class="sub" id="group-sub">Where the volume sat, hour by hour</p>
+          </div>
+          <span class="spacer"></span>
+          <button type="button" class="view-toggle" data-toggle="group" aria-pressed="false">Table</button>
+        </div>
+        <div class="legend" id="legend-group"></div>
+        <div class="plot" id="plot-group"></div>
+        <div class="table-wrap" id="table-group" hidden></div>
+      </div>
+
+      <div class="card full" data-card="pareto">
+        <div class="card-head">
+          <div>
+            <h2>Failure Pareto</h2>
+            <p class="sub">Failing tests across the selection, ranked by run occurrences</p>
+          </div>
+          <span class="spacer"></span>
+          <button type="button" class="view-toggle" data-toggle="pareto" aria-pressed="false">Table</button>
+        </div>
+        <div class="plot" id="plot-pareto"></div>
+        <div class="table-wrap" id="table-pareto" hidden></div>
+      </div>
+
+      <div class="card" data-card="group-detail">
+        <div class="card-head">
+          <div>
+            <h2 id="group-detail-title">Group detail</h2>
+            <p class="sub">Totals across the selection</p>
+          </div>
+        </div>
+        <div class="table-wrap" id="table-group-detail"></div>
+      </div>
+
+      <div class="card" data-card="duts">
+        <div class="card-head">
+          <div>
+            <h2>Repeat-failure DUTs</h2>
+            <p class="sub">Units that failed more than once in the selection</p>
+          </div>
+        </div>
+        <div class="table-wrap" id="table-duts"></div>
+      </div>
+
+    </section>
+  </main>
+
+  <footer class="notes">
+    <p id="footer-meta"></p>
+    <p>
+      Definitions in <code>docs/metrics.md</code>. Rebuild with
+      <code>make collect build</code>; every chart has a table view for the same numbers.
+    </p>
+  </footer>
+
+</div>
+
+<script src="data/metrics.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

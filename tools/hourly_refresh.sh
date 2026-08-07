@@ -48,6 +48,17 @@ fi
 printf '%s\n' "$out" | sed 's/^/    /' >> "$LOG"
 log "OK $(printf '%s' "$out" | grep -E '^(Fetch|Update)' | tr '\n' ' ')"
 
+# Publish every successful tick, not only when the data changed: the page's
+# "last fetch" panel is itself information — it is how a reader knows the
+# pipeline is alive rather than silently dead.
+if [ "${FACTORY_PUBLISH:-1}" = "1" ]; then
+    if pub="$(bash "$REPO/tools/publish.sh" 2>&1)"; then
+        log "PUBLISH $pub"
+    else
+        log "PUBLISH FAILED $(printf '%s' "$pub" | tail -2 | tr '\n' ' ')"
+    fi
+fi
+
 # Trim the log so an hourly job cannot fill the disk over months.
 if [ "$(wc -l < "$LOG")" -gt 5000 ]; then
     tail -2000 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"

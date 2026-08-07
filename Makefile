@@ -8,12 +8,14 @@ DAYS    ?= 2
 WINDOW  ?= 30
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
-        schedule-install schedule-uninstall schedule-status clean distclean
+        schedule-install schedule-uninstall schedule-status publish refresh-publish \
+        clean distclean
 
 help:
 	@echo "make trust              install Etched's internal CA bundle (fixes TLS errors)"
 	@echo "make refresh            one scheduler tick: collect + rebuild (WINDOW=30 days)"
 	@echo "make status             last fetch vs last update, per station"
+	@echo "make publish            push dashboard/ to GitHub Pages (private)"
 	@echo "make schedule-install   install the hourly launchd agent"
 	@echo "make demo               synthetic data + dashboard bundle (no API key needed)"
 	@echo "make collect [DAYS=2]   fetch real runs from the EOS API into data/processed/"
@@ -53,6 +55,13 @@ levels:
 
 refresh:
 	$(PY) -m factory.cli refresh --days $(WINDOW)
+
+# Push dashboard/ to the gh-pages branch that GitHub Pages serves (private).
+publish:
+	@bash tools/publish.sh
+
+# Collect and publish in one step — what the hourly agent does.
+refresh-publish: refresh publish
 
 status:
 	$(PY) -m factory.cli status
