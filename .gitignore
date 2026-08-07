@@ -6,6 +6,7 @@ data/raw/
 data/processed/
 data/logs/
 dashboard/data/*.js
+dashboard/data/releases/
 !dashboard/data/.gitkeep
 
 # Python

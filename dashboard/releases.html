@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Test items by release — compatibility</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="stations.css">
+  <link rel="stylesheet" href="releases.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Test items by release</h1>
+    <span class="meta" id="meta"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" href="index.html">← Station yield</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <p class="lede">
+    Every base-level test item each software release measures, and what changed
+    between releases — added, removed, retyped, re-scoped, or shifted.
+    <strong>Click a release</strong> for its full item list and diff.
+  </p>
+
+  <div class="banner" id="notice" hidden></div>
+
+  <nav class="stationbar" id="stationbar" aria-label="Station"></nav>
+
+  <main id="content">
+
+    <!-- GRAPH FORMAT: what changed, and coverage, per release -->
+    <section class="grid">
+      <div class="card" data-card="churn">
+        <div class="card-head">
+          <div>
+            <h2>What changed, per release</h2>
+            <p class="sub">Items added / removed / edited versus the previous release</p>
+          </div>
+          <span class="spacer"></span>
+          <button type="button" class="view-toggle" data-toggle="churn" aria-pressed="false">Table</button>
+        </div>
+        <div class="legend" id="legend-churn"></div>
+        <div class="plot" id="plot-churn"></div>
+        <div class="table-wrap" id="table-churn" hidden></div>
+      </div>
+
+      <div class="card" data-card="coverage">
+        <div class="card-head">
+          <div>
+            <h2>Coverage per release</h2>
+            <p class="sub">Distinct items measured, and the runs behind them</p>
+          </div>
+          <span class="spacer"></span>
+          <button type="button" class="view-toggle" data-toggle="coverage" aria-pressed="false">Table</button>
+        </div>
+        <div class="legend" id="legend-coverage"></div>
+        <div class="plot" id="plot-coverage"></div>
+        <div class="table-wrap" id="table-coverage" hidden></div>
+      </div>
+    </section>
+
+    <!-- TABLE FORMAT: the release list; a row opens the detail -->
+    <section class="card full" style="margin-top:16px">
+      <div class="card-head">
+        <div>
+          <h2>Releases</h2>
+          <p class="sub">Click a row to open its test items and compatibility diff</p>
+        </div>
+      </div>
+      <div class="table-wrap" id="table-releases"></div>
+    </section>
+
+  </main>
+
+  <footer class="notes">
+    <p id="footer-meta"></p>
+    <p>
+      An item is identified by its templated name (see <code>docs/test-items.md</code>).
+      <strong>Limits are not published by EOS</strong> — the OCP <code>validators</code>
+      field is empty upstream — so "shift" compares distributions, never a spec.
+    </p>
+  </footer>
+
+</div>
+
+<!-- Release detail. Rendered as a dialog so Esc, focus return and the backdrop
+     all behave; content is fetched on open. -->
+<div class="drawer-backdrop" id="backdrop" hidden></div>
+<section class="drawer" id="drawer" role="dialog" aria-modal="true"
+         aria-labelledby="drawer-title" hidden tabindex="-1">
+  <header class="drawer-head">
+    <div>
+      <h2 id="drawer-title">Release</h2>
+      <p class="sub" id="drawer-sub"></p>
+    </div>
+    <span class="spacer"></span>
+    <button type="button" class="theme-toggle" id="drawer-close" aria-label="Close">Close ✕</button>
+  </header>
+  <div class="drawer-body" id="drawer-body"></div>
+</section>
+
+<script src="data/releases.js"></script>
+<script src="releases.js"></script>
+</body>
+</html>

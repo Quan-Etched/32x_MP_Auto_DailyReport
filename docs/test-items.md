@@ -188,3 +188,127 @@ is no way to tell which kind of recovery that is.
   pipeline — Parquet needs `pyarrow`. At ~39 MB/run it also must never enter the
   hourly loop. Treat as an opt-in, per-investigation tool.
 - Published limits, per above.
+
+---
+
+# The release view and the compatibility format
+
+`dashboard/releases.html` — every base-level test item a release measures, in
+both a table and a graph layer, plus a diff against the previous release.
+
+## Item identity is the whole trick
+
+A diff is only possible if an item has an identity that survives across
+releases. That identity is **`(station, templated item name)`**. Everything else
+follows from set arithmetic on it.
+
+This is also why the templating rules matter so much in practice. PCI addresses
+(`0000:1a:00.0`) originally survived templating as `<i>:1a:<i>.<i>` — the hex
+segments are not decimal — so **every distinct bus address became its own item**,
+inflating the catalogue and manufacturing phantom add/remove churn between
+releases, because different systems enumerate devices at different addresses.
+Address-shaped tokens (BDF, MAC, UUID) now collapse as a whole, before the
+generic index rule. That one fix removed ~70 phantom items and cut the
+`198 → 201` "removed" count from 215 to 143.
+
+## The per-release signature
+
+For each `(release, item)`:
+
+| field | why it is in the diff |
+|---|---|
+| `vtype` (num/bool/str) | a type change breaks trending outright |
+| `unit` | a unit change silently redefines every axis and threshold |
+| `instances` | how many distinct measurement names — the coverage |
+| `chips` | which chips it was measured on |
+| `steps` | which test case reports it |
+| `samples`, `duts`, `runsPresent` | weight of evidence |
+| `prevalence` | fraction of the release's runs the item appeared in |
+| `stats` (numeric only) | min, p25, median, p75, p99, max, sd |
+
+## Seven change kinds, ordered by consequence
+
+The order **is** the severity ranking used for sorting and colour:
+
+| kind | meaning |
+|---|---|
+| `removed` | no longer measured; any trend on it stops here |
+| `type-changed` | value type changed; breaks trending and distributions |
+| `unit-changed` | unit changed; every axis and threshold now means something else |
+| `added` | first measured in this release; no history to compare |
+| `coverage-changed` | same item, different instance or chip count |
+| `step-moved` | now reported under a different test case |
+| `distribution-shift` | same item and unit, values moved |
+
+A single item can carry several kinds at once, and each kind is its own
+expandable group in the drawer, with a plain-language explanation of why it
+matters.
+
+## Distribution shift needs two measures, not one
+
+Neither survives real data alone:
+
+- **standardized** — median move in the previous release's σ, flagged at ≥ 3σ.
+  Useless when `sd == 0`.
+- **fold change** — flagged at ≥ ×3 or ≤ ÷3. Useless when the median is near
+  zero, which is exactly where BER lives.
+
+Both are computed and either can flag; both are shown. A comparison needs ≥ 30
+samples on each side, otherwise it reports *insufficient samples* rather than a
+verdict. This is how `Fio Read Bandwidth` was caught going from a median of
+**2824 → 0.0** between releases — a collapse σ could not see.
+
+## ⚠️ Absence of evidence is not evidence of absence
+
+The single biggest trap. Release 203 has **one run**; release 190 has 31. A naive
+diff reports ~200 removals when a single run simply did not exercise them.
+
+Two defences, both visible in the UI:
+
+1. **Confidence** — a release under 3 runs makes the whole comparison `low`, the
+   column is drawn at reduced opacity and labelled *low conf*, the release row
+   is badged *thin*, and the drawer prints the reason with the actual run counts.
+2. **Prevalence** — an item present in under half of a release's runs is marked
+   *unconfirmed* individually, even inside a confident release.
+
+Nothing is hidden — a weak removal is still listed, but it can never be mistaken
+for a confirmed one.
+
+## Payload shape (why the page is fast)
+
+~700 items × 21 release/station pairs inlined would be a 1.5 MB landing page.
+Instead:
+
+- **index** (`data/releases.js`, ~185 KB) — release table, diffs, and per-item
+  numeric trends. Item and step names are **interned** into arrays and referenced
+  by index; at ~40 characters each, repeating them per release dominated the
+  payload. Diffs carry the *delta* only, not two full snapshots.
+- **detail** (`data/releases/<station>-<release>.json`, ~57 KB each) — the full
+  item signature list, fetched when a release is opened. Stale files are cleared
+  on every build so a vanished release cannot be served as current.
+
+The lazy fetch needs HTTP; opening the page straight off disk shows an explicit
+message pointing at `make serve` rather than failing silently.
+
+## The two formats, and what each is for
+
+**Graph layer (index):** *What changed per release* — stacked added/edited/removed
+with the total above each column, and *Coverage per release* — distinct items with
+the run count under each tick. Three series, not seven: seven kinds stacked would
+be unreadable, so the kind breakdown lives in the drawer where there is room.
+Clicking either chart opens the release.
+
+**Table layer (index):** the release list — dates, runs, DUTs, items, instances,
+added/edited/removed, confidence. A row opens the drawer.
+
+**Drawer (per release):** summary chips, change groups by kind (each expandable,
+each item expandable to before → after), build hashes behind the release number,
+and the full item catalogue — filterable by text, by value type, and by
+"changed only" — where each item expands to its full statistics **and its median
+across releases with a p25–p75 band**. That per-item graph is log-scaled when the
+data is strictly positive and spans more than two decades, because a BER series
+on a linear axis is a flat line on zero.
+
+There is deliberately **no spec or limit column** anywhere: EOS does not publish
+limits (see above), and an empty column implying otherwise would be worse than
+no column.

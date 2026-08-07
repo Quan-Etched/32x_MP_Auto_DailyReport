@@ -1,0 +1,233 @@
+/* Releases page: the drawer, change badges, and the item table. */
+
+.lede {
+  margin: 0 0 16px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  max-width: 78ch;
+}
+
+/* ------------------------------------------------------- change severity ---
+ * One colour per change kind, ordered by consequence. These are STATUS-style
+ * semantics (how bad is this), not series identity, so they come from the
+ * status ramp plus two neutral steps — never from the categorical slots, which
+ * would imply these are interchangeable categories. */
+.kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.kind .glyph { font-size: 10px; }
+
+.kind.removed          { color: var(--status-critical); border-color: currentColor; }
+.kind.type-changed     { color: var(--status-critical); border-color: currentColor; }
+.kind.unit-changed     { color: var(--status-serious);  border-color: currentColor; }
+.kind.added            { color: var(--success-text);    border-color: currentColor; }
+.kind.coverage-changed { color: var(--text-secondary); }
+.kind.step-moved       { color: var(--text-secondary); }
+.kind.distribution-shift { color: var(--status-warning); border-color: currentColor; }
+
+.kind.weak { opacity: 0.75; font-weight: 500; font-style: italic; }
+
+.conf {
+  font-size: 11.5px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.conf.ok  { color: var(--text-muted); }
+.conf.low { color: var(--status-warning); border-color: currentColor; }
+
+tr.clickable { cursor: pointer; }
+tr.clickable:hover { background: var(--hover-wash); }
+tr.clickable th:first-child::after { content: " ›"; color: var(--text-muted); }
+
+/* --------------------------------------------------------------- drawer --- */
+
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  z-index: 40;
+}
+.drawer-backdrop[hidden] { display: none; }
+
+.drawer {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: min(1080px, 96vw);
+  z-index: 41;
+  background: var(--page);
+  border-left: 1px solid var(--border);
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.22);
+  display: flex;
+  flex-direction: column;
+}
+.drawer[hidden] { display: none; }
+
+.drawer-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+.drawer-head h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.drawer-head .sub { margin: 3px 0 0; font-size: 12.5px; color: var(--text-muted); }
+
+.drawer-body {
+  overflow-y: auto;
+  padding: 18px 22px 48px;
+  flex: 1 1 auto;
+}
+
+.drawer-body h3 {
+  margin: 26px 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.drawer-body h3:first-child { margin-top: 0; }
+.drawer-body .h3sub {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  max-width: 90ch;
+}
+
+/* Summary chips at the top of the drawer. */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.chip {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  border-radius: 8px;
+  padding: 8px 13px;
+  min-width: 86px;
+}
+.chip .n { font-size: 19px; font-weight: 600; line-height: 1.1; }
+.chip .k {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+/* Change group: one <details> per kind so the reader opens what they care about. */
+.kgroup {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+  margin-bottom: 8px;
+}
+.kgroup > summary {
+  cursor: pointer;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  list-style: none;
+}
+.kgroup > summary::-webkit-details-marker { display: none; }
+.kgroup > summary::before {
+  content: "▸";
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.kgroup[open] > summary::before { content: "▾"; }
+.kgroup > summary:hover { background: var(--hover-wash); }
+.kgroup .why {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.kgroup .body { padding: 0 14px 12px; }
+
+/* Item rows inside a group / the full catalog. */
+.irow {
+  border-top: 1px solid var(--grid);
+}
+.irow > summary {
+  cursor: pointer;
+  padding: 7px 2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  list-style: none;
+  font-size: 12.5px;
+}
+.irow > summary::-webkit-details-marker { display: none; }
+.irow > summary:hover { background: var(--hover-wash); }
+.irow .iname {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+.irow .imeta { color: var(--text-muted); font-size: 11.5px; margin-left: auto; }
+.irow .detail { padding: 6px 2px 14px; }
+
+.kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 3px 14px;
+  font-size: 12.5px;
+  margin-bottom: 10px;
+}
+.kv dt { color: var(--text-muted); }
+.kv dd { margin: 0; font-variant-numeric: tabular-nums; word-break: break-word; }
+
+.beforeafter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-variant-numeric: tabular-nums;
+}
+.beforeafter .arrow { color: var(--text-muted); }
+.beforeafter .was { color: var(--text-muted); text-decoration: line-through; }
+.beforeafter .now { font-weight: 600; }
+
+.filterrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 10px 0;
+}
+.filterrow input[type="search"] {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  min-width: 240px;
+}
+.filterrow .count { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+
+.loading, .fetchfail {
+  padding: 26px 4px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.fetchfail code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  .drawer { width: 100vw; border-left: none; }
+}

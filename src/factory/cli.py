@@ -214,7 +214,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
 
 
 def cmd_build(args: argparse.Namespace) -> int:
-    from . import build_stations, fetchstate
+    from . import build_stations, fetchstate, items as items_mod, releases
 
     payload = collect_mod.read_runs()
     bundle = build_dashboard.build_bundle(payload)
@@ -228,6 +228,25 @@ def cmd_build(args: argparse.Namespace) -> int:
     stations_path = build_stations.write_bundle(stations_bundle)
     print("Stations bundle ({:.0f} KB) -> {}".format(
         stations_path.stat().st_size / 1024, stations_path))
+
+    # The releases page needs the item store; skip rather than fail when it has
+    # not been built yet (`make items`).
+    if items_mod.DB_PATH.exists():
+        conn = items_mod.open_db()
+        try:
+            # NB: not `bundle` -- that name is still the hourly bundle below.
+            rel_bundle = releases.build_bundle(conn, payload)
+            n_releases = len(rel_bundle["releases"])
+            n_items = len(rel_bundle["items"])
+            rel_path, n_detail = releases.write_bundle(rel_bundle)
+            print("Releases index ({:.0f} KB, {} releases, {} items) + {} detail "
+                  "files -> {}".format(rel_path.stat().st_size / 1024, n_releases,
+                                       n_items, n_detail, rel_path))
+        finally:
+            conn.close()
+    else:
+        print("  no item store yet — run `make items` to enable the releases page",
+              file=sys.stderr)
     if bundle["notes"]["runsDroppedNoTimestamp"]:
         print(
             "  {} runs dropped: no usable start time".format(

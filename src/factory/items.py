@@ -91,6 +91,22 @@ NUM, BOOL, STR = "num", "bool", "str"
 _INT_RUN = re.compile(r"(?<![A-Za-z0-9])\d+(?![A-Za-z0-9])|(?<=[a-z_])\d+")
 _WS = re.compile(r"\s+")
 
+#: PCI bus addresses (``0000:1a:00.0``) must collapse as a WHOLE, before the
+#: generic integer rule sees them. Their segments are hex, so that rule mangles
+#: them into ``<i>:1a:<i>.<i>`` — which makes every distinct address its own
+#: item, inflates the catalog, and manufactures phantom added/removed churn in a
+#: release diff, because different systems enumerate devices at different
+#: addresses. Observed live: it was a large share of the 189->190 add/remove.
+# \b cannot be used here: these tokens sit next to "_", which is a word
+# character, so there is no boundary. Exclude only hex continuation.
+_BDF = re.compile(r"(?<![0-9a-f])[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-9a-f](?![0-9a-f])", re.I)
+
+#: Same reasoning for MACs and UUIDs: they identify a unit, not a measurement.
+_MAC = re.compile(r"(?<![0-9a-f])(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}(?![0-9a-f])", re.I)
+_UUID = re.compile(
+    r"(?<![0-9a-f])[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    r"(?![0-9a-f])", re.I)
+
 
 def template_name(name: Any) -> str:
     """Collapse an instance name to its item template.
@@ -98,10 +114,16 @@ def template_name(name: Any) -> str:
     ``ber_0_0_1`` -> ``ber_<i>_<i>_<i>``; ``chip3_pd_north_east_chain_12`` ->
     ``chip<i>_pd_north_east_chain_<i>``. Index runs become ``<i>`` so the same
     physical measurement on different lanes/chips groups into one item.
+
+    Address-shaped tokens collapse first and as a whole, because they say *where
+    a device sits*, not what is measured.
     """
     text = _WS.sub(" ", str(name or "")).strip()
     if not text:
         return "(unnamed)"
+    text = _UUID.sub("<uuid>", text)
+    text = _BDF.sub("<bdf>", text)
+    text = _MAC.sub("<mac>", text)
     return _INT_RUN.sub("<i>", text)
 
 
