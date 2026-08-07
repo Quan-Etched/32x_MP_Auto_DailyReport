@@ -8,6 +8,9 @@ station/DUT breakdowns — **bucketed by factory-local hour**.
 
 Python 3.9+ standard library only. No pip install, no npm, no build step.
 
+Working end to end against production EOS — see [`STATUS.md`](STATUS.md) for the
+current state, validation results and open items.
+
 ![pipeline](https://img.shields.io/badge/deps-stdlib%20only-informational)
 
 ## Quick start
