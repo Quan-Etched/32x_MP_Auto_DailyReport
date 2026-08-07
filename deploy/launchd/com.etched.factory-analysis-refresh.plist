@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Hourly EOS refresh for factory_data_analysis.
+
+  Fires at :05 past every hour. launchd follows the Mac's local timezone and
+  DST, and RunAtLoad gives an immediate first tick so the dashboard is never
+  empty for an hour after install.
+
+  Install:   make schedule-install
+  Status:    make schedule-status
+  Remove:    make schedule-uninstall
+
+  __REPO__ is replaced with the repository path at install time.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.etched.factory-analysis-refresh</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__REPO__/tools/hourly_refresh.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO__</string>
+
+    <!-- Every hour, at :05. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Minute</key>
+        <integer>5</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- If the Mac was asleep at :05, run as soon as it wakes. -->
+    <key>StartInterval</key>
+    <integer>3600</integer>
+
+    <key>StandardOutPath</key>
+    <string>__REPO__/data/logs/launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__REPO__/data/logs/launchd.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>LowPriorityIO</key>
+    <true/>
+</dict>
+</plist>

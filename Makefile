@@ -5,11 +5,16 @@ export PYTHONPATH := src
 PORT    ?= 8787
 LEVEL   ?= l10
 DAYS    ?= 2
+WINDOW  ?= 30
 
-.PHONY: help trust demo collect build report serve test inspect levels clean distclean
+.PHONY: help trust demo collect build report serve test inspect levels refresh status \
+        schedule-install schedule-uninstall schedule-status clean distclean
 
 help:
 	@echo "make trust              install Etched's internal CA bundle (fixes TLS errors)"
+	@echo "make refresh            one scheduler tick: collect + rebuild (WINDOW=30 days)"
+	@echo "make status             last fetch vs last update, per station"
+	@echo "make schedule-install   install the hourly launchd agent"
 	@echo "make demo               synthetic data + dashboard bundle (no API key needed)"
 	@echo "make collect [DAYS=2]   fetch real runs from the EOS API into data/processed/"
 	@echo "make build              compile data/processed/runs.json into the dashboard bundle"
@@ -46,8 +51,39 @@ inspect:
 levels:
 	$(PY) -m factory.cli levels
 
+refresh:
+	$(PY) -m factory.cli refresh --days $(WINDOW)
+
+status:
+	$(PY) -m factory.cli status
+
+# ---------------------------------------------------------------- scheduler
+# Hourly launchd agent. launchd follows local time and DST, so :05 stays :05
+# through PST/PDT.
+LAUNCHD_LABEL := com.etched.factory-analysis-refresh
+LAUNCHD_DEST  := $(HOME)/Library/LaunchAgents/$(LAUNCHD_LABEL).plist
+REPO_DIR      := $(shell pwd)
+
+schedule-install:
+	@mkdir -p $(HOME)/Library/LaunchAgents data/logs
+	@sed 's|__REPO__|$(REPO_DIR)|g' deploy/launchd/$(LAUNCHD_LABEL).plist > $(LAUNCHD_DEST)
+	@launchctl unload $(LAUNCHD_DEST) 2>/dev/null || true
+	@launchctl load $(LAUNCHD_DEST)
+	@echo "Installed $(LAUNCHD_LABEL) — runs at :05 every hour."
+	@echo "Logs: data/logs/refresh.log"
+
+schedule-uninstall:
+	@launchctl unload $(LAUNCHD_DEST) 2>/dev/null || true
+	@rm -f $(LAUNCHD_DEST)
+	@echo "Removed $(LAUNCHD_LABEL)."
+
+schedule-status:
+	@launchctl list | grep $(LAUNCHD_LABEL) || echo "not loaded"
+	@echo "---"
+	@tail -12 data/logs/refresh.log 2>/dev/null || echo "no log yet"
+
 clean:
-	rm -rf data/processed/* dashboard/data/metrics.js
+	rm -rf data/processed/* dashboard/data/metrics.js dashboard/data/stations.js
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
 
 # Also drops the cached HTTP responses, forcing a full refetch next collect.

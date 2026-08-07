@@ -3,8 +3,9 @@
 Hourly manufacturing metrics from the EOS test-log API, as a static dashboard.
 
 Pulls test runs from `eos.core.etched.com`, normalizes them into a flat run
-table, and renders throughput, yield, cycle time, failure Pareto and
-station/DUT breakdowns — **bucketed by factory-local hour**.
+table, and renders two views: **per-station yield** (daily, by software release,
+failure Pareto, retest) and **hourly rates** (throughput, yield, cycle time).
+Refreshes hourly.
 
 Python 3.9+ standard library only. No pip install, no npm, no build step.
 
@@ -40,6 +41,37 @@ address.
 
 `make report` prints the same metrics as text if you just want numbers.
 
+## Two dashboards
+
+**`dashboard/stations.html` — station yield.** Per-station daily yield, yield by
+software release, failure Pareto by root-cause area, and retest. Stations are
+test stages (MLT, L10 FAT / SFT / RIN, SLT, chip screening), defined in
+`src/factory/stations.py`. Format follows the existing daily dashboard
+(`go/test-dashboard`) so the two read alike.
+
+**`dashboard/index.html` — hourly rates.** Throughput, yield, cycle time and
+failure Pareto bucketed by hour.
+
+## Hourly refresh
+
+```sh
+make refresh            # one tick: collect + record state + rebuild
+make status             # last fetch vs last update, per station
+make schedule-install   # launchd agent, :05 every hour
+make schedule-status
+```
+
+The scheduler tracks **two different timestamps**, because conflating them is
+how a dashboard lies:
+
+- **Last fetch** — the pipeline ran and the API answered.
+- **Last update** — the data actually changed.
+
+A tick that returns identical data advances only *last fetch*; the content is
+hashed, so *last update* stays put and the page says "unchanged for N
+consecutive fetches". Both are tracked per station too, so one busy station
+cannot mask nine quiet ones. A failed fetch advances neither.
+
 ## What the dashboard shows
 
 | | |
@@ -72,20 +104,27 @@ src/factory/
   build_dashboard.py  compiles the run table into the browser bundle
   demo_data.py        synthetic runs, clearly labelled as such
   trust.py            bootstraps trust for Etched's internal CA, safely
-  cli.py              trust | levels | runs | inspect | collect | demo | build | report | serve
-
-certs/                fetched CA bundle (gitignored; `make trust`)
+  stations.py         station registry: stage -> EOS level + suite
+  rootcause.py        failure signature -> root-cause area (shared with test-daily)
+  daily.py            daily yield, release yield, Pareto, retest
+  fetchstate.py       last-fetch vs last-update bookkeeping
+  build_stations.py   compiles the per-station views
+  cli.py              trust | levels | runs | inspect | collect | demo
+                      | build | refresh | status | report | serve
 
 dashboard/
-  index.html          structure
   styles.css          palette + chrome (light/dark as role tokens)
-  app.js              filtering, aggregation, SVG charts, tooltips, tables
-  data/metrics.js     generated bundle (gitignored)
+  index.html/app.js   the hourly page
+  stations.html/.js/.css   the station-yield page
+  data/*.js           generated bundles (gitignored)
 
-data/raw/             cached HTTP responses (gitignored)
-data/processed/       normalized runs.json (gitignored)
-docs/                 api-usage.md · metrics.md · dataviz-notes.md
-tests/                40 unit tests over parsing and metrics
+tools/hourly_refresh.sh    launchd wrapper (locking, logging, log rotation)
+deploy/launchd/            the hourly agent plist
+certs/                     fetched CA bundle (gitignored; `make trust`)
+data/raw/                  cached HTTP responses (gitignored)
+data/processed/            runs.json + fetch_state.json (gitignored)
+docs/                      api-usage.md · metrics.md · dataviz-notes.md
+tests/                     83 unit tests over parsing, metrics and fetch state
 ```
 
 ## Before you trust a number
@@ -102,8 +141,12 @@ slt and module data (2026-08-06) and is written up in
 - **`INTERRUPTED` is the most common test status** on any aborted run. It means
   "never executed", so it maps to `skip` and leaves the yield denominator —
   treating it as a failure would tank yield on every aborted run.
-- **No station field exists anywhere.** The volume chart groups by a selectable
-  dimension (suite / version / level) instead.
+- **No station *fixture* field exists anywhere.** The line's "stations" are test
+  stages, mapped from level + suite in `src/factory/stations.py`; the hourly
+  page's volume chart groups by a selectable dimension (suite / version / level).
+- **Nested container test cases must be excluded from the Pareto.** EOS emits a
+  parent entry beside the real leaf tests, and counting both double-counts every
+  failure — it put 71% of failures in "Other".
 
 Re-run the check whenever EOS changes:
 

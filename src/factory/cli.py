@@ -168,7 +168,54 @@ def cmd_demo(args: argparse.Namespace) -> int:
     return cmd_build(args)
 
 
+def cmd_refresh(args: argparse.Namespace) -> int:
+    """One scheduler tick: collect, record fetch state, rebuild both bundles.
+
+    Distinguishes a fetch from an update. A tick that returns the same data
+    advances only ``lastFetchAt``; ``lastUpdateAt`` moves only when the content
+    hash changes. Exit code is 0 for both — "nothing changed" is a healthy
+    outcome, not a failure.
+    """
+    from . import fetchstate, stations
+
+    client_levels = args.levels or stations.levels_to_collect() + stations.blocked_levels()
+    window = collect_mod.default_window(days=args.days)
+
+    try:
+        client = EOSClient(use_cache=False)  # a scheduler must never serve a cache
+        payload = collect_mod.collect(
+            client,
+            levels=client_levels,
+            frm=window["from"],
+            to=window["to"],
+            max_workers=args.workers,
+        )
+    except (EOSError, RuntimeError) as exc:
+        fetchstate.record_failure(str(exc))
+        print("Fetch FAILED: {}".format(exc), file=sys.stderr)
+        return 2
+
+    collect_mod.write_runs(payload)
+    state = fetchstate.record_fetch(payload)
+
+    cmd_build(args)
+
+    changed = state.get("changed")
+    print("Fetch  : {}  ({} runs)".format(state["lastFetchAt"], state.get("runCount")))
+    if changed:
+        print("Update : {}  <- content changed".format(state["lastUpdateAt"]))
+    else:
+        print("Update : {}  (unchanged for {} consecutive fetches)".format(
+            state.get("lastUpdateAt") or "never", state.get("consecutiveNoChange")))
+    if payload.get("levelErrors"):
+        for level, err in payload["levelErrors"].items():
+            print("  level {} unavailable: {}".format(level, err[:120]), file=sys.stderr)
+    return 0
+
+
 def cmd_build(args: argparse.Namespace) -> int:
+    from . import build_stations, fetchstate
+
     payload = collect_mod.read_runs()
     bundle = build_dashboard.build_bundle(payload)
     path = build_dashboard.write_bundle(bundle)
@@ -176,6 +223,11 @@ def cmd_build(args: argparse.Namespace) -> int:
     print(
         "Bundled {} runs ({:.0f} KB) -> {}".format(len(bundle["runs"]), size_kb, path)
     )
+
+    stations_bundle = build_stations.build_bundle(payload, fetchstate.load())
+    stations_path = build_stations.write_bundle(stations_bundle)
+    print("Stations bundle ({:.0f} KB) -> {}".format(
+        stations_path.stat().st_size / 1024, stations_path))
     if bundle["notes"]["runsDroppedNoTimestamp"]:
         print(
             "  {} runs dropped: no usable start time".format(
@@ -232,6 +284,37 @@ def cmd_report(args: argparse.Namespace) -> int:
         for row in repeats[:15]:
             print("  {:<16} runs {:>3}  failures {:>3}  last {}".format(
                 row["dut"], row["runs"], row["failures"], row["lastStatus"]))
+    return 0
+
+
+def cmd_status(args: argparse.Namespace) -> int:
+    """Print fetch vs update state — the scheduler's health, at a glance."""
+    from . import fetchstate, stations
+
+    state = fetchstate.load()
+    if not state.get("lastFetchAttemptAt"):
+        print("No fetch has run yet. Try `make refresh`.")
+        return 0
+
+    print("last fetch   {}  [{}]".format(
+        state.get("lastFetchAttemptAt"), state.get("lastFetchStatus")))
+    print("last update  {}".format(state.get("lastUpdateAt") or "never"))
+    if state.get("consecutiveNoChange"):
+        print("             unchanged for {} consecutive fetches".format(
+            state["consecutiveNoChange"]))
+    if state.get("lastFetchError"):
+        print("last error   {}".format(state["lastFetchError"][:200]))
+    print("runs         {}".format(state.get("runCount", "—")))
+
+    print("\nper station:")
+    labels = {s["key"]: s["label"] for s in stations.registry()}
+    for key, entry in sorted(state.get("stations", {}).items()):
+        print("  {:<16} {:>5} runs   last update {}".format(
+            labels.get(key, key), entry.get("runs", 0),
+            entry.get("lastUpdateAt") or "never"))
+
+    for level, err in (state.get("levelErrors") or {}).items():
+        print("\n  level {} unavailable: {}".format(level, err[:160]))
     return 0
 
 
@@ -363,8 +446,20 @@ def _build_parser() -> argparse.ArgumentParser:
     demo.add_argument("--seed", type=int, default=7)
     demo.set_defaults(handler=cmd_demo)
 
-    build = subparsers.add_parser("build", help="compile runs.json into the dashboard bundle")
+    build = subparsers.add_parser("build", help="compile runs.json into the dashboard bundles")
     build.set_defaults(handler=cmd_build)
+
+    refresh = subparsers.add_parser(
+        "refresh", help="one scheduler tick: collect + record fetch state + rebuild"
+    )
+    refresh.add_argument("--days", type=int, default=30,
+                         help="window to collect (default 30, so release trends stay whole)")
+    refresh.add_argument("--levels", nargs="*", help="override the levels to collect")
+    refresh.add_argument("--workers", type=int, default=8)
+    refresh.set_defaults(handler=cmd_refresh)
+
+    status = subparsers.add_parser("status", help="show last fetch / last update")
+    status.set_defaults(handler=cmd_status)
 
     report = subparsers.add_parser("report", help="print the hourly metrics as text")
     report.add_argument("--limit", type=int, default=12)

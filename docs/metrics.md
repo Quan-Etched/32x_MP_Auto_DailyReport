@@ -126,6 +126,79 @@ the repeat offenders — ranked by failure count, showing their last result and
 every station they touched. A unit failing across several stations points at the
 unit; a unit failing only on one points at the station.
 
+## Station views (`dashboard/stations.html`)
+
+A **station** is a test stage on the line — MLT, L10 FAT, SFT, RIN, SLT, chip
+screening — identified by an EOS `level` plus a `suite` match. The registry is
+`src/factory/stations.py`; it lists every station the line runs, including ones
+with no data, so the page can say *why* a station is empty. Debug suites
+(`L10_6U_FAT_krish`) are deliberately excluded from production yield.
+
+**Release** is the middle component of the version string:
+`2026.207.0-git…` → `207`.
+
+### (a) Yield vs daily
+
+One row per local calendar day that has runs. Stacked pass / fail / **abort**
+(`error` is called abort here, matching the line's vocabulary), plus FPY.
+Zero-run days are omitted rather than drawn as a gap — a day the line did not
+run has no yield.
+
+### (b) Yield vs release
+
+Same measures grouped by release instead of day, each labelled with the **date
+range** that release was on the line. Without the range you cannot tell a bad
+release from a bad week. One release can carry several build hashes; all are
+kept in the row.
+
+### Thin samples
+
+Any rate over fewer than **5 graded first attempts** is marked thin and drawn
+with a hollow marker. `1/1 = 100%` is a coin toss, not a yield, and must not
+read the same as `40/40`.
+
+### (c) Top yield hits
+
+Failure Pareto bucketed by root-cause area, with a cumulative-% line and the 80%
+rule. Two counting modes:
+
+- **All failures** — every failing test occurrence; a run failing three areas
+  hits three.
+- **First failure only** — one area per failing run, the failure that stopped
+  the unit.
+
+Two corrections were needed to make this meaningful on EOS data, taking the
+unclassified bucket from **71% to 10%**:
+
+1. Rules were written against CamelCase class names, so matching also runs
+   against a separator-stripped copy (`update_bmc_bios` → `updatebmcbios`).
+2. **Nested containers are excluded.** EOS emits an entry per parent node
+   (`SltModuleNestedTestCase`, `ServerNestedTestCase`) beside the real leaf
+   tests. A container "fails" only because a child did, so counting both
+   double-counts every failure. `parent_id` is null on every entry observed, so
+   the class-name suffix is the only available marker.
+
+This is the one place the dashboard uses a second y-axis. A Pareto's cumulative
+line is derived from the same counts as the bars and is anchored (100% = the
+total), so it cannot imply a relationship that is not in the data.
+
+### (d) Retest
+
+A retest is **the same DUT serial run more than once at the same station**
+within the collected window. Two distinct questions:
+
+| Metric | Question |
+|---|---|
+| **Retest rate** | of units that entered, how many went round again? (flow / capacity) |
+| **Recovery rate** | of units that failed first time and were retried, how many ended up passing? (was the failure real) |
+
+A high recovery rate means the station is failing good units. `Still failing`
+counts units whose last attempt was not a pass. The depth histogram buckets
+units by attempt count, capped at `5+`.
+
+Window-relative, exactly like FPY: a unit first tested before the window looks
+like a first attempt.
+
 ## What is not measured
 
 - **Anything per station.** No station identity exists in the API (above).

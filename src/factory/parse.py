@@ -462,7 +462,14 @@ def summarize_tests(record: Dict[str, Any]) -> Dict[str, Any]:
         counts[test.get("status", "unknown")] = counts.get(test.get("status", "unknown"), 0) + 1
 
     failures = [
-        {"test": test["name"], "code": test.get("code"), "log": test.get("logFile")}
+        {
+            "test": test["name"],
+            # The CamelCase class name is what the root-cause rules were written
+            # against, so it has to survive into the failure record.
+            "display": test.get("displayName"),
+            "code": test.get("code"),
+            "log": test.get("logFile"),
+        }
         for test in tests
         if is_failure(test.get("status", "unknown"))
     ]

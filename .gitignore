@@ -1,9 +1,10 @@
 # Secrets — never commit the EOS API key
 .env
 
-# Fetched payloads and generated metrics
+# Fetched payloads, generated metrics and scheduler logs
 data/raw/
 data/processed/
+data/logs/
 dashboard/data/*.js
 !dashboard/data/.gitkeep
 

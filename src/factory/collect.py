@@ -16,7 +16,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
-from . import config, parse
+from . import config, parse, stations
 from .eos_client import EOSClient, EOSError
 
 log = logging.getLogger(__name__)
@@ -40,11 +40,17 @@ def collect(
     records: List[Dict[str, Any]] = []
     problems: List[str] = []
 
+    level_errors: Dict[str, str] = {}
+
     for level in levels:
         log.info("listing runs: level=%s from=%s to=%s", level, frm, to)
         try:
             raw_runs = client.runs(level=level, frm=frm, to=to)
         except EOSError as exc:
+            # A level the key cannot read (L11 today) must not abort the whole
+            # collection — the other stations still have to publish. The reason
+            # is recorded so the dashboard can say *why* that station is empty.
+            level_errors[level] = str(exc)
             problems.append("runs({}): {}".format(level, exc))
             log.error("could not list runs for %s: %s", level, exc)
             continue
@@ -52,6 +58,8 @@ def collect(
         log.info("level=%s -> %d runs", level, len(raw_runs))
         level_records = [parse.parse_run(run, level) for run in raw_runs]
         level_records = [rec for rec in level_records if rec["runId"]]
+        for record in level_records:
+            record["stationKey"] = stations.classify(record["level"], record["suite"])
 
         if fetch_summaries:
             _attach_summaries(client, level_records, max_workers, problems)
@@ -73,7 +81,9 @@ def collect(
     _mark_attempts(records)
 
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
+        "levelErrors": level_errors,
+        "stations": stations.registry(),
         "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "window": {"from": frm, "to": to},
         "levels": list(levels),

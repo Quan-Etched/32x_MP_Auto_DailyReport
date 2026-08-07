@@ -1,6 +1,6 @@
 # Project status
 
-**As of 2026-08-07.** Snapshot of what works, what was verified against the live
+**As of 2026-08-07 (updated).** Snapshot of what works, what was verified against the live
 API, and what is still open. Metric definitions live in `docs/metrics.md`; the
 verified API schema in `docs/api-usage.md`.
 
@@ -10,23 +10,25 @@ The full path — fetch → normalize → hourly metrics → dashboard — runs 
 production EOS. Nothing is stubbed.
 
 ```sh
-make trust                                    # one-time: internal CA
-make collect LEVEL=l10 DAYS=3 && make build   # or: make demo (no API key)
-make serve                                    # http://127.0.0.1:8787/
+make trust             # one-time: internal CA
+make refresh           # collect 30 days + rebuild both dashboards
+make schedule-install  # hourly launchd agent, :05 past the hour
+make serve             # http://127.0.0.1:8787/stations.html
 ```
 
 | Check | Result |
 |---|---|
-| Unit tests | 48 passing (`make test`) |
+| Unit tests | 83 passing (`make test`) |
 | `/levels` | `l6, l10, l11, slt, module, bringup` |
-| Live collect | 123 runs across l10 + slt + module, 3 days, no errors |
-| Status resolved | 123/123 |
-| Duration resolved | 123/123 |
-| Dashboard | renders on real data, light + dark, verified in headless Chrome |
+| Live collect | 1062 runs over 30 days across l6 + l10 + slt + module |
+| Status / duration resolved | all runs |
+| Stations mapped | 6 of 9 producing data; HTT unmapped, L11 ×2 blocked |
+| Pareto coverage | "Other" 10.2% (was 71% before the container + separator fixes) |
+| Dashboards | both render on real data, light + dark, headless-Chrome verified |
 
-Last full validation run (3 days to 2026-08-06, `America/Los_Angeles`):
-123 runs · 35 units · 36 active hours · 1.0 units/h · pass rate 19.7% ·
-FPY 17.1% · cycle p50 10m41s / p90 21m57s.
+Station counts over the 30 days to 2026-08-07: SLT 296 · Chip Screening 206 ·
+MLT 198 · L10 FAT 102 · L10 SFT 99 · L10 RIN 9 · unclassified 152.
+Line-wide: 910 classified runs, 420 units, FPY 58.2%, pass rate 40.2%.
 
 ## What was verified, and what it changed
 
@@ -56,13 +58,18 @@ against the MDM-installed root in the system keychain.
 
 ### Blocked by the API — cannot be fixed here
 
-- **Station / fixture breakdown.** No station field exists anywhere: not on
-  `/runs` at any level, not in the event stream (`dutInfo.platformInfos` is
-  empty), and `resource_config` describes the DUT's own addresses. The volume
-  chart groups by a selectable dimension (suite / version / level) instead, and
-  the station code path is retained for if EOS adds the field.
-- **Station utilization / idle time.** Needs station state the API does not
-  expose.
+- **HTT station.** No suite matching HTT exists in EOS at any level (searched
+  suite, version, runId and prefix over 30 days). It is in the registry as
+  `unmapped` and renders an explicit card; give it a suite name and it works.
+- **L11 Provision / L11 Test.** EOS returns HTTP 502: the API key's IAM role is
+  denied `s3:ListBucket` on `etched-mfg-prod-l11-raw`. Both are in the registry
+  as `blocked`, render the real error, and need no code change once access is
+  granted — only confirmation of their suite names, which are currently
+  unverified guesses.
+- **Physical fixture identity.** Distinct from the line's "stations" (which are
+  test stages and *are* mapped): no fixture field exists on `/runs`,
+  `dutInfo.platformInfos` is empty, and `resource_config` holds DUT addresses.
+- **Station utilization / idle time.** Needs state the API does not expose.
 
 ### Needs a decision from someone else
 
@@ -88,8 +95,12 @@ against the MDM-installed root in the system keychain.
 - Drill-down from the Failure Pareto into a test's `log_file` trace. The paths
   are already collected and stored per failure; nothing is wired to open them.
 - Hourly roll-up of per-test durations (collected per run, not aggregated).
-- Automated refresh — collection is manual. A cron or CI job writing the bundle
-  to a static host is the obvious next step.
+- **Publishing.** The hourly agent refreshes locally; nothing pushes the built
+  page anywhere. A static host (or committing `dashboard/data/` to a Pages
+  branch) is the next step if others should see it.
+- The seven root-cause rules added for EOS signatures should be **ported back to
+  `test-daily/tools/build_dashboard.py`**, or the two dashboards will bucket the
+  same failure differently.
 - No CI. Tests run locally via `make test`.
 - The reference palette's colorblind validator has never been run here (it needs
   Node, which is not installed). Values are used exactly as documented, which is
@@ -99,11 +110,12 @@ against the MDM-installed root in the system keychain.
 
 ```
 src/factory/   eos_client · parse · collect · hourly · build_dashboard
+               stations · rootcause · daily · fetchstate · build_stations
                demo_data · trust · cli · config
-dashboard/     index.html · styles.css · app.js  (+ generated data/metrics.js)
+dashboard/     stations.html (station yield) · index.html (hourly) · styles.css
+tools/         hourly_refresh.sh    deploy/launchd/  the hourly agent
 docs/          api-usage.md · metrics.md · dataviz-notes.md
-tests/         48 tests over parsing and metric definitions
+tests/         83 tests over parsing, metrics, stations and fetch state
 ```
 
-Gitignored and never committed: `.env`, `certs/`, `data/`,
-`dashboard/data/metrics.js`.
+Gitignored and never committed: `.env`, `certs/`, `data/`, `dashboard/data/`.
