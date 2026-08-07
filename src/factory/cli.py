@@ -318,6 +318,104 @@ def cmd_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_items(args: argparse.Namespace) -> int:
+    """Flatten test cases down to test items, into SQLite, then report.
+
+    The event streams are already fetched for run timing, so this re-reads them
+    (from the HTTP cache where possible) and keeps the measurements instead of
+    discarding them.
+    """
+    from . import items as items_mod
+    from .collect import _pick_role_path
+
+    payload = collect_mod.read_runs()
+    runs = [r for r in payload["runs"] if r.get("dutSerial") and r.get("runId")]
+    if args.station:
+        runs = [r for r in runs if r.get("stationKey") == args.station]
+    if args.limit:
+        runs = sorted(runs, key=lambda r: r.get("startTs") or 0, reverse=True)[: args.limit]
+
+    conn = items_mod.open_db()
+    client = EOSClient(use_cache=True)
+
+    done = added = skipped = 0
+    for record in runs:
+        if not args.rebuild and items_mod.already_ingested(conn, record["runId"]):
+            skipped += 1
+            continue
+        try:
+            artifacts = client.artifacts(level=record["level"],
+                                         dut_serial=record["dutSerial"],
+                                         run_id=record["runId"])
+            path = _pick_role_path(artifacts, config.ROLE_EVENT_STREAM)
+            if not path:
+                continue
+            raw = client.artifact_content(level=record["level"],
+                                         dut_serial=record["dutSerial"],
+                                         run_id=record["runId"], rel_path=path)
+        except EOSError as exc:
+            print("  {}: {}".format(record["runId"][:44], str(exc)[:80]), file=sys.stderr)
+            continue
+        rows = items_mod.extract_items(raw, record)
+        added += items_mod.ingest(conn, record["runId"], rows)
+        done += 1
+        if done % 10 == 0:
+            print("  ingested {} runs, {} item rows".format(done, added), file=sys.stderr)
+
+    print("Ingested {} runs ({} rows); {} already present.".format(done, added, skipped))
+    counts = items_mod.summary_counts(conn)
+    print("\n=== item store ===")
+    print("  rows            {:,}".format(counts["rows"]))
+    print("  distinct items  {:,}   (from {:,} raw instance names)".format(
+        counts["items"], counts["instances"]))
+    print("  runs / DUTs     {} / {}".format(counts["runs"], counts["duts"]))
+    print("  value kinds     {}".format(counts["kinds"]))
+    print("  PUBLISHED LIMITS: {}   <- OCP `validators` is empty upstream".format(
+        counts["withPublishedLimits"]))
+
+    print("\n=== item catalog (most measurable across DUTs) ===")
+    print("  {:<40} {:>5} {:>6} {:>7}  {:<9} {}".format(
+        "item", "DUTs", "runs", "samples", "unit", "range"))
+    for row in items_mod.catalog(conn, station=args.station, limit=args.top):
+        span = "—"
+        if row["lo"] is not None:
+            span = "{:.4g} .. {:.4g}".format(row["lo"], row["hi"])
+        print("  {:<40} {:>5} {:>6} {:>7}  {:<9} {}".format(
+            row["item"][:40], row["duts"], row["runs"], row["samples"],
+            (row["unit"] or "")[:9], span))
+
+    if args.show:
+        _show_item(conn, items_mod, args.show, args.station)
+    return 0
+
+
+def _show_item(conn, items_mod, item: str, station: Optional[str]) -> None:
+    """Distribution of one item, and the per-DUT view behind it."""
+    print("\n=== {} ===".format(item))
+    overall = items_mod.item_stats(conn, item, station)
+    if not overall.get("samples"):
+        print("  no numeric samples")
+        return
+    for population in (None, "COMPLETE", "ERROR"):
+        stats = items_mod.item_stats(conn, item, station, only_status=population)
+        if not stats.get("samples"):
+            continue
+        print("  {:<9} n={:<7} min={:<11.4g} p25={:<11.4g} median={:<11.4g} "
+              "p75={:<11.4g} p99={:<11.4g} max={:<11.4g}".format(
+                  stats["population"], stats["samples"], stats["min"], stats["p25"],
+                  stats["median"], stats["p75"], stats["p99"], stats["max"]))
+
+    rows = items_mod.per_dut(conn, item, station, agg="MAX")
+    print("\n  worst value per DUT (two-level aggregation: worst instance, then across units)")
+    print("    {:<18} {:<8} {:<10} {:>7}  {}".format("DUT", "release", "step", "lanes", "worst"))
+    for row in rows[:12]:
+        sigma = items_mod.margin(row["value"], overall)
+        flag = "  ({:+.1f}sd)".format(sigma) if sigma is not None else ""
+        print("    {:<18} {:<8} {:<10} {:>7}  {:.4g}{}".format(
+            str(row["dut"])[:18], str(row["release"] or "—"),
+            str(row["step_status"] or "—")[:10], row["lanes"], row["value"], flag))
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     import functools
     import http.server
@@ -460,6 +558,18 @@ def _build_parser() -> argparse.ArgumentParser:
 
     status = subparsers.add_parser("status", help="show last fetch / last update")
     status.set_defaults(handler=cmd_status)
+
+    items = subparsers.add_parser(
+        "items", help="flatten test cases to test items (numeric) into SQLite"
+    )
+    items.add_argument("--station", help="restrict to one station key, e.g. l10_sft")
+    items.add_argument("--limit", type=int, default=0,
+                       help="only the N most recent runs (0 = all)")
+    items.add_argument("--rebuild", action="store_true",
+                       help="re-ingest runs already in the store")
+    items.add_argument("--top", type=int, default=25, help="catalog rows to print")
+    items.add_argument("--show", help="print the distribution of one item template")
+    items.set_defaults(handler=cmd_items)
 
     report = subparsers.add_parser("report", help="print the hourly metrics as text")
     report.add_argument("--limit", type=int, default=12)

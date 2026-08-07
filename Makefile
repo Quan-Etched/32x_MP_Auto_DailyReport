@@ -6,9 +6,10 @@ PORT    ?= 8787
 LEVEL   ?= l10
 DAYS    ?= 2
 WINDOW  ?= 30
+STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
-        schedule-install schedule-uninstall schedule-status publish refresh-publish \
+        schedule-install schedule-uninstall schedule-status publish refresh-publish items \
         clean distclean
 
 help:
@@ -16,6 +17,7 @@ help:
 	@echo "make refresh            one scheduler tick: collect + rebuild (WINDOW=30 days)"
 	@echo "make status             last fetch vs last update, per station"
 	@echo "make publish            push dashboard/ to GitHub Pages (private)"
+	@echo "make items [STATION=..]  flatten test cases to numeric test items"
 	@echo "make schedule-install   install the hourly launchd agent"
 	@echo "make demo               synthetic data + dashboard bundle (no API key needed)"
 	@echo "make collect [DAYS=2]   fetch real runs from the EOS API into data/processed/"
@@ -65,6 +67,10 @@ refresh-publish: refresh publish
 
 status:
 	$(PY) -m factory.cli status
+
+# Flatten test cases to test items (numeric layer) into data/processed/items.sqlite
+items:
+	$(PY) -m factory.cli items --station $(STATION)
 
 # ---------------------------------------------------------------- scheduler
 # Hourly launchd agent. launchd follows local time and DST, so :05 stays :05
