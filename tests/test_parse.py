@@ -35,6 +35,95 @@ class NormalizeStatusTest(unittest.TestCase):
         self.assertFalse(parse.is_failure("pass"))
 
 
+class EosStatusVocabularyTest(unittest.TestCase):
+    """The exact status words observed in live EOS test_summary.json payloads.
+
+    Verified against l10/slt/module runs: PASSED, FAILED, ERROR, TIMEOUT,
+    SKIPPED, INTERRUPTED, EXITED. Getting INTERRUPTED wrong matters most — it is
+    the majority of entries on any aborted run.
+    """
+
+    def test_live_vocabulary_is_fully_mapped(self):
+        expected = {
+            "PASSED": "pass",
+            "FAILED": "fail",
+            "ERROR": "error",
+            "TIMEOUT": "error",
+            "SKIPPED": "skip",
+            "INTERRUPTED": "skip",
+            "EXITED": "error",
+        }
+        for raw, want in expected.items():
+            self.assertEqual(parse.normalize_status(raw), want, raw)
+
+    def test_interrupted_is_not_a_failure(self):
+        # A suite that aborts leaves dozens of INTERRUPTED entries. Counting
+        # them as failures would tank yield on every aborted run.
+        self.assertFalse(parse.is_failure(parse.normalize_status("INTERRUPTED")))
+
+
+class EventStreamTest(unittest.TestCase):
+    """The event stream is the ONLY source of run duration and verdict."""
+
+    stream = "\n".join([
+        '{"schemaVersion":{"major":2},"sequenceNumber":0,"timestamp":"2026-08-04T07:03:08Z"}',
+        '{"testRunArtifact":{"testRunStart":{"name":"L10_tests"}},"timestamp":"2026-08-04T07:03:08Z"}',
+        '{"testStepArtifact":{"testStepId":"0","testStepStart":{"name":"CheckBiosBootOrder"}},'
+        '"timestamp":"2026-08-04T07:03:10Z"}',
+        '{"testStepArtifact":{"testStepId":"0","testStepEnd":{"status":"COMPLETE"}},'
+        '"timestamp":"2026-08-04T07:03:40Z"}',
+        '{"testRunArtifact":{"testRunEnd":{"status":"ERROR","result":"NOT_APPLICABLE"}},'
+        '"timestamp":"2026-08-04T07:43:26Z"}',
+    ])
+
+    def test_extracts_run_window_duration_and_verdict(self):
+        result = parse.parse_event_stream(self.stream)
+        self.assertEqual(result["startTs"], parse.parse_timestamp("2026-08-04T07:03:08Z"))
+        self.assertEqual(result["endTs"], parse.parse_timestamp("2026-08-04T07:43:26Z"))
+        self.assertEqual(result["durationSec"], 2418.0)
+        self.assertEqual(result["status"], "error")
+
+    def test_per_step_durations_are_keyed_by_display_name(self):
+        self.assertEqual(
+            parse.parse_event_stream(self.stream)["stepDurations"],
+            {"CheckBiosBootOrder": 30.0},
+        )
+
+    def test_ocp_outcome_folding(self):
+        def verdict(status, result):
+            stream = ('{"testRunArtifact":{"testRunEnd":{"status":"%s","result":"%s"}},'
+                      '"timestamp":"2026-08-04T07:00:00Z"}' % (status, result))
+            return parse.parse_event_stream(stream)["status"]
+
+        self.assertEqual(verdict("COMPLETE", "PASS"), "pass")
+        self.assertEqual(verdict("COMPLETE", "FAIL"), "fail")
+        self.assertEqual(verdict("ERROR", "NOT_APPLICABLE"), "error")
+        self.assertEqual(verdict("COMPLETE", "NOT_APPLICABLE"), "unknown")
+
+    def test_truncated_stream_parses_as_far_as_it_can(self):
+        # A run that died mid-write leaves a half-written final line.
+        truncated = self.stream.rsplit("\n", 1)[0] + '\n{"testRunArtifact":{"testRun'
+        result = parse.parse_event_stream(truncated)
+        self.assertIsNotNone(result["startTs"])
+        self.assertIsNone(result["status"])
+
+    def test_empty_and_junk_input(self):
+        for value in ("", b"", None, "not json at all"):
+            result = parse.parse_event_stream(value)
+            self.assertIsNone(result["durationSec"], value)
+
+
+class SuiteSummaryDisplayNameTest(unittest.TestCase):
+    def test_unique_id_is_the_grouping_key_display_name_is_kept(self):
+        # EOS ships both; the stable ID groups the Pareto, the display name
+        # joins to the event stream's step names.
+        raw = ('[{"test_name":"CheckBiosBootOrder","unique_id":"CHK_BIOS_BOOT_ORDER",'
+               '"status":"FAILED","log_file":"a.log","parent_id":null}]')
+        test = parse.parse_suite_summary(raw)[0]
+        self.assertEqual(test["name"], "CHK_BIOS_BOOT_ORDER")
+        self.assertEqual(test["displayName"], "CheckBiosBootOrder")
+
+
 class PickTest(unittest.TestCase):
     def test_matches_regardless_of_punctuation_and_case(self):
         for key in ("dutSerial", "dut_serial", "DUT-Serial", "dutserial"):

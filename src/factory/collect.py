@@ -109,36 +109,93 @@ def _attach_summaries(
             if done % 25 == 0 or done == len(futures):
                 log.info("suite summaries %d/%d", done, len(futures))
             try:
-                record["tests"] = future.result()
+                fetched = future.result()
+                record["tests"] = fetched["tests"]
+                _apply_events(record, fetched["events"])
             except EOSError as exc:
                 problems.append("summary({}): {}".format(record["runId"], exc))
                 log.warning("no summary for %s: %s", record["runId"], exc)
 
 
-def _summary_for_run(client: EOSClient, record: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Locate a run's suite_summary artifact and parse it into test records."""
+def _summary_for_run(client: EOSClient, record: Dict[str, Any]) -> Dict[str, Any]:
+    """Fetch a run's test list and its timing/verdict.
+
+    Two artifacts are needed because neither alone is sufficient:
+
+    - ``suite_summary`` (``test_summary.json``) — every test and its status, but
+      no timing at all.
+    - ``event_stream`` (``log.jsonl``) — run start/end, per-step durations, and
+      the only run-level verdict the API exposes.
+
+    ``/runs`` itself carries no status, end time or duration.
+    """
     level = record["level"]
     dut = record["dutSerial"]
     run_id = record["runId"]
 
-    artifacts = client.artifacts(
-        level=level, dut_serial=dut, run_id=run_id, role=config.ROLE_SUITE_SUMMARY
-    )
-    rel_path = _pick_summary_path(artifacts)
+    # One unfiltered listing serves both lookups, halving the request count.
+    artifacts = client.artifacts(level=level, dut_serial=dut, run_id=run_id)
 
-    if rel_path is None:
-        # Fall back to the unfiltered listing — some runs tag the role differently.
-        artifacts = client.artifacts(level=level, dut_serial=dut, run_id=run_id)
-        rel_path = _pick_summary_path(artifacts)
-
-    if rel_path is None:
+    tests: List[Dict[str, Any]] = []
+    summary_path = _pick_summary_path(artifacts)
+    if summary_path:
+        tests = parse.parse_suite_summary(
+            client.artifact_content(
+                level=level, dut_serial=dut, run_id=run_id, rel_path=summary_path
+            )
+        )
+    else:
         log.debug("run %s exposes no suite_summary artifact", run_id)
-        return []
 
-    raw = client.artifact_content(
-        level=level, dut_serial=dut, run_id=run_id, rel_path=rel_path
-    )
-    return parse.parse_suite_summary(raw)
+    events = parse._empty_event_summary()
+    event_path = _pick_role_path(artifacts, config.ROLE_EVENT_STREAM)
+    if event_path:
+        events = parse.parse_event_stream(
+            client.artifact_content(
+                level=level, dut_serial=dut, run_id=run_id, rel_path=event_path
+            )
+        )
+    else:
+        log.debug("run %s exposes no event_stream artifact", run_id)
+
+    return {"tests": tests, "events": events}
+
+
+def _apply_events(record: Dict[str, Any], events: Dict[str, Any]) -> None:
+    """Merge event-stream timing and verdict into a run record.
+
+    The event stream is authoritative for end time, duration and status, since
+    ``/runs`` has none of them. Its start time is only used as a fallback — the
+    ``startedAt`` from ``/runs`` is what the run list is filtered on, so hourly
+    buckets stay consistent with the query window.
+    """
+    if events.get("endTs") is not None:
+        record["endTs"] = events["endTs"]
+    if events.get("durationSec") is not None:
+        record["durationSec"] = events["durationSec"]
+    if record.get("startTs") is None and events.get("startTs") is not None:
+        record["startTs"] = events["startTs"]
+        record["startFromRunId"] = False
+    if record.get("status") in (None, "unknown") and events.get("status"):
+        record["status"] = events["status"]
+
+    durations = events.get("stepDurations") or {}
+    if durations:
+        for test in record.get("tests") or []:
+            if test.get("durationSec") is None:
+                # Steps are keyed by display name; tests by stable unique_id.
+                test["durationSec"] = durations.get(test.get("displayName") or test["name"])
+
+
+def _pick_role_path(artifacts: Sequence[Dict[str, Any]], role: str) -> Optional[str]:
+    """relPath of the first artifact with the given role."""
+    for candidate in artifacts:
+        if str(candidate.get("role", "")).lower() != role:
+            continue
+        rel_path = parse.pick(candidate, ("relPath", "rel_path", "path", "name"))
+        if rel_path:
+            return str(rel_path)
+    return None
 
 
 def _pick_summary_path(artifacts: Sequence[Dict[str, Any]]) -> Optional[str]:

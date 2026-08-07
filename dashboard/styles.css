@@ -185,6 +185,10 @@ body {
 
 .filter { display: flex; flex-direction: column; gap: 5px; }
 
+/* `display: flex` above is an author rule and would otherwise beat the UA
+ * stylesheet's [hidden] { display: none }. */
+.filter[hidden] { display: none; }
+
 .filter > span {
   font-size: 11px;
   letter-spacing: 0.04em;

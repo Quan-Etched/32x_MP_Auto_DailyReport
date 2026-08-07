@@ -20,6 +20,23 @@ are **excluded from every hourly metric and counted separately** — `summary()`
 reports `runsWithoutTimestamp` and the dashboard footer shows it. They are never
 silently bucketed into "now".
 
+## Where each field actually comes from
+
+`/runs` carries only `runId`, `level`, `dutSerial`, `suite`, `version`,
+`startedAt`, `prefix`. Everything else is reconstructed:
+
+| Field | Source |
+|---|---|
+| start time | `/runs.startedAt` (what the query window filters on) |
+| end time, duration | `event_stream` (`log.jsonl`) — `testRunEnd` − `testRunStart` |
+| run status | `event_stream` `testRunEnd.status` + `.result`; else derived from the tests |
+| test list + status | `suite_summary` (`test_summary.json`) |
+| per-test duration | `event_stream` step start/end pairs |
+
+**Cycle time depends entirely on the event stream.** Collect with
+`--no-summaries` and duration is `None` everywhere, so the cycle-time chart goes
+empty while throughput still looks fine.
+
 ## Run status
 
 Statuses normalize to `pass` / `fail` / `error` / `skip` / `unknown`.
@@ -89,10 +106,20 @@ Pareto puts counts and cumulative % on two y-scales; a dual-axis plot invents
 relationships that are not in the data, so the cumulative figure lives in the
 tooltip and the table instead.
 
-## Station and DUT breakdowns
+## Grouping dimension (station is unavailable)
 
-Station rows are per-station totals across the selection: runs, distinct units,
-pass rate, median cycle time.
+**EOS exposes no station or fixture field** — not on `/runs` at any level, not in
+the event stream (`dutInfo.platformInfos` is empty), and `resource_config`
+describes the DUT's own addresses rather than the rig it sat in.
+
+The volume chart and its detail table therefore group by a **selectable
+dimension** — suite, version, or level — and the group-by control offers only
+dimensions that actually split the data. Station appears automatically if EOS
+ever adds it. Version grouping is the useful one for manufacturing: it shows a
+build rolling across the line.
+
+Group rows are per-value totals across the selection: runs, distinct units, pass
+rate, median cycle time.
 
 The DUT table lists units with **more than one failing run** in the selection —
 the repeat offenders — ranked by failure count, showing their last result and
@@ -101,9 +128,9 @@ unit; a unit failing only on one points at the station.
 
 ## What is not measured
 
-- **Station utilization / idle time.** The API exposes runs, not station state,
-  so occupancy cannot be distinguished from "no work queued". Runs-per-hour by
-  station is the honest proxy and is what the dashboard shows.
+- **Anything per station.** No station identity exists in the API (above).
+- **Station utilization / idle time.** Would need station state, which the API
+  does not expose; occupancy cannot be distinguished from "no work queued".
 - **Rework and scrap outcomes.** Not present in test logs.
-- **Test-level durations per hour.** Available in the raw data
-  (`suite_summary`), not currently rolled up.
+- **Test-level durations per hour.** Collected from the event stream per run, but
+  not currently rolled up into an hourly view.

@@ -64,6 +64,7 @@ def build_bundle(payload: Dict[str, Any]) -> Dict[str, Any]:
         "levels": sorted({run["lv"] for run in compact if run.get("lv")}),
         "stations": sorted({run["st"] for run in compact}),
         "suites": sorted({run["su"] for run in compact}),
+        "versions": sorted({run["ver"] for run in compact}),
         "source": payload.get("source", "eos-api"),
         "notes": {
             "runsDroppedNoTimestamp": dropped,

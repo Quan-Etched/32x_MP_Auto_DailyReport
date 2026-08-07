@@ -82,29 +82,90 @@ Each `suite_summary` entry should include a **`log_file`**; pass that value as
 
 Input: `level`, `dutSerial`, `runId`, exact `relPath`. Output: the file bytes.
 
-## Unverified schema — read this before trusting a number
+## Verified schema (observed 2026-08-06, levels l10 / slt / module)
 
-The endpoints above are specified; the **field names inside** run objects and
-inside `suite_summary.json` are not. This repo therefore resolves every field
-through alias tables in `src/factory/parse.py`, matching keys
-case- and punctuation-insensitively, and returns `None` rather than raising when
-a field is absent.
+The doc elides these, so they were confirmed against live data with
+`make inspect`. Re-run it if EOS changes; `parse.py`'s `*_ALIASES` tables are the
+single place to adjust.
 
-The first time you point the ETL at live data, run:
+### `/runs` entry — 7 fields, and three notable absences
 
-```sh
-make inspect            # or: python -m factory.cli inspect --level l10 --days 1
+```json
+{
+  "runId":     "L10_tests_2026.214.0-gita7f2fadc_20260804_070308",
+  "level":     "l10",
+  "dutSerial": "267694410001",
+  "suite":     "L10_tests",
+  "version":   "2026.214.0-gita7f2fadc",
+  "startedAt": "2026-08-04T07:03:08Z",
+  "prefix":    "s3://etched-mfg-prod-l10-raw/ocp-tests/l10/…"
+}
 ```
 
-It prints the field names actually present, shows how `parse.py` resolved them,
-and flags anything unresolved. Add any missing spelling to the `*_ALIASES`
-tables — that is the only place it needs to change.
+**There is no `status`, no end time, no duration, and no station/fixture field** —
+identical across all three levels. Run status and cycle time therefore come from
+the `event_stream` artifact, and station is simply unavailable (see below).
 
-Two failure modes it is designed to catch:
+### Artifact roles on a run
 
-- **No start-time field resolved.** The collector falls back to the
-  `..._20260803_094406` stamp in the run ID, read as UTC. If the stamp is really
-  local wall-clock, hourly buckets will be shifted by the UTC offset. The
-  collector logs a warning and the dashboard footer reports the count.
-- **Zero tests parsed from `suite_summary.json`.** Yield and Pareto go empty
-  while throughput still looks fine.
+`upload_marker`, `subtest_log` (one per test), `bom_config`, `harness_log`,
+`event_stream`, `resource_config`, `suite_config`, `suite_summary`.
+
+The `suite_summary` file is named **`test_summary.json`**, not
+`suite_summary.json`.
+
+### `suite_summary` → `test_summary.json`
+
+A bare JSON list; every entry has exactly these five keys:
+
+```json
+{ "test_name": "CheckBiosBootOrder", "unique_id": "CHK_BIOS_BOOT_ORDER",
+  "status": "FAILED",
+  "log_file": "artifacts/CHK_BIOS_BOOT_ORDER/iteration_1/chk_bios_boot_order.log",
+  "parent_id": null }
+```
+
+`unique_id` is the stable grouping key (it also matches the `log_file` path);
+`test_name` is the class name and is what the event stream keys its steps by, so
+both are kept. `parent_id` was null on every entry observed — no subtest
+hierarchy to de-duplicate yet. **There is no per-test duration here.**
+
+Status vocabulary, complete as observed:
+
+| value | mapped to | note |
+|---|---|---|
+| `PASSED` | pass | |
+| `FAILED` | fail | |
+| `ERROR` | error | |
+| `TIMEOUT` | error | |
+| `SKIPPED` | skip | |
+| `INTERRUPTED` | **skip** | the suite aborted and the test never ran — the majority of entries on any aborted run |
+| `EXITED` | **error** | terminated abnormally; **assumption**, worth confirming with the EOS team (~0.5% of entries) |
+
+### `event_stream` → `log.jsonl`
+
+OCP TestRun format, one JSON object per line. This is the **only** source of run
+timing and verdict:
+
+- `testRunStart` / `testRunEnd` timestamps → run duration
+- `testRunEnd.status` (`COMPLETE` / `ERROR` / `SKIP`) + `.result`
+  (`PASS` / `FAIL` / `NOT_APPLICABLE`) → the run verdict
+- `testStepStart` / `testStepEnd` per step → per-test durations
+
+Only steps that actually executed appear, which is why a run can list 88 tests in
+`test_summary.json` and 9 steps here.
+
+### ⚠️ `resource_config` — never fetched
+
+It contains **plaintext credentials** for the DUT's SSH and BMC connections
+(`username` / `password` in cleartext). It also holds only DUT network addresses,
+not any station identity, so there is nothing to gain by reading it. The
+collector never requests this role (`config.ROLE_NEVER_FETCH`).
+
+### Station / fixture: not available
+
+No station field exists on `/runs` at any level, `dutInfo.platformInfos` in the
+event stream is empty, and `resource_config` describes the DUT rather than the
+rig. The dashboard therefore offers **suite / version / level** as grouping
+dimensions and hides the station control. The code path is retained for when EOS
+adds the field.

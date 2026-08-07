@@ -87,29 +87,39 @@ tests/                40 unit tests over parsing and metrics
 
 ## Before you trust a number
 
-The API doc pins the four endpoints but **elides the field names inside run
-objects and never specifies the schema of `suite_summary.json`**. Rather than
-guess one spelling, `parse.py` resolves every field through alias tables, matches
-keys case- and punctuation-insensitively, and yields `None` instead of raising.
+The API doc pins the four endpoints but elides the field names inside run objects
+and never specifies the `suite_summary.json` schema, so `parse.py` resolves every
+field through alias tables. The live schema **has** been verified against l10,
+slt and module data (2026-08-06) and is written up in
+[`docs/api-usage.md`](docs/api-usage.md). Three findings shape the whole ETL:
 
-So the first run against live data is a verification step:
+- **`/runs` has no status, no end time, no duration.** All three come from the
+  `event_stream` (`log.jsonl`) artifact, which is the sole source of cycle time
+  and of a run-level verdict.
+- **`INTERRUPTED` is the most common test status** on any aborted run. It means
+  "never executed", so it maps to `skip` and leaves the yield denominator —
+  treating it as a failure would tank yield on every aborted run.
+- **No station field exists anywhere.** The volume chart groups by a selectable
+  dimension (suite / version / level) instead.
+
+Re-run the check whenever EOS changes:
 
 ```sh
 make inspect
 ```
 
-It prints the field names actually returned, shows how they were resolved, and
-flags anything it could not map. Add missing spellings to the `*_ALIASES` tables
-in `src/factory/parse.py` — that is the only place they need to change.
+It prints the field names actually returned, shows how they resolved, and flags
+anything it could not map. Failure modes it is built to catch: no start-time
+field (the collector falls back to the `_20260803_094406` stamp in the run ID,
+read as UTC — a warning is logged and the count appears in the dashboard footer),
+and zero tests parsed, which empties yield and Pareto while throughput still
+looks healthy.
 
-Two things it is built to catch:
+### One security note
 
-- **No start-time field.** The collector falls back to the `_20260803_094406`
-  stamp in the run ID, read as UTC. If that stamp is local wall-clock, hourly
-  buckets shift by the UTC offset. A warning is logged and the count appears in
-  the dashboard footer.
-- **Zero tests parsed** from `suite_summary.json` — yield and Pareto go empty
-  while throughput still looks healthy.
+`resource_config` artifacts contain **plaintext SSH and BMC credentials** for the
+DUT. This repo never fetches that role. Worth raising with whoever owns EOS —
+anyone with an API key can read them.
 
 ## TLS: `CERTIFICATE_VERIFY_FAILED`
 

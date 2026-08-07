@@ -55,6 +55,15 @@ DEFAULT_LEVEL = "l10"
 ROLE_SUITE_SUMMARY = "suite_summary"
 ROLE_SUITE_CONFIG = "suite_config"
 
+#: OCP `log.jsonl`. The only source of run end time, duration and verdict —
+#: /runs exposes none of them.
+ROLE_EVENT_STREAM = "event_stream"
+
+#: Deliberately never fetched. `resource_config` carries plaintext credentials
+#: for the DUT's SSH and BMC connections, and holds DUT network addresses rather
+#: than any station identity, so there is nothing to gain by reading it.
+ROLE_NEVER_FETCH = ("resource_config",)
+
 
 def load_dotenv(path: Path = REPO_ROOT / ".env") -> None:
     """Populate ``os.environ`` from a .env file, without overriding real env vars.

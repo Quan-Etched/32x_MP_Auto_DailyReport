@@ -215,7 +215,9 @@
     return hourSequence(min, max).map(function (key) {
       var bucket = grouped[key] || [];
       var passed = 0, failed = 0, errored = 0, firstAttempts = 0, fpyPassed = 0;
-      var durations = [], units = {}, stations = Object.create(null);
+      var durations = [], units = {};
+      var dims = {};
+      DIMENSIONS.forEach(function (dim) { dims[dim.key] = Object.create(null); });
       var testsRun = 0, testsFailed = 0;
 
       bucket.forEach(function (run) {
@@ -225,7 +227,10 @@
         if (run.a === 1) { firstAttempts += 1; if (run.s === 'pass') fpyPassed += 1; }
         if (run.d !== null && run.d !== undefined) durations.push(run.d);
         if (run.dut) units[run.dut] = true;
-        stations[run.st] = (stations[run.st] || 0) + 1;
+        DIMENSIONS.forEach(function (dim) {
+          var value = run[dim.key] || '(unknown)';
+          dims[dim.key][value] = (dims[dim.key][value] || 0) + 1;
+        });
         testsRun += run.nt || 0;
         testsFailed += run.nf || 0;
       });
@@ -245,7 +250,7 @@
         cycleTimeP90: percentile(durations, 0.9),
         testsRun: testsRun,
         testsFailed: testsFailed,
-        stations: stations
+        dims: dims
       };
     });
   }
@@ -290,19 +295,20 @@
     });
   }
 
-  function stationRows(runs) {
+  function groupRows(runs, dimKey) {
     var grouped = Object.create(null);
     runs.forEach(function (run) {
-      (grouped[run.st] || (grouped[run.st] = [])).push(run);
+      var value = run[dimKey] || '(unknown)';
+      (grouped[value] || (grouped[value] = [])).push(run);
     });
-    return Object.keys(grouped).map(function (station) {
-      var bucket = grouped[station];
+    return Object.keys(grouped).map(function (value) {
+      var bucket = grouped[value];
       var scored = bucket.filter(function (r) { return SCORED[r.s]; });
       var passed = scored.filter(function (r) { return r.s === 'pass'; }).length;
       var units = Object.create(null);
       bucket.forEach(function (r) { if (r.dut) units[r.dut] = true; });
       return {
-        station: station,
+        group: value,
         runs: bucket.length,
         units: Object.keys(units).length,
         passRate: scored.length ? passed / scored.length : null,
@@ -311,21 +317,21 @@
     }).sort(function (a, b) { return b.runs - a.runs; });
   }
 
-  function dutRows(runs, limit) {
+  function dutRows(runs, limit, dimKey) {
     var grouped = Object.create(null);
     runs.forEach(function (run) {
       if (run.dut) (grouped[run.dut] || (grouped[run.dut] = [])).push(run);
     });
     return Object.keys(grouped).map(function (dut) {
       var bucket = grouped[dut].slice().sort(function (a, b) { return a.t - b.t; });
-      var stations = Object.create(null);
-      bucket.forEach(function (r) { stations[r.st] = true; });
+      var values = Object.create(null);
+      bucket.forEach(function (r) { values[r[dimKey] || '(unknown)'] = true; });
       return {
         dut: dut,
         runs: bucket.length,
         failures: bucket.filter(function (r) { return r.s === 'fail' || r.s === 'error'; }).length,
         lastStatus: bucket[bucket.length - 1].s,
-        stations: Object.keys(stations).sort().join(', ')
+        groups: Object.keys(values).sort().join(', ')
       };
     }).filter(function (row) { return row.failures > 1; })
       .sort(function (a, b) { return b.failures - a.failures || b.runs - a.runs; })
@@ -1004,7 +1010,7 @@
 
   /* ------------------------------------------------------------------ state */
 
-  var state = { range: 'all', level: '', station: '', suite: '' };
+  var state = { range: 'all', level: '', station: '', suite: '', version: '', groupBy: 'su' };
 
   var refs = {
     meta: document.getElementById('meta'),
@@ -1013,6 +1019,8 @@
     level: document.getElementById('filter-level'),
     station: document.getElementById('filter-station'),
     suite: document.getElementById('filter-suite'),
+    version: document.getElementById('filter-version'),
+    groupby: document.getElementById('filter-groupby'),
     count: document.getElementById('slice-count'),
     heroValue: document.getElementById('hero-value'),
     heroUnit: document.getElementById('hero-unit'),
@@ -1025,6 +1033,7 @@
     if (state.level && run.lv !== state.level) return false;
     if (state.station && run.st !== state.station) return false;
     if (state.suite && run.su !== state.suite) return false;
+    if (state.version && run.ver !== state.version) return false;
     return true;
   }
 
@@ -1046,40 +1055,73 @@
 
   /* ----------------------------------------------------------------- render */
 
-  var STATION_SLOTS = [
+  var SERIES_SLOTS = [
     'var(--series-1)', 'var(--series-2)', 'var(--series-3)', 'var(--series-4)',
     'var(--series-5)', 'var(--series-6)', 'var(--series-7)'
   ];
 
   /**
-   * Station -> color, decided ONCE from the whole dataset and never
-   * recomputed.
+   * Dimensions the volume chart can be split by.
+   *
+   * EOS does not expose a station or fixture field on /runs, so "Station" is
+   * only offered when the data actually carries one (see docs/metrics.md).
+   * Suite and version are always present and are the useful substitutes: a
+   * version split shows a build rolling across the line.
+   */
+  var DIMENSIONS = [
+    { key: 'st', label: 'Station', noun: 'stations' },
+    { key: 'su', label: 'Suite', noun: 'suites' },
+    { key: 'ver', label: 'Version', noun: 'versions' },
+    { key: 'lv', label: 'Level', noun: 'levels' }
+  ];
+
+  function distinctValues(dimKey) {
+    var seen = Object.create(null);
+    (DATA && DATA.runs ? DATA.runs : []).forEach(function (run) {
+      seen[run[dimKey] || '(unknown)'] = true;
+    });
+    return Object.keys(seen);
+  }
+
+  /**
+   * Value -> color per dimension, decided ONCE from the whole dataset.
    *
    * If this were ranked within the current slice, filtering to a shorter range
-   * would repaint the surviving stations and a reader who learned "ST-03 is
-   * blue" would be misled. Color follows the entity, not its row number.
-   * Stations past the eighth slot fold into a neutral "Other" — hues are never
-   * cycled or generated.
+   * would repaint the survivors and a reader who learned "L10_tests is blue"
+   * would be misled. Color follows the entity, not its row number. Values past
+   * the seventh slot fold into a neutral "Other" — hues are never cycled.
    */
-  var STATION_COLORS = (function () {
-    var totals = Object.create(null);
-    (DATA && DATA.runs ? DATA.runs : []).forEach(function (run) {
-      totals[run.st] = (totals[run.st] || 0) + 1;
+  var DIM_COLORS = (function () {
+    var byDim = {};
+    DIMENSIONS.forEach(function (dim) {
+      var totals = Object.create(null);
+      (DATA && DATA.runs ? DATA.runs : []).forEach(function (run) {
+        var value = run[dim.key] || '(unknown)';
+        totals[value] = (totals[value] || 0) + 1;
+      });
+      var ranked = Object.keys(totals).sort(function (a, b) {
+        return totals[b] - totals[a] || a.localeCompare(b);
+      });
+      var assignment = { order: [], color: Object.create(null), other: [] };
+      ranked.forEach(function (value, index) {
+        if (index < SERIES_SLOTS.length) {
+          assignment.order.push(value);
+          assignment.color[value] = SERIES_SLOTS[index];
+        } else {
+          assignment.other.push(value);
+        }
+      });
+      byDim[dim.key] = assignment;
     });
-    var ranked = Object.keys(totals).sort(function (a, b) {
-      return totals[b] - totals[a] || a.localeCompare(b);
-    });
-    var assignment = { order: [], color: Object.create(null), other: [] };
-    ranked.forEach(function (station, index) {
-      if (index < STATION_SLOTS.length) {
-        assignment.order.push(station);
-        assignment.color[station] = STATION_SLOTS[index];
-      } else {
-        assignment.other.push(station);
-      }
-    });
-    return assignment;
+    return byDim;
   })();
+
+  function dimByKey(key) {
+    for (var i = 0; i < DIMENSIONS.length; i += 1) {
+      if (DIMENSIONS[i].key === key) return DIMENSIONS[i];
+    }
+    return DIMENSIONS[1];
+  }
 
   function render() {
     var selection = slice();
@@ -1091,14 +1133,15 @@
     refs.count.textContent = runs.length.toLocaleString() + ' runs · ' +
       head.units.toLocaleString() + ' units · ' + head.activeHours + ' active hours';
 
+    var dim = dimByKey(state.groupBy);
     renderHead(head, previousHead, rows, selection.periodLabel);
     renderOutcome(rows);
     renderYield(rows);
     renderCycle(rows);
-    renderStations(rows, runs);
+    renderGroupChart(rows, runs, dim);
     renderParetoCard(runs);
-    renderStationTable(runs);
-    renderDutTable(runs);
+    renderGroupDetailTable(runs, dim);
+    renderDutTable(runs, dim);
   }
 
   function renderHead(head, previous, rows, periodLabel) {
@@ -1234,41 +1277,49 @@
       ], rows);
   }
 
-  function renderStations(rows, runs) {
-    // Only show stations present in this slice, but keep each one's dataset-wide
+  function renderGroupChart(rows, runs, dim) {
+    // Only show values present in this slice, but keep each one's dataset-wide
     // color and position — the survivors of a filter never get repainted.
+    var palette = DIM_COLORS[dim.key];
     var present = Object.create(null);
-    runs.forEach(function (run) { present[run.st] = true; });
+    runs.forEach(function (run) { present[run[dim.key] || '(unknown)'] = true; });
 
-    var named = STATION_COLORS.order.filter(function (station) { return present[station]; });
-    var tail = STATION_COLORS.other.filter(function (station) { return present[station]; });
+    var named = palette.order.filter(function (value) { return present[value]; });
+    var tail = palette.other.filter(function (value) { return present[value]; });
 
-    var series = named.map(function (station) {
-      return { key: station, label: station, color: STATION_COLORS.color[station] };
+    var series = named.map(function (value) {
+      return { key: value, label: value, color: palette.color[value] };
     });
     if (tail.length) {
       series.push({
         key: '__other__',
-        label: 'Other (' + tail.length + ' station' + (tail.length === 1 ? '' : 's') + ')',
+        label: 'Other (' + tail.length + ' ' + dim.noun + ')',
         color: 'var(--series-other)'
       });
     }
 
-    renderLegend(document.getElementById('legend-station'), series, 'rect');
-    renderStackedColumns(document.getElementById('plot-station'), {
+    document.getElementById('group-title').textContent =
+      'Runs per hour by ' + dim.label.toLowerCase();
+    document.getElementById('group-detail-title').textContent = dim.label + ' detail';
+
+    var countsFor = function (row) { return row.dims[dim.key] || {}; };
+
+    renderLegend(document.getElementById('legend-group'), series, 'rect');
+    renderStackedColumns(document.getElementById('plot-group'), {
       rows: rows.map(function (row) {
+        var counts = countsFor(row);
         var values = Object.create(null);
-        named.forEach(function (station) { values[station] = row.stations[station] || 0; });
+        named.forEach(function (value) { values[value] = counts[value] || 0; });
         if (tail.length) {
-          values.__other__ = tail.reduce(function (sum, station) {
-            return sum + (row.stations[station] || 0);
+          values.__other__ = tail.reduce(function (sum, value) {
+            return sum + (counts[value] || 0);
           }, 0);
         }
         return { hour: row.hour, values: values };
       }),
       series: series,
       heading: heading,
-      ariaLabel: 'Stacked columns of runs per hour split by station'
+      ariaLabel: 'Stacked columns of runs per hour split by ' + dim.label.toLowerCase()
     });
 
     var columns = [{ label: 'Hour', get: function (r) { return r.hour.replace('T', ' ') + ':00'; } }];
@@ -1276,14 +1327,16 @@
       columns.push({
         label: entry.label,
         get: function (r) {
+          var counts = countsFor(r);
           if (entry.key === '__other__') {
-            return fmtInt(tail.reduce(function (sum, st) { return sum + (r.stations[st] || 0); }, 0));
+            return fmtInt(tail.reduce(function (sum, v) { return sum + (counts[v] || 0); }, 0));
           }
-          return fmtInt(r.stations[entry.key] || 0);
+          return fmtInt(counts[entry.key] || 0);
         }
       });
     });
-    renderTable(document.getElementById('table-station'), 'Runs per hour by station', columns, rows);
+    renderTable(document.getElementById('table-group'),
+      'Runs per hour by ' + dim.label.toLowerCase(), columns, rows);
   }
 
   function renderParetoCard(runs) {
@@ -1301,20 +1354,20 @@
       ], rows);
   }
 
-  function renderStationTable(runs) {
-    renderTable(document.getElementById('table-stations-table'),
-      'Per-station totals across the selection',
+  function renderGroupDetailTable(runs, dim) {
+    renderTable(document.getElementById('table-group-detail'),
+      'Per-' + dim.label.toLowerCase() + ' totals across the selection',
       [
-        { label: 'Station', get: function (r) { return r.station; } },
+        { label: dim.label, get: function (r) { return r.group; } },
         { label: 'Runs', get: function (r) { return fmtInt(r.runs); } },
         { label: 'Units', get: function (r) { return fmtInt(r.units); } },
         { label: 'Pass rate', get: function (r) { return fmtPct(r.passRate); } },
         { label: 'Cycle p50', get: function (r) { return fmtDur(r.cycleTimeMedian); } }
-      ], stationRows(runs));
+      ], groupRows(runs, dim.key));
   }
 
-  function renderDutTable(runs) {
-    var rows = dutRows(runs, 20);
+  function renderDutTable(runs, dim) {
+    var rows = dutRows(runs, 20, dim.key);
     var node = document.getElementById('table-duts');
     if (!rows.length) {
       clear(node);
@@ -1327,7 +1380,7 @@
         { label: 'Runs', get: function (r) { return fmtInt(r.runs); } },
         { label: 'Failures', get: function (r) { return fmtInt(r.failures); } },
         { label: 'Last result', render: function (r) { return statusCell(r.lastStatus); } },
-        { label: 'Stations', get: function (r) { return r.stations; } }
+        { label: dim.label, get: function (r) { return r.groups; } }
       ], rows);
   }
 
@@ -1345,8 +1398,32 @@
     fillSelect(refs.level, DATA.levels || [], 'All levels');
     fillSelect(refs.station, DATA.stations || [], 'All stations');
     fillSelect(refs.suite, DATA.suites || [], 'All suites');
+    fillSelect(refs.version, DATA.versions || [], 'All versions');
 
-    ['level', 'station', 'suite'].forEach(function (key) {
+    // A filter over a dimension with one value can only ever be a no-op, so it
+    // is hidden rather than shown as a dead control.
+    [['st', 'filter-station-wrap'], ['su', 'filter-suite-wrap'],
+     ['ver', 'filter-version-wrap']].forEach(function (pair) {
+      var wrap = document.getElementById(pair[1]);
+      if (wrap && distinctValues(pair[0]).length < 2) wrap.hidden = true;
+    });
+
+    // Group-by offers only dimensions that actually split the data. Station is
+    // absent from the EOS payload today, so it simply will not appear.
+    var usable = DIMENSIONS.filter(function (dim) { return distinctValues(dim.key).length > 1; });
+    if (!usable.length) usable = [dimByKey('su')];
+    state.groupBy = usable[0].key;
+    clear(refs.groupby);
+    usable.forEach(function (dim) {
+      refs.groupby.appendChild(h('option', { value: dim.key, text: dim.label }));
+    });
+    refs.groupby.value = state.groupBy;
+    refs.groupby.addEventListener('change', function () {
+      state.groupBy = refs.groupby.value;
+      render();
+    });
+
+    ['level', 'station', 'suite', 'version'].forEach(function (key) {
       refs[key].addEventListener('change', function () {
         state[key] = refs[key].value;
         render();

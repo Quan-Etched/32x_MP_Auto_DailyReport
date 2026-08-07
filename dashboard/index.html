@@ -42,14 +42,24 @@
       <select id="filter-level"><option value="">All levels</option></select>
     </label>
 
-    <label class="filter">
+    <label class="filter" id="filter-station-wrap">
       <span>Station</span>
       <select id="filter-station"><option value="">All stations</option></select>
     </label>
 
-    <label class="filter">
+    <label class="filter" id="filter-suite-wrap">
       <span>Suite</span>
       <select id="filter-suite"><option value="">All suites</option></select>
+    </label>
+
+    <label class="filter" id="filter-version-wrap">
+      <span>Version</span>
+      <select id="filter-version"><option value="">All versions</option></select>
+    </label>
+
+    <label class="filter">
+      <span>Group by</span>
+      <select id="filter-groupby"></select>
     </label>
 
     <span class="spacer"></span>
@@ -111,18 +121,18 @@
         <div class="table-wrap" id="table-cycle" hidden></div>
       </div>
 
-      <div class="card" data-card="station">
+      <div class="card" data-card="group">
         <div class="card-head">
           <div>
-            <h2>Runs per hour by station</h2>
-            <p class="sub">Where the volume sat, hour by hour</p>
+            <h2 id="group-title">Runs per hour by group</h2>
+            <p class="sub" id="group-sub">Where the volume sat, hour by hour</p>
           </div>
           <span class="spacer"></span>
-          <button type="button" class="view-toggle" data-toggle="station" aria-pressed="false">Table</button>
+          <button type="button" class="view-toggle" data-toggle="group" aria-pressed="false">Table</button>
         </div>
-        <div class="legend" id="legend-station"></div>
-        <div class="plot" id="plot-station"></div>
-        <div class="table-wrap" id="table-station" hidden></div>
+        <div class="legend" id="legend-group"></div>
+        <div class="plot" id="plot-group"></div>
+        <div class="table-wrap" id="table-group" hidden></div>
       </div>
 
       <div class="card full" data-card="pareto">
@@ -138,14 +148,14 @@
         <div class="table-wrap" id="table-pareto" hidden></div>
       </div>
 
-      <div class="card" data-card="stations-table">
+      <div class="card" data-card="group-detail">
         <div class="card-head">
           <div>
-            <h2>Station detail</h2>
+            <h2 id="group-detail-title">Group detail</h2>
             <p class="sub">Totals across the selection</p>
           </div>
         </div>
-        <div class="table-wrap" id="table-stations-table"></div>
+        <div class="table-wrap" id="table-group-detail"></div>
       </div>
 
       <div class="card" data-card="duts">
