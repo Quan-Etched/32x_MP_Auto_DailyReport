@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -27,6 +28,22 @@ RUNS_JSON = PROCESSED_DIR / "runs.json"
 DASHBOARD_BUNDLE = DASHBOARD_DATA_DIR / "metrics.js"
 
 DEFAULT_BASE_URL = "https://eos.core.etched.com/api/external/v1/test-logs"
+
+#: Extra trust anchors for Etched's internal PKI. The EOS host is issued by
+#: ca.core.etched.com, which chains to the FreeIPA root at IDM.ETCHED.COM — a
+#: root the server does NOT include in the chain it serves and that is not in
+#: any public trust store. Populate this with `factory.cli trust`.
+CERTS_DIR = REPO_ROOT / "certs"
+DEFAULT_CA_BUNDLE = CERTS_DIR / "etched-internal-ca.pem"
+
+#: FreeIPA publishes its CA bundle at this well-known path.
+IPA_CA_URL = "http://ipa-ca.idm.etched.com/ipa/config/ca.crt"
+
+#: The corporate root that MDM installs on managed Macs. The bootstrap fetch
+#: above cannot be TLS-verified (that is the problem it exists to solve), so the
+#: downloaded bundle is authenticated by matching this fingerprint against the
+#: copy already in the system keychain.
+CORPORATE_ROOT_CN = "Etched RSA Corporate Root CA"
 
 #: Hour buckets are cut in this zone, so "the 09:00 hour" means what the floor
 #: means by it. Stored timestamps stay UTC epoch seconds.
@@ -68,6 +85,21 @@ def timezone_name() -> str:
 
 def default_level() -> str:
     return os.environ.get("FACTORY_LEVEL", DEFAULT_LEVEL)
+
+
+def ca_bundle() -> Optional[Path]:
+    """Extra CA bundle to trust, if one is configured or has been fetched.
+
+    ``EOS_CA_BUNDLE`` wins; otherwise the file written by ``factory.cli trust``
+    is used when it exists. Returning ``None`` means "system trust only".
+    """
+    override = os.environ.get("EOS_CA_BUNDLE", "").strip()
+    if override:
+        path = Path(override).expanduser()
+        if not path.exists():
+            raise RuntimeError("EOS_CA_BUNDLE points at a missing file: {}".format(path))
+        return path
+    return DEFAULT_CA_BUNDLE if DEFAULT_CA_BUNDLE.exists() else None
 
 
 def api_key() -> str:

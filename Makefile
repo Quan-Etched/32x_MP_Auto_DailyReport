@@ -6,9 +6,10 @@ PORT    ?= 8787
 LEVEL   ?= l10
 DAYS    ?= 2
 
-.PHONY: help demo collect build report serve test inspect levels clean distclean
+.PHONY: help trust demo collect build report serve test inspect levels clean distclean
 
 help:
+	@echo "make trust              install Etched's internal CA bundle (fixes TLS errors)"
 	@echo "make demo               synthetic data + dashboard bundle (no API key needed)"
 	@echo "make collect [DAYS=2]   fetch real runs from the EOS API into data/processed/"
 	@echo "make build              compile data/processed/runs.json into the dashboard bundle"
@@ -17,6 +18,9 @@ help:
 	@echo "make test               run the unit tests"
 	@echo "make inspect            show live API field names and how parse.py maps them"
 	@echo "make clean              remove generated data and the dashboard bundle"
+
+trust:
+	$(PY) -m factory.cli trust
 
 demo:
 	$(PY) -m factory.cli demo --days $(DAYS) --level $(LEVEL)

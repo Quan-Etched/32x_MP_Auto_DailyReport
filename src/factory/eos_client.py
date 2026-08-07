@@ -15,6 +15,7 @@ import gzip
 import hashlib
 import json
 import logging
+import ssl
 import time
 import urllib.error
 import urllib.parse
@@ -44,6 +45,7 @@ class EOSClient:
         timeout: float = 60.0,
         max_retries: int = 4,
         use_cache: bool = True,
+        ca_bundle: Optional[Path] = None,
     ) -> None:
         self.api_key = api_key or config.api_key()
         self.base_url = (base_url or config.base_url()).rstrip("/")
@@ -51,8 +53,23 @@ class EOSClient:
         self.timeout = timeout
         self.max_retries = max_retries
         self.use_cache = use_cache
+        self.ca_bundle = ca_bundle if ca_bundle is not None else config.ca_bundle()
+        self.ssl_context = self._build_ssl_context()
         if self.use_cache:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
+
+    def _build_ssl_context(self) -> ssl.SSLContext:
+        """System trust, plus Etched's internal roots when a bundle is present.
+
+        Certificate verification is always on. The internal bundle is *added* to
+        the default trust store rather than replacing it, so a public URL still
+        verifies normally.
+        """
+        context = ssl.create_default_context()
+        if self.ca_bundle:
+            context.load_verify_locations(cafile=str(self.ca_bundle))
+            log.debug("added trust anchors from %s", self.ca_bundle)
+        return context
 
     # ---------------------------------------------------------------- transport
 
@@ -94,8 +111,12 @@ class EOSClient:
         last_error: Optional[Exception] = None
         for attempt in range(self.max_retries + 1):
             try:
-                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                with urllib.request.urlopen(
+                    request, timeout=self.timeout, context=self.ssl_context
+                ) as response:
                     return response.read()
+            except ssl.SSLCertVerificationError as exc:
+                raise EOSError(self._trust_hint(url, exc)) from exc
             except urllib.error.HTTPError as exc:
                 detail = exc.read().decode("utf-8", "replace")[:500]
                 if exc.code in RETRY_STATUS and attempt < self.max_retries:
@@ -113,6 +134,9 @@ class EOSClient:
                     continue
                 raise EOSError("HTTP {} for {}: {}".format(exc.code, url, detail)) from exc
             except (urllib.error.URLError, TimeoutError) as exc:
+                reason = getattr(exc, "reason", None)
+                if isinstance(reason, ssl.SSLCertVerificationError):
+                    raise EOSError(self._trust_hint(url, reason)) from exc
                 if attempt < self.max_retries:
                     delay = self._backoff(attempt, None)
                     log.warning("network error on %s (%s) — retry in %.1fs", url, exc, delay)
@@ -122,6 +146,18 @@ class EOSClient:
                 raise EOSError("network failure for {}: {}".format(url, exc)) from exc
 
         raise EOSError("exhausted retries for {}: {}".format(url, last_error))
+
+    def _trust_hint(self, url: str, exc: Exception) -> str:
+        """Retrying never fixes a trust failure, so say what actually will."""
+        current = self.ca_bundle or "system trust only"
+        return (
+            "TLS verification failed for {}: {}\n"
+            "The EOS host is issued by Etched's internal CA (ca.core.etched.com "
+            "-> IDM.ETCHED.COM), which is not in any public trust store, and the "
+            "server does not send that intermediate.\n"
+            "  Trust anchors in use: {}\n"
+            "  Fix: run `make trust` to fetch and verify the internal CA bundle."
+        ).format(url, exc, current)
 
     @staticmethod
     def _backoff(attempt: int, retry_after: Optional[str]) -> float:

@@ -11,6 +11,11 @@ https://eos.core.etched.com/api/external/v1/test-logs
 
 Auth: `Authorization: Bearer $EOS_API_KEY` on every request.
 
+Network: the host resolves to a **private address** — corporate network or VPN
+required — and uses Etched's **internal PKI**, whose root is in no public trust
+store and is not sent by the server. Run `make trust` once; see the TLS section
+of the README for why the chain is broken and how the bootstrap is authenticated.
+
 Call flow:
 
 ```

@@ -16,3 +16,6 @@ venv/
 
 # macOS
 .DS_Store
+
+# Fetched CA bundle (public certs, but machine-local — refetch with `make trust`)
+certs/

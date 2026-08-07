@@ -22,12 +22,18 @@ make serve         # http://127.0.0.1:8787/
 Against real data:
 
 ```sh
+make trust                 # one-time: install Etched's internal CA (see TLS below)
 cp .env.example .env       # then put your key in EOS_API_KEY
+chmod 600 .env
+make levels                # smoke test: should print the allowed levels
 make inspect               # confirm the live API field names map correctly (do this once)
 make collect DAYS=2        # fetch runs + suite summaries
 make build                 # compile them into the dashboard bundle
 make serve
 ```
+
+You must be on the corporate network or VPN — the EOS host resolves to a private
+address.
 
 `make report` prints the same metrics as text if you just want numbers.
 
@@ -62,7 +68,10 @@ src/factory/
   hourly.py           metric definitions (reference implementation)
   build_dashboard.py  compiles the run table into the browser bundle
   demo_data.py        synthetic runs, clearly labelled as such
-  cli.py              levels | runs | inspect | collect | demo | build | report | serve
+  trust.py            bootstraps trust for Etched's internal CA, safely
+  cli.py              trust | levels | runs | inspect | collect | demo | build | report | serve
+
+certs/                fetched CA bundle (gitignored; `make trust`)
 
 dashboard/
   index.html          structure
@@ -101,6 +110,41 @@ Two things it is built to catch:
   the dashboard footer.
 - **Zero tests parsed** from `suite_summary.json` — yield and Pareto go empty
   while throughput still looks healthy.
+
+## TLS: `CERTIFICATE_VERIFY_FAILED`
+
+```
+[SSL: CERTIFICATE_VERIFY_FAILED] unable to get local issuer certificate
+```
+
+This is not a Python problem — `curl` fails the same way. `eos.core.etched.com`
+serves a leaf issued by `ca.core.etched.com`, which is signed by the FreeIPA root
+`O=IDM.ETCHED.COM, CN=Certificate Authority`. That root is in no public trust
+store, **and the server does not send it**: the third certificate in the chain it
+does serve (`Etched RSA Corporate Root CA`) is not the issuer of the second, so
+nothing can complete the path.
+
+```sh
+make trust
+```
+
+fetches FreeIPA's published bundle, writes it to `certs/etched-internal-ca.pem`,
+and the client adds it to — never replaces — the system trust store, so public
+URLs keep verifying normally. Override the location with `EOS_CA_BUNDLE`.
+
+**How the bootstrap is made safe.** The missing root is published over HTTPS on a
+host with the same untrusted PKI, so that one fetch cannot be verified. Instead
+of shrugging, `trust.py` authenticates the download out of band: the bundle must
+contain the `Etched RSA Corporate Root CA` whose SHA-256 matches the copy MDM
+already installed in this machine's keychain. A mismatch is treated as possible
+interception and refuses to install. Off macOS, pass
+`--fingerprint <sha256>` obtained from IT over a trusted channel — the check is
+never skipped silently, and certificate verification is never disabled for real
+API traffic.
+
+**The real fix is server-side.** Whoever runs EOS should serve the IPA CA as the
+intermediate instead of the unrelated corporate root; then no client needs this
+step. Worth filing.
 
 ## Security
 

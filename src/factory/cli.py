@@ -45,6 +45,22 @@ def main(argv: Optional[List[str]] = None) -> int:
 
 # ------------------------------------------------------------------- subcommands
 
+def cmd_trust(args: argparse.Namespace) -> int:
+    """Install the internal CA bundle needed to reach the EOS host over TLS."""
+    from . import trust
+
+    try:
+        path = trust.install(expected=args.fingerprint)
+    except trust.TrustError as exc:
+        print("Trust bootstrap failed: {}".format(exc), file=sys.stderr)
+        return 3
+
+    print("Installed internal CA bundle -> {}".format(path))
+    print("Verified: a TLS connection to the EOS host now succeeds.")
+    print("This path is picked up automatically; override it with EOS_CA_BUNDLE.")
+    return 0
+
+
 def cmd_levels(args: argparse.Namespace) -> int:
     client = EOSClient(use_cache=not args.no_cache)
     print(json.dumps(client.levels(), indent=2))
@@ -307,6 +323,16 @@ def _build_parser() -> argparse.ArgumentParser:
                          help="window size when --from/--to are omitted")
         sub.add_argument("--no-cache", action="store_true",
                          help="bypass the on-disk HTTP cache")
+
+    trust_cmd = subparsers.add_parser(
+        "trust", help="fetch and verify Etched's internal CA bundle (fixes TLS errors)"
+    )
+    trust_cmd.add_argument(
+        "--fingerprint",
+        help="expected SHA-256 of a known certificate in the bundle; required "
+             "when the corporate root is not in this machine's keychain",
+    )
+    trust_cmd.set_defaults(handler=cmd_trust)
 
     levels = subparsers.add_parser("levels", help="list allowed test levels")
     levels.add_argument("--no-cache", action="store_true")
