@@ -20,6 +20,12 @@
   --hover-wash:      rgba(11, 11, 11, 0.04);
   --success-text:    #006300;
 
+  /* Solid fill behind white text on the one action control on the page. Darker
+   * than --series-1, which is tuned for contrast against the plot background
+   * and only reaches 4.4:1 under white text — a series color and a button fill
+   * are different jobs, so they get different tokens. */
+  --accent-solid:    #1c62b8;
+
   --series-1: #2a78d6;
   --series-2: #eb6834;
   --series-3: #1baf7a;
@@ -57,6 +63,7 @@
     --border:         rgba(255, 255, 255, 0.10);
     --hover-wash:     rgba(255, 255, 255, 0.06);
     --success-text:   #0ca30c;
+    --accent-solid:   #2f6fc4;
 
     --series-1: #3987e5;
     --series-2: #d95926;
@@ -84,6 +91,7 @@
   --border:         rgba(255, 255, 255, 0.10);
   --hover-wash:     rgba(255, 255, 255, 0.06);
   --success-text:   #0ca30c;
+  --accent-solid:   #2f6fc4;
 
   --series-1: #3987e5;
   --series-2: #d95926;
@@ -523,7 +531,90 @@ footer.notes code {
  * than flashing a skeleton. */
 .refreshing { opacity: 0.55; transition: opacity 120ms linear; }
 
+/* --------------------------------------------------------- update button */
+
+/* Two visual weights for two truths. Served locally the button acts, so it is
+ * the one filled control on the page. Served by Pages it can only report, so it
+ * looks like the other pills and reads as a status chip. */
+.update-btn {
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.update-btn.live {
+  border-color: transparent;
+  background: var(--accent-solid);
+  color: #fff;
+  font-weight: 600;
+}
+
+.update-btn.live:hover { filter: brightness(1.08); }
+.update-btn.live:disabled { cursor: progress; filter: saturate(0.6); }
+.update-btn.snapshot:hover { background: var(--hover-wash); }
+
+.update-btn.snapshot.stale {
+  border-color: var(--status-warning);
+  color: var(--text-primary);
+}
+
+.update-panel {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-solid);
+  background: var(--surface-1);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.update-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.update-head strong { color: var(--text-primary); }
+.update-head.ok   strong { color: var(--success-text); }
+.update-head.bad  strong { color: var(--status-critical); }
+.update-head.warn strong { color: var(--status-warning); }
+.update-sub { color: var(--text-muted); font-size: 12.5px; }
+
+.update-steps { list-style: none; margin: 10px 0 0; padding: 0; }
+
+.update-steps .step {
+  display: flex; align-items: baseline; gap: 9px;
+  padding: 3px 0;
+  color: var(--text-muted);
+}
+
+.update-steps .step-mark { width: 1em; text-align: center; flex: none; }
+.update-steps .step.running { color: var(--text-primary); font-weight: 600; }
+.update-steps .step.done    { color: var(--text-secondary); }
+.update-steps .step.done .step-mark   { color: var(--status-good); }
+.update-steps .step.failed  { color: var(--status-critical); }
+
+.update-note { margin: 8px 0 0; line-height: 1.5; }
+
+.update-cmd,
+.update-log pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin: 6px 0 0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.update-log { margin-top: 10px; }
+.update-log summary { cursor: pointer; color: var(--text-muted); }
+
 @media print {
   body { background: #fff; }
-  .filters, .theme-toggle, .view-toggle { display: none; }
+  .filters, .theme-toggle, .view-toggle, .update-btn, .update-panel { display: none; }
 }

@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from typing import Any, Dict, List, Optional
 
@@ -175,12 +176,17 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     advances only ``lastFetchAt``; ``lastUpdateAt`` moves only when the content
     hash changes. Exit code is 0 for both — "nothing changed" is a healthy
     outcome, not a failure.
+
+    With ``--with-items`` it also ingests the event streams of any newly seen
+    runs before building, so the releases page moves with the rest. That is the
+    chain the Update button and the hourly agent both run.
     """
-    from . import fetchstate, stations
+    from . import fetchstate, items as items_mod, stations
 
     client_levels = args.levels or stations.levels_to_collect() + stations.blocked_levels()
     window = collect_mod.default_window(days=args.days)
 
+    _step("collect", "Fetching runs from EOS")
     try:
         client = EOSClient(use_cache=False)  # a scheduler must never serve a cache
         payload = collect_mod.collect(
@@ -198,6 +204,26 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     collect_mod.write_runs(payload)
     state = fetchstate.record_fetch(payload)
 
+    # Before the build: the releases bundle is compiled *from* the item store,
+    # so ingesting after it would publish items one tick late.
+    if getattr(args, "with_items", False):
+        _step("items", "Flattening new runs to test items")
+        conn = items_mod.open_db()
+        try:
+            stats = items_mod.ingest_runs(
+                conn, EOSClient(use_cache=True), _ingestable_runs(payload),
+                on_progress=lambda done, added, total: print(
+                    "  ingested {}/{} runs, {} item rows".format(done, total, added)),
+                on_error=lambda run_id, err: print(
+                    "  {}: {}".format(run_id[:44], err[:80]), file=sys.stderr),
+            )
+        finally:
+            conn.close()
+        print("Items  : {} new runs, {} rows ({} already present{})".format(
+            stats["runs"], stats["rows"], stats["skipped"],
+            ", {} failed".format(stats["failed"]) if stats["failed"] else ""))
+
+    _step("build", "Rebuilding the dashboard bundles")
     cmd_build(args)
 
     changed = state.get("changed")
@@ -345,43 +371,24 @@ def cmd_items(args: argparse.Namespace) -> int:
     discarding them.
     """
     from . import items as items_mod
-    from .collect import _pick_role_path
 
     payload = collect_mod.read_runs()
-    runs = [r for r in payload["runs"] if r.get("dutSerial") and r.get("runId")]
-    if args.station:
-        runs = [r for r in runs if r.get("stationKey") == args.station]
+    runs = _ingestable_runs(payload, station=args.station)
     if args.limit:
         runs = sorted(runs, key=lambda r: r.get("startTs") or 0, reverse=True)[: args.limit]
 
     conn = items_mod.open_db()
-    client = EOSClient(use_cache=True)
+    stats = items_mod.ingest_runs(
+        conn, EOSClient(use_cache=True), runs, rebuild=args.rebuild,
+        on_progress=lambda done, added, total: print(
+            "  ingested {}/{} runs, {} item rows".format(done, total, added),
+            file=sys.stderr),
+        on_error=lambda run_id, err: print(
+            "  {}: {}".format(run_id[:44], err[:80]), file=sys.stderr),
+    )
 
-    done = added = skipped = 0
-    for record in runs:
-        if not args.rebuild and items_mod.already_ingested(conn, record["runId"]):
-            skipped += 1
-            continue
-        try:
-            artifacts = client.artifacts(level=record["level"],
-                                         dut_serial=record["dutSerial"],
-                                         run_id=record["runId"])
-            path = _pick_role_path(artifacts, config.ROLE_EVENT_STREAM)
-            if not path:
-                continue
-            raw = client.artifact_content(level=record["level"],
-                                         dut_serial=record["dutSerial"],
-                                         run_id=record["runId"], rel_path=path)
-        except EOSError as exc:
-            print("  {}: {}".format(record["runId"][:44], str(exc)[:80]), file=sys.stderr)
-            continue
-        rows = items_mod.extract_items(raw, record)
-        added += items_mod.ingest(conn, record["runId"], rows)
-        done += 1
-        if done % 10 == 0:
-            print("  ingested {} runs, {} item rows".format(done, added), file=sys.stderr)
-
-    print("Ingested {} runs ({} rows); {} already present.".format(done, added, skipped))
+    print("Ingested {} runs ({} rows); {} already present.".format(
+        stats["runs"], stats["rows"], stats["skipped"]))
     counts = items_mod.summary_counts(conn)
     print("\n=== item store ===")
     print("  rows            {:,}".format(counts["rows"]))
@@ -437,8 +444,9 @@ def _show_item(conn, items_mod, item: str, station: Optional[str]) -> None:
 
 def cmd_serve(args: argparse.Namespace) -> int:
     import functools
-    import http.server
     import socketserver
+
+    from . import control
 
     if not config.DASHBOARD_BUNDLE.exists():
         print(
@@ -448,11 +456,19 @@ def cmd_serve(args: argparse.Namespace) -> int:
         return 1
 
     handler = functools.partial(
-        http.server.SimpleHTTPRequestHandler, directory=str(config.DASHBOARD_DIR)
+        control.ControlHandler, directory=str(config.DASHBOARD_DIR)
     )
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("127.0.0.1", args.port), handler) as httpd:
+    # Threaded: an update takes minutes, and the page polls /api/update while it
+    # runs. On a single-threaded server that poll would queue behind nothing at
+    # all — but the browser also keeps a connection open for the static files,
+    # and one slow request would stall the page.
+    class Server(socketserver.ThreadingTCPServer):
+        allow_reuse_address = True
+        daemon_threads = True
+
+    with Server(("127.0.0.1", args.port), handler) as httpd:
         print("Dashboard: http://127.0.0.1:{}/  (Ctrl-C to stop)".format(args.port))
+        print("Update button enabled — it runs collect + build + publish.")
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
@@ -461,6 +477,27 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 
 # ----------------------------------------------------------------------- helpers
+
+def _step(key: str, label: str) -> None:
+    """Announce a pipeline stage to whoever is driving this process.
+
+    Silent on a normal CLI run. The control server behind the dashboard's Update
+    button sets ``FACTORY_PROGRESS=1`` and parses these markers to drive its
+    progress list, so the browser reports the stage the pipeline is actually in
+    rather than a spinner that means nothing.
+    """
+    if os.environ.get("FACTORY_PROGRESS") == "1":
+        print("::step {} {}".format(key, label), flush=True)
+
+
+def _ingestable_runs(payload: Dict[str, Any],
+                     station: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Runs that can be flattened to items — they need an identity to key on."""
+    runs = [r for r in payload["runs"] if r.get("dutSerial") and r.get("runId")]
+    if station:
+        runs = [r for r in runs if r.get("stationKey") == station]
+    return runs
+
 
 def _window(args: argparse.Namespace) -> Dict[str, str]:
     if getattr(args, "frm", None) and getattr(args, "to", None):
@@ -573,6 +610,9 @@ def _build_parser() -> argparse.ArgumentParser:
                          help="window to collect (default 30, so release trends stay whole)")
     refresh.add_argument("--levels", nargs="*", help="override the levels to collect")
     refresh.add_argument("--workers", type=int, default=8)
+    refresh.add_argument("--with-items", action="store_true",
+                         help="also ingest new runs into the item store, so the "
+                              "releases page moves with the rest")
     refresh.set_defaults(handler=cmd_refresh)
 
     status = subparsers.add_parser("status", help="show last fetch / last update")

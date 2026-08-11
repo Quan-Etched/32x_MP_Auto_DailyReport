@@ -72,7 +72,8 @@ import logging
 import re
 import sqlite3
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tuple
+from typing import (Any, Callable, Dict, Iterable, Iterator, List, Optional,
+                    Sequence, Tuple)
 
 from . import config, stations
 
@@ -326,6 +327,51 @@ def ingest(conn: sqlite3.Connection, run_id: str, rows: Sequence[Dict[str, Any]]
     )
     conn.commit()
     return len(rows)
+
+
+def ingest_runs(conn: sqlite3.Connection, client: Any, runs: Sequence[Dict[str, Any]],
+                rebuild: bool = False,
+                on_progress: Optional[Callable[[int, int, int], None]] = None,
+                on_error: Optional[Callable[[str, str], None]] = None
+                ) -> Dict[str, int]:
+    """Ingest the event stream of each run, skipping runs already in the store.
+
+    Shared by ``cli items`` and by the refresh tick behind the Update button, so
+    there is one ingest path rather than two that can drift. Incremental by
+    design: a tick that fetched nothing new costs one indexed lookup per run and
+    no API calls at all.
+
+    ``on_progress`` is called as ``(done, added, total)`` every 10 ingested runs.
+    """
+    from .collect import _pick_role_path
+    from .eos_client import EOSError
+
+    done = added = skipped = failed = 0
+    total = len(runs)
+    for record in runs:
+        if not rebuild and already_ingested(conn, record["runId"]):
+            skipped += 1
+            continue
+        try:
+            artifacts = client.artifacts(level=record["level"],
+                                         dut_serial=record["dutSerial"],
+                                         run_id=record["runId"])
+            path = _pick_role_path(artifacts, config.ROLE_EVENT_STREAM)
+            if not path:
+                continue
+            raw = client.artifact_content(level=record["level"],
+                                          dut_serial=record["dutSerial"],
+                                          run_id=record["runId"], rel_path=path)
+        except EOSError as exc:
+            failed += 1
+            if on_error:
+                on_error(record["runId"], str(exc))
+            continue
+        added += ingest(conn, record["runId"], extract_items(raw, record))
+        done += 1
+        if on_progress and done % 10 == 0:
+            on_progress(done, added, total)
+    return {"runs": done, "rows": added, "skipped": skipped, "failed": failed}
 
 
 # ------------------------------------------------------------------ analytics

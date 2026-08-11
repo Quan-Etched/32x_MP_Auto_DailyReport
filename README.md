@@ -54,9 +54,33 @@ It still carries real factory data (DUT serials, failure signatures, yield), so
 keep it private. Same posture as the existing `test-daily` dashboard.
 
 ```sh
-make publish          # push dashboard/ to gh-pages
-make refresh-publish  # collect + publish, what the hourly agent runs
+make update           # THE FULL UPDATE: collect + items + rebuild + publish
+make publish          # push the current dashboard/ to gh-pages, nothing else
 ```
+
+### The Update button
+
+Pages is stale until something publishes to it. `make serve` puts an **Update**
+button in the dashboard header that runs the whole chain and streams each stage
+back to the page:
+
+```sh
+make serve            # http://127.0.0.1:8787/ — the button is in the header
+```
+
+One click = `make update` = what the hourly agent runs. All three shell out to
+`tools/hourly_refresh.sh`, so there is one update path and it cannot drift. The
+script holds a lock, so a click during an hourly tick backs off rather than
+running two collections at once.
+
+Expect ~3–4 minutes: a 30-day collect dominates, and the item ingest is
+incremental (only runs it has not seen before cost API calls).
+
+**The button is only live on the locally served copy.** On the Pages site it
+renders as a `Snapshot · Nh ago` chip instead, because there is no server there
+to run anything — the API key, the internal CA and the git credential all live
+on the ETL machine. A button that could not do what it says would be worse than
+no button.
 
 Each publish is a **single orphan commit that replaces the branch**. The bundles
 are ~650 KB and rebuild hourly; committing them onto a branch with history would
@@ -82,10 +106,16 @@ failure Pareto bucketed by hour.
 
 ```sh
 make refresh            # one tick: collect + record state + rebuild
+make update             # the same, plus items and a publish
 make status             # last fetch vs last update, per station
-make schedule-install   # launchd agent, :05 every hour
-make schedule-status
+make schedule-install   # launchd agent, :05 every hour  <- REQUIRED for the
+                        #   live site to stay current on its own
+make schedule-status    # is it loaded, and what did the last tick do
 ```
+
+Without `make schedule-install` nothing updates the Pages site on its own and it
+freezes at the last manual publish. `make schedule-status` prints `not loaded`
+when that is the case.
 
 The scheduler tracks **two different timestamps**, because conflating them is
 how a dashboard lies:
@@ -135,22 +165,29 @@ src/factory/
   daily.py            daily yield, release yield, Pareto, retest
   fetchstate.py       last-fetch vs last-update bookkeeping
   build_stations.py   compiles the per-station views
+  items.py            flattens test cases to numeric test items (SQLite)
+  releases.py         per-release item views and compatibility diffs
+  control.py          the /api routes behind the Update button
   cli.py              trust | levels | runs | inspect | collect | demo
-                      | build | refresh | status | report | serve
+                      | build | refresh | status | report | items | serve
 
 dashboard/
   styles.css          palette + chrome (light/dark as role tokens)
   index.html + stations.js + stations.css   station yield (landing)
   hourly.html + app.js                      hourly rates
+  releases.html + releases.js + releases.css  test items by release
+  update.js           the Update button, shared by all three pages
   data/*.js           generated bundles (gitignored)
 
-tools/hourly_refresh.sh    launchd wrapper (locking, logging, log rotation)
+tools/hourly_refresh.sh    THE update path: lock, collect, items, build, publish
+tools/publish.sh           orphan force-push of dashboard/ to gh-pages
 deploy/launchd/            the hourly agent plist
 certs/                     fetched CA bundle (gitignored; `make trust`)
 data/raw/                  cached HTTP responses (gitignored)
 data/processed/            runs.json + fetch_state.json (gitignored)
 docs/                      api-usage.md · metrics.md · dataviz-notes.md
-tests/                     83 unit tests over parsing, metrics and fetch state
+tests/                     156 unit tests over parsing, metrics, fetch state,
+                           items, releases and the control endpoint
 ```
 
 ## Before you trust a number

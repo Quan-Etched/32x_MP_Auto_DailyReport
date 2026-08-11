@@ -1,6 +1,6 @@
 # Project status
 
-**As of 2026-08-07 (updated).** Snapshot of what works, what was verified against the live
+**As of 2026-08-11 (updated).** Snapshot of what works, what was verified against the live
 API, and what is still open. Metric definitions live in `docs/metrics.md`; the
 verified API schema in `docs/api-usage.md`.
 
@@ -11,6 +11,12 @@ verified API schema in `docs/api-usage.md`.
 page and no data. Served from the `gh-pages` branch, replaced by a single orphan
 commit on each publish so the hourly bundles never accumulate in history.
 
+**Nothing publishes to it automatically until `make schedule-install` has run.**
+The site holds whatever was last pushed, so a repo that only ever ran
+`make refresh` (which rebuilds locally but does not publish) shows stale data
+while the local dashboard is current. `make update` and the dashboard's Update
+button both close that gap by hand; the launchd agent closes it hourly.
+
 ## State: working end to end on live data
 
 The full path — fetch → normalize → hourly metrics → dashboard — runs against
@@ -18,11 +24,14 @@ production EOS. Nothing is stubbed.
 
 ```sh
 make trust             # one-time: internal CA
-make refresh           # collect 30 days + rebuild both dashboards
+make update            # THE full update: collect + items + rebuild + publish
+make serve             # http://127.0.0.1:8787/ — same thing on an Update button
 make schedule-install  # hourly launchd agent, :05 past the hour
-make publish           # push to the private Pages site
-make serve             # http://127.0.0.1:8787/  (station yield)
+make status            # last fetch vs last update, per station
 ```
+
+`make update`, the Update button and the hourly agent all exec
+`tools/hourly_refresh.sh`. One update path, one lock, no drift.
 
 | Check | Result |
 |---|---|
@@ -103,8 +112,9 @@ against the MDM-installed root in the system keychain.
 - Drill-down from the Failure Pareto into a test's `log_file` trace. The paths
   are already collected and stored per failure; nothing is wired to open them.
 - Hourly roll-up of per-test durations (collected per run, not aggregated).
-- **The publisher is one Mac.** The hourly agent both collects and publishes, so
-  the site goes stale whenever that machine is asleep or off the VPN. CI cannot
+- **The publisher is one Mac, and the agent has to be installed on it.** The
+  hourly agent both collects and publishes, so the site goes stale whenever that
+  machine is asleep, off the VPN, or never had `make schedule-install` run. CI cannot
   take over — EOS is on a private address a GitHub runner cannot reach. A
   always-on host inside the network would fix it. The page's "last fetch" panel
   is what makes the staleness visible rather than silent.
@@ -122,10 +132,13 @@ against the MDM-installed root in the system keychain.
 src/factory/   eos_client · parse · collect · hourly · build_dashboard
                stations · rootcause · daily · fetchstate · build_stations
                demo_data · trust · cli · config
-dashboard/     index.html (station yield) · hourly.html (rates) · styles.css
+               items · releases · control
+dashboard/     index.html (station yield) · hourly.html (rates)
+               releases.html (test items by release) · update.js · styles.css
 tools/         hourly_refresh.sh · publish.sh   deploy/launchd/  hourly agent
 docs/          api-usage.md · metrics.md · dataviz-notes.md
-tests/         83 tests over parsing, metrics, stations and fetch state
+tests/         156 tests over parsing, metrics, stations, fetch state, items,
+               releases and the control endpoint
 ```
 
 Gitignored and never committed: `.env`, `certs/`, `data/`, `dashboard/data/`.

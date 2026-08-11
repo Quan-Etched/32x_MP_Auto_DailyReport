@@ -1,13 +1,22 @@
 #!/bin/bash
-# One hourly tick: collect from EOS, record fetch state, rebuild both bundles.
+# One full update: collect from EOS, ingest new test items, rebuild the
+# bundles, publish to GitHub Pages.
 #
-# Installed as a launchd agent (see deploy/launchd/). Kept as a wrapper rather
-# than calling python directly from the plist so that logging, locking and the
-# environment are handled in one visible place.
+# THE ONLY UPDATE PATH. Three things run it and none of them reimplement it:
+#   * the hourly launchd agent (deploy/launchd/)
+#   * `make update`
+#   * the Update button on the locally served dashboard, via factory.control
+# Kept as a wrapper rather than calling python from the plist so that logging,
+# locking and the environment are handled in one visible place.
 #
-# Exit codes: 0 = fetched (whether or not anything changed), 2 = fetch failed.
-# "Nothing changed" is a healthy outcome, not an error — the dashboard shows it
-# as `last fetch` advancing while `last update` stays put.
+# Output goes to stdout as it happens *and* to data/logs/refresh.log. The button
+# reads the stream to drive its progress list; launchd has no stdout and reads
+# the log. `::step` markers on stdout name the stage; they are kept out of the
+# log, which wants prose.
+#
+# Exit codes: 0 = fetched (whether or not anything changed), 2 = fetch failed,
+# 3 = publish failed. "Nothing changed" is a healthy outcome, not an error — the
+# dashboard shows it as `last fetch` advancing while `last update` stays put.
 
 set -uo pipefail
 
@@ -18,17 +27,24 @@ LOG_DIR="$REPO/data/logs"
 mkdir -p "$LOG_DIR"
 LOG="$LOG_DIR/refresh.log"
 LOCK="$LOG_DIR/.refresh.lock"
+OUT="$(mktemp)"
 
 DAYS="${FACTORY_REFRESH_DAYS:-30}"
 
-log() { printf '%s  %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$LOG"; }
+log()  { printf '%s  %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$LOG"; }
 
-# A slow collection must not overlap the next hour's tick.
+# Announced to the caller only. `factory.cli` emits the collect/items/build
+# markers itself; publish has no python process to emit it, so it happens here.
+step() { [ "${FACTORY_PROGRESS:-0}" = "1" ] && printf '::step %s\n' "$*"; return 0; }
+
+# A slow collection must not overlap the next hour's tick — or a button press.
 if ! mkdir "$LOCK" 2>/dev/null; then
     log "SKIP another refresh is already running ($LOCK)"
+    echo "SKIP another refresh is already running ($LOCK)"
+    rm -f "$OUT"
     exit 0
 fi
-trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+trap 'rmdir "$LOCK" 2>/dev/null; rm -f "$OUT"' EXIT
 
 # launchd gives an almost-empty environment; load the key the same way the CLI
 # would from an interactive shell.
@@ -36,26 +52,43 @@ trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 
 PY="${PYTHON:-python3}"
 export PYTHONPATH="$REPO/src"
+export PYTHONUNBUFFERED=1          # or the stream arrives in one lump at the end
 
-log "START refresh days=$DAYS"
+REFRESH_ARGS=(--days "$DAYS")
+# The releases page is compiled from the item store, so a "full update" that
+# skipped it would leave that page a tick behind. Ingest is incremental: with no
+# new runs it costs one indexed lookup each and no API calls.
+if [ "${FACTORY_REFRESH_ITEMS:-1}" = "1" ]; then
+    REFRESH_ARGS+=(--with-items)
+fi
 
-if ! out="$("$PY" -m factory.cli refresh --days "$DAYS" 2>&1)"; then
-    log "FAIL $(printf '%s' "$out" | tail -3 | tr '\n' ' ')"
-    printf '%s\n' "$out" >> "$LOG"
+log "START refresh days=$DAYS ${REFRESH_ARGS[*]}"
+
+"$PY" -m factory.cli refresh "${REFRESH_ARGS[@]}" 2>&1 | tee "$OUT"
+CODES=("${PIPESTATUS[@]}")
+
+grep -v '^::step ' "$OUT" | sed 's/^/    /' >> "$LOG"
+
+if [ "${CODES[0]}" -ne 0 ]; then
+    log "FAIL $(tail -3 "$OUT" | tr '\n' ' ')"
     exit 2
 fi
 
-printf '%s\n' "$out" | sed 's/^/    /' >> "$LOG"
-log "OK $(printf '%s' "$out" | grep -E '^(Fetch|Update)' | tr '\n' ' ')"
+log "OK $(grep -E '^(Fetch|Update|Items)' "$OUT" | tr '\n' ' ')"
 
 # Publish every successful tick, not only when the data changed: the page's
 # "last fetch" panel is itself information — it is how a reader knows the
 # pipeline is alive rather than silently dead.
 if [ "${FACTORY_PUBLISH:-1}" = "1" ]; then
+    step "publish Publishing to GitHub Pages"
     if pub="$(bash "$REPO/tools/publish.sh" 2>&1)"; then
         log "PUBLISH $pub"
+        printf '%s\n' "$pub"
     else
         log "PUBLISH FAILED $(printf '%s' "$pub" | tail -2 | tr '\n' ' ')"
+        printf '%s\n' "$pub" >&2
+        echo "publish failed — the local dashboard is current, the Pages site is not" >&2
+        exit 3
     fi
 fi
 

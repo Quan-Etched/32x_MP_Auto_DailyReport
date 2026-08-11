@@ -10,10 +10,11 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        clean distclean
+        update clean distclean
 
 help:
 	@echo "make trust              install Etched's internal CA bundle (fixes TLS errors)"
+	@echo "make update             FULL UPDATE: collect + items + rebuild + publish"
 	@echo "make refresh            one scheduler tick: collect + rebuild (WINDOW=30 days)"
 	@echo "make status             last fetch vs last update, per station"
 	@echo "make publish            push dashboard/ to GitHub Pages (private)"
@@ -57,6 +58,12 @@ levels:
 
 refresh:
 	$(PY) -m factory.cli refresh --days $(WINDOW)
+
+# The full update, end to end. Identical to what the hourly agent runs and to
+# what the Update button on the served dashboard triggers — one script, so the
+# three can never drift apart.
+update:
+	@FACTORY_REFRESH_DAYS=$(WINDOW) bash tools/hourly_refresh.sh
 
 # Push dashboard/ to the gh-pages branch that GitHub Pages serves (private).
 publish:
