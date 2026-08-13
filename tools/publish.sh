@@ -92,6 +92,12 @@ git commit -q -m "Publish dashboard $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 url="$(cd "$REPO" && git remote get-url "$REMOTE")"
 if ! git push -q -f "$url" "$BRANCH" 2>&1 | tail -3; then
     echo "publish: push failed" >&2
+    # Reaching the gh-pages path at all is the more likely mistake on a host
+    # that is supposed to publish to a directory: FACTORY_WEB_ROOT lives in
+    # .env, and .env is exactly the file a careless deploy overwrites.
+    echo "publish: FACTORY_WEB_ROOT is not set, so this tried to push to" \
+         "$BRANCH. On a host that serves the dashboard itself, set" \
+         "FACTORY_WEB_ROOT in .env and publishing becomes a local copy." >&2
     exit 1
 fi
 

@@ -56,13 +56,19 @@ sudo dnf install -y git make
 make schedule-uninstall
 python3 -c "import sqlite3; sqlite3.connect('data/processed/items.sqlite').execute('PRAGMA wal_checkpoint(TRUNCATE)')"
 
-# 3. laptop: the code, plus the three things git does not carry — .env, the CA
-#    bundle, and .git itself so the box can diff and pull later.
+# 3. laptop: the code, plus the two things git does not carry — the CA bundle
+#    and .git itself, so the box can diff and pull later. .env is deliberately
+#    NOT synced; see "Updating the code" below.
 ssh chuck@chuck-dashboard.usw2.i.etched.com 'mkdir -p factory_data_analysis/data/processed'
 rsync -av --no-owner --no-group \
   --exclude '.DS_Store' --exclude '__pycache__/' \
+  --exclude '.env' \
   --exclude 'data/' --exclude 'dashboard/data/' \
   ./ chuck@chuck-dashboard.usw2.i.etched.com:factory_data_analysis/
+
+# 3b. laptop: the API key, once. Separate from the sync above precisely so a
+#     later code deploy cannot overwrite the box's own settings.
+scp .env chuck@chuck-dashboard.usw2.i.etched.com:factory_data_analysis/.env
 
 # 4. laptop: the accumulated history. Worth the transfer — see below.
 rsync -av --progress data/processed/items.sqlite data/processed/fetch_state.json \
@@ -108,8 +114,24 @@ off rather than collecting twice. Exit codes: **2** the fetch failed, **3** the
 fetch worked but publishing did not — in which case the local bundles are
 current and `make publish` alone will retry.
 
-Updating the code is another `rsync` from the laptop (step 3), or `git pull` if
-the box is ever given a GitHub credential. It has none today, deliberately.
+### Updating the code
+
+Another `rsync` from the laptop — step 3, **including its `--exclude '.env'`**.
+That exclusion is not tidiness. The box's `.env` carries `FACTORY_WEB_ROOT`,
+which is what makes `make publish` copy into the web root instead of pushing to
+`gh-pages`; a laptop `.env` has no such line. Syncing it over silently converts
+the dashboard host back into a laptop, and the failure surfaces one step later
+as a git authentication error from a box that has no GitHub credential and
+should never need one. It has happened once.
+
+Anything host-specific belongs in the box's `.env` and nowhere else:
+
+```sh
+grep FACTORY_WEB_ROOT .env || printf '\nFACTORY_WEB_ROOT=/var/www/32x-production\n' >> .env
+```
+
+`git pull` would be the cleaner path, but the box has no GitHub credential
+today, deliberately.
 
 ## Known gaps
 
