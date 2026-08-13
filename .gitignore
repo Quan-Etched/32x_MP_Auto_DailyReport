@@ -1,7 +1,7 @@
 # Secrets — never commit the EOS API key
 .env
 
-# Fetched payloads, generated metrics and scheduler logs
+# Fetched payloads (EOS + pega3), generated metrics and scheduler logs
 data/raw/
 data/processed/
 data/logs/

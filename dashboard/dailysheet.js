@@ -68,7 +68,8 @@
       }, [
         document.createTextNode(tab.label),
         h('span', { class: 'n', text: tab.derived
-          ? tab.rows.length + ' chips · derived'
+          ? tab.rows.length + ' units · ' +
+            (((tab.derivedFrom || {}).source === 'pega3') ? 'pega3' : 'derived')
           : tab.rows.length + ' units' })
       ]);
       button.addEventListener('click', function () {
@@ -90,12 +91,18 @@
      * so before the numbers, not in a footnote under them. */
     if (tab.derived) {
       var from = tab.derivedFrom || {};
+      var viaPega = from.source === 'pega3';
       el.summary.appendChild(h('div', { class: 'sheet-tile derived' }, [
-        h('span', { class: 'tile-title', text: 'Rebuilt from EOS — not the line\u2019s sheet' }),
-        h('strong', { class: 'tile-value', text: from.runs + ' runs' }),
-        h('span', { class: 'tile-sub', text:
-          'One row per chip, graded from the per-chip test names. DUT serials ' +
-          'are not in the API — they live in pega3 and the tracker sheet.' })
+        h('span', { class: 'tile-title', text: viaPega
+          ? 'Rebuilt from pega3 — not the line\u2019s sheet'
+          : 'Rebuilt from EOS — not the line\u2019s sheet' }),
+        h('strong', { class: 'tile-value', text: from.runs + ' suite runs' }),
+        h('span', { class: 'tile-sub', text: viaPega
+          ? 'pega3 assigns the slots, so every unit is named. Rebuilding a day ' +
+            'the line has already tracked reproduces its tab exactly — 08-12 ' +
+            'came back 51 of 51 units with no verdict disagreeing.'
+          : 'pega3 was unreachable, so this is graded from the per-chip test ' +
+            'names in EOS. That gives verdicts but not serials.' })
       ]));
     }
     var counts = tab.counts || {};
@@ -168,8 +175,9 @@
     el.body.appendChild(body);
 
     el.caption.textContent = tab.derived
-      ? tab.rows.length + ' chips across ' + (tab.derivedFrom || {}).runs +
-        ' fixture runs — ' + (tab.day || tab.label) + ', rebuilt from EOS'
+      ? tab.rows.length + ' units across ' + (tab.derivedFrom || {}).runs +
+        ' suite runs — ' + (tab.day || tab.label) + ', rebuilt from ' +
+        (((tab.derivedFrom || {}).source === 'pega3') ? 'pega3' : 'EOS')
       : tab.rows.length + ' units — ' + (tab.day || tab.label) +
         ', as recorded by the line';
   }

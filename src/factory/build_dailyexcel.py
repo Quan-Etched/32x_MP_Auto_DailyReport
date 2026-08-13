@@ -40,11 +40,12 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import chips, config, links, stations, xlsx
+from . import chips, config, links, pega, stations, xlsx
 
 #: ``08-11 87x`` / ``08-12  51x`` — month-day, then the line's own unit count.
 TAB_PATTERN = re.compile(r"^\s*(\d{1,2})-(\d{1,2})\s+(\d+)\s*x\s*$", re.IGNORECASE)
@@ -80,6 +81,10 @@ DERIVE_LIMIT = 3
 
 #: The stations the tracker covers, and the column pair each one fills.
 DERIVED_STATIONS = (("mlt", "E", "F", "G"), ("htt", "H", "I", "J"))
+
+#: Validation and debug suites are engineering, not production. Same policy as
+#: the ``_krish`` exclusions in stations.py, applied to pega3's wider day.
+ENGINEERING = re.compile(r"_(validation|debug)\b", re.IGNORECASE)
 
 
 def workbook_path(explicit: Optional[str] = None) -> Path:
@@ -161,7 +166,12 @@ def build_bundle(
         for day in candidates[-DERIVE_LIMIT:]:
             newest_real = next((tab for tab in reversed(tabs)
                                 if not tab.get("derived")), None)
-            built = derived_tab(payload or {}, day, template=newest_real)
+            built = (_pega_tab(day, newest_real)
+                     if pega.enabled() else None)
+            if built is None:
+                # pega3 unreachable: fall back to what EOS alone can say, which
+                # is per-chip verdicts without the serials.
+                built = derived_tab(payload or {}, day, template=newest_real)
             if built:
                 tabs.append(built)
 
@@ -289,7 +299,9 @@ FALLBACK_TITLES = ("Date", "DUT SN", "ASIC SN", "DUT PN",
                    "HTT Failure Test Case htt_", "FI Test Link", "Jira")
 
 #: ``mlt_2026.220`` / ``htt_2026.217`` inside a column heading.
-VERSION_TOKEN = re.compile(r"(mlt|htt)_[0-9.]+", re.IGNORECASE)
+#: The trailing digits are optional so the fallback headings — which carry a
+#: bare ``mlt_`` with no version to copy — are substituted too.
+VERSION_TOKEN = re.compile(r"(mlt|htt)_[0-9.]*", re.IGNORECASE)
 
 
 def _derived_columns(template: Optional[Dict[str, Any]],
@@ -317,6 +329,118 @@ def _derived_columns(template: Optional[Dict[str, Any]],
     return columns
 
 
+def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """A day's tracker rebuilt from pega3 — the sheet's own source.
+
+    This is the good path. pega3 assigns the slots, so it knows all eight DUT
+    serials, the part number, the failing test case and the very link the sheet
+    pastes into its FI Test Link column. Rows come out per unit with MLT and HTT
+    merged, which is the shape the line's tabs have, rather than per chip.
+    """
+    try:
+        listing = pega.day_suite_runs(day)
+    except pega.PegaUnavailable:
+        return None
+
+    units: Dict[str, Dict[str, Any]] = {}
+    versions: Dict[str, List[str]] = {"mlt": [], "htt": []}
+    runs_seen = 0
+
+    for entry in listing:
+        run_id = entry.get("suite_run_id") or ""
+        suite = entry.get("suite_name") or ""
+        station = "mlt" if run_id.startswith("mlt") else "htt" if run_id.startswith("htt") else None
+        if not station:
+            continue
+        # Engineering runs, excluded for the same reason stations.py drops the
+        # _krish debug suites: they are not line units and would distort the
+        # day's yield. pega3's day includes them; the line's tracker does not.
+        if ENGINEERING.search(run_id) or ENGINEERING.search(suite):
+            continue
+        try:
+            detail = pega.suite_run(run_id)
+        except pega.PegaUnavailable:
+            continue
+        runs_seen += 1
+        versions[station].append(entry.get("suite_name") or "")
+        failure = entry.get("first_failed_test_case") or ""
+        second = entry.get("second_failed_test_case") or ""
+        if second and second != failure:
+            failure = "{}\n{}".format(failure, second)
+
+        for part in pega.participants(detail):
+            unit = units.setdefault(part["dut"], {
+                "pn": entry.get("dut_part_number") or "",
+                "asic": entry.get("asic_lot_code") or "",
+            })
+            # A unit retested the same day keeps its latest verdict, which is
+            # what the line records — the sheet has one row per unit, not one
+            # per attempt.
+            unit[station] = {
+                "status": part["status"],
+                # The run-level failure names the suite's first failure; it is
+                # only attributable to a unit that actually failed.
+                "fail": failure if part["status"] == "fail" else "",
+                "url": pega.run_url(run_id, part["slot"]),
+                "short": run_id.rsplit("_run_", 1)[-1],
+            }
+
+    if not units:
+        return None
+
+    labels = {station: _release_label(list(seen)) for station, seen in versions.items()}
+    columns = _derived_columns(template, labels)
+    index = {column["key"]: position for position, column in enumerate(columns)}
+
+    def sort_key(item):
+        dut, unit = item
+        # Passes first, failures last — the order the line's own tabs read in.
+        bad = any((unit.get(s) or {}).get("status") == "fail" for s in ("mlt", "htt"))
+        return (bad, dut)
+
+    rows = []
+    for dut, unit in sorted(units.items(), key=sort_key):
+        row = [{} for _ in columns]
+        row[index["A"]] = {"v": day}
+        row[index["B"]] = {"v": dut}
+        if unit.get("asic"):
+            row[index["C"]] = {"v": unit["asic"]}
+        if unit.get("pn"):
+            row[index["D"]] = {"v": unit["pn"]}
+        for station, result_col, fail_col, link_col in DERIVED_STATIONS:
+            got = unit.get(station)
+            if not got:
+                continue
+            if got["status"] in ("pass", "fail"):
+                row[index[result_col]] = {
+                    "v": "Passed" if got["status"] == "pass" else "Failed",
+                    "t": got["status"],
+                }
+            if got["fail"]:
+                row[index[fail_col]] = {"v": got["fail"]}
+            row[index[link_col]] = {"v": got["short"], "h": got["url"]}
+        rows.append(row)
+
+    return {
+        "name": "{} (from pega3)".format(day),
+        "label": day[5:],
+        "day": day,
+        "claimedUnits": None,
+        "derived": True,
+        "derivedFrom": {
+            "runs": runs_seen,
+            "source": "pega3",
+            "versions": labels,
+            "note": "Rebuilt from pega3, which assigns the slots and therefore "
+                    "knows every unit's serial.",
+        },
+        "columns": columns,
+        "rows": rows,
+        "counts": _counts(rows, columns),
+        "crossref": {"matched": 0, "duts": len(units)},
+    }
+
+
 def _derived_link(run: Dict[str, Any], day: str) -> Dict[str, Any]:
     """The run's own identity, pointing at the rows behind it.
 
@@ -334,17 +458,24 @@ def _derived_link(run: Dict[str, Any], day: str) -> Dict[str, Any]:
     return cell
 
 
-def _release_label(versions: List[Optional[str]]) -> str:
-    """``mlt_2026.220`` from the versions actually seen, or a blank marker."""
-    seen = [v for v in versions if v]
+def _release_label(versions: List[Optional[str]]) -> Optional[str]:
+    """The release the day mostly ran, as the heading writes it.
+
+    Accepts either a bare version (``2026.220.0-git…``, from EOS) or pega3's
+    fully-qualified suite name (``mlt_2026.220.0-git…``); the station prefix is
+    stripped because the heading template supplies it. Where a day ran more
+    than one release the most common wins — the heading names a build, and the
+    line's own tabs name exactly one.
+    """
+    seen = [re.sub(r"^(mlt|htt)_", "", v) for v in versions if v]
     if not seen:
         # Nothing ran for this station that day. The heading drops its version
         # rather than inheriting the template's, which would claim a build that
         # never ran above a column that is entirely empty.
         return None
-    release = stations.release_of(seen[0])
-    label = "2026.{}".format(release) if release else str(seen[0])
-    return label if len(set(seen)) == 1 else "{} +{} more".format(label, len(set(seen)) - 1)
+    dominant = Counter(seen).most_common(1)[0][0]
+    release = stations.release_of(dominant)
+    return "2026.{}".format(release) if release else str(dominant)
 
 
 def _utc_day(ts: Optional[int]) -> Optional[str]:

@@ -288,12 +288,23 @@ if __name__ == "__main__":
 
 
 class DerivedTabTest(unittest.TestCase):
-    """Days EOS has that the workbook has not caught up with."""
+    """The EOS fallback: days EOS has that the workbook has not caught up with.
+
+    pega3 is switched off for these. A unit test that reaches the factory
+    network passes or fails on where it is run, which is not a property of the
+    code — and the pega3 path has its own tests below, against a stub.
+    """
 
     def setUp(self):
+        import os
         import tempfile
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
+        previous = os.environ.get("FACTORY_PEGA")
+        os.environ["FACTORY_PEGA"] = "0"
+        self.addCleanup(lambda: os.environ.__setitem__("FACTORY_PEGA", previous)
+                        if previous is not None
+                        else os.environ.pop("FACTORY_PEGA", None))
         self.path = TempWorkbook(self.tmp.name).path      # its only tab is 08-12
 
     #: Computed, not hard-coded: a literal epoch is a magic number nobody can
@@ -388,3 +399,97 @@ class DerivedTabTest(unittest.TestCase):
              "displayName": "ServerNestedTestCase"}])
         tabs = self.build([run])["tabs"]
         self.assertEqual(tabs[1]["rows"], [])
+
+
+class PegaTabTest(unittest.TestCase):
+    """The good path: a day rebuilt from pega3, which knows every slot's unit.
+
+    Stubbed, not live. The shapes below are the ones the real API returns —
+    ``participating`` with one entry per slot, and the run-level
+    ``first_failed_test_case`` the tracker copies into its failure column.
+    """
+
+    LISTING = [
+        {"suite_run_id": "mlt_2026.220.0-gitabc_run_4cb95b11",
+         "suite_name": "mlt_2026.220.0-gitabc", "dut_part_number": "1500027-B",
+         "asic_lot_code": None, "first_failed_test_case": "BootloaderResultTestCase",
+         "second_failed_test_case": None},
+        {"suite_run_id": "htt_2026.224.0-gitdef_run_1af8af3d",
+         "suite_name": "htt_2026.224.0-gitdef", "dut_part_number": "1500027-B",
+         "asic_lot_code": None, "first_failed_test_case": "", "second_failed_test_case": None},
+        # Engineering: must not reach the tab.
+        {"suite_run_id": "mlt_2026.218.0-gitxyz_validation_run_deadbeef",
+         "suite_name": "mlt_2026.218.0-gitxyz_validation", "dut_part_number": "1500027-B",
+         "first_failed_test_case": "", "second_failed_test_case": None},
+    ]
+
+    DETAIL = {
+        "mlt_2026.220.0-gitabc_run_4cb95b11": {"status": "failed", "participating": [
+            {"dut_sn": "268494130000045", "slot_number": 0, "status": "Failed"},
+            {"dut_sn": "268494130000044", "slot_number": 1, "status": "Passed"}]},
+        "htt_2026.224.0-gitdef_run_1af8af3d": {"status": "passed", "participating": [
+            {"dut_sn": "268494130000045", "slot_number": 0, "status": "Passed"}]},
+        "mlt_2026.218.0-gitxyz_validation_run_deadbeef": {"status": "passed",
+            "participating": [{"dut_sn": "999", "slot_number": 0, "status": "Passed"}]},
+    }
+
+    def setUp(self):
+        from factory import pega
+        self.addCleanup(setattr, pega, "day_suite_runs", pega.day_suite_runs)
+        self.addCleanup(setattr, pega, "suite_run", pega.suite_run)
+        pega.day_suite_runs = lambda day: list(self.LISTING)
+        pega.suite_run = lambda run_id: self.DETAIL[run_id]
+
+    def build(self):
+        return build_dailyexcel._pega_tab("2026-08-13", None)
+
+    def test_every_slot_becomes_a_named_unit(self):
+        rows = self.build()["rows"]
+        self.assertEqual(sorted(row[1]["v"] for row in rows),
+                         ["268494130000044", "268494130000045"])
+
+    def test_mlt_and_htt_merge_onto_one_row_per_unit(self):
+        # The whole point of having the serial: the sheet's shape is one row
+        # per unit with both stations, which per-chip rows cannot express.
+        row = next(r for r in self.build()["rows"] if r[1]["v"] == "268494130000045")
+        self.assertEqual(row[4], {"v": "Failed", "t": "fail"})     # MLT
+        self.assertEqual(row[7], {"v": "Passed", "t": "pass"})     # HTT
+
+    def test_the_failure_case_lands_only_on_the_unit_that_failed(self):
+        rows = {r[1]["v"]: r for r in self.build()["rows"]}
+        self.assertEqual(rows["268494130000045"][5]["v"], "BootloaderResultTestCase")
+        self.assertEqual(rows["268494130000044"][5], {})
+
+    def test_the_link_is_the_sheets_own_slot_url(self):
+        row = next(r for r in self.build()["rows"] if r[1]["v"] == "268494130000044")
+        self.assertTrue(row[6]["h"].endswith(
+            "/suite_run/mlt_2026.220.0-gitabc_run_4cb95b11?slot_number=1"), row[6]["h"])
+        self.assertEqual(row[6]["v"], "4cb95b11")
+
+    def test_part_number_comes_through(self):
+        self.assertEqual(self.build()["rows"][0][3]["v"], "1500027-B")
+
+    def test_engineering_runs_are_excluded(self):
+        # Same policy as stations.py's _krish exclusions.
+        self.assertNotIn("999", [row[1]["v"] for row in self.build()["rows"]])
+        self.assertEqual(self.build()["derivedFrom"]["runs"], 2)
+
+    def test_headings_name_the_release_that_ran(self):
+        titles = [c["title"] for c in self.build()["columns"]]
+        self.assertEqual(titles[4], "MLT Results mlt_2026.220")
+        self.assertEqual(titles[7], "HTT Results htt_2026.224")
+
+    def test_passes_sort_before_failures(self):
+        rows = self.build()["rows"]
+        self.assertEqual(rows[0][1]["v"], "268494130000044")   # all passed
+        self.assertEqual(rows[-1][1]["v"], "268494130000045")  # failed MLT
+
+    def test_the_source_is_recorded_so_the_page_can_say_so(self):
+        self.assertEqual(self.build()["derivedFrom"]["source"], "pega3")
+
+    def test_an_unreachable_pega_yields_none_rather_than_raising(self):
+        from factory import pega
+        def boom(day):
+            raise pega.PegaUnavailable("no route to host")
+        pega.day_suite_runs = boom
+        self.assertIsNone(build_dailyexcel._pega_tab("2026-08-13", None))
