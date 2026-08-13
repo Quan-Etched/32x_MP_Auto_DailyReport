@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import chips, config, links, pega, rootcause, stations, xlsx
+from . import chips, config, links, pega, rootcause, stations, version, xlsx
 
 #: ``08-11 87x`` / ``08-12  51x`` — month-day, then the line's own unit count.
 TAB_PATTERN = re.compile(r"^\s*(\d{1,2})-(\d{1,2})\s+(\d+)\s*x\s*$", re.IGNORECASE)
@@ -132,7 +132,7 @@ def source_url() -> str:
 
 def build_bundle(
     payload: Optional[Dict[str, Any]] = None, path: Optional[Path] = None,
-    derive: bool = True,
+    derive: bool = True, enrich: bool = True,
 ) -> Dict[str, Any]:
     source = workbook_path(str(path) if path else None)
     book = xlsx.Workbook(source)
@@ -144,7 +144,13 @@ def build_bundle(
         match = TAB_PATTERN.match(name)
         if not match:
             continue
-        tabs.append(_tab(book, name, match, known_duts, warnings))
+        tab = _tab(book, name, match, known_duts, warnings)
+        # The sheet is the line's record, but its failure column is knowingly
+        # lossy — one name where a unit failed eight tests. Fill it from pega3,
+        # which is the system the line was reading when it typed the one.
+        if enrich:
+            tab = _enrich_from_pega(tab)
+        tabs.append(tab)
 
     if not tabs:
         warnings.append(
@@ -182,6 +188,10 @@ def build_bundle(
     return {
         "schemaVersion": 1,
         "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        # Which build of this repo produced the page. Published copies are
+        # rsynced by hand, so "what is on the site" drifts from "what is on
+        # main" silently unless the page says.
+        "build": version.describe(),
         "source": {
             "workbook": source.name,
             "modifiedAt": datetime.fromtimestamp(
@@ -330,14 +340,77 @@ def _derived_columns(template: Optional[Dict[str, Any]],
     return columns
 
 
-def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-    """A day's tracker rebuilt from pega3 — the sheet's own source.
+def _enrich_from_pega(tab: Dict[str, Any]) -> Dict[str, Any]:
+    """Fill the sheet's failure columns with every failure pega3 recorded.
 
-    This is the good path. pega3 assigns the slots, so it knows all eight DUT
-    serials, the part number, the failing test case and the very link the sheet
-    pastes into its FI Test Link column. Rows come out per unit with MLT and HTT
-    merged, which is the shape the line's tabs have, rather than per chip.
+    The sheet's own columns are kept wherever they carry something pega3 cannot:
+    the Jira keys, the line's verdicts, its links, its DUT list. Only the two
+    failure-case columns are replaced, and only for a unit pega3 actually has.
+
+    WHY THIS IS NOT VANDALISM OF A FAITHFUL COPY
+    The failure column is the one place the sheet is knowingly lossy. A person
+    types one name where the unit failed eight tests; on 08-11 and 08-12 that
+    dropped 61 failures between them. Every verdict and every test link in those
+    tabs was verified identical to pega3 first, so replacing the column is
+    filling in the same day from the system the line was reading, not overruling
+    the line's judgement about it.
+
+    Where the two disagree the sheet's name is kept alongside, because a name a
+    person wrote down deliberately is evidence even when it is not in pega3's
+    list — on 08-11 exactly one row is like that, and it turned out to be a
+    neighbouring slot's failure written on the wrong row.
     """
+    day = tab.get("day")
+    if not day:
+        return tab
+    gathered = _pega_units(day)
+    if not gathered:
+        return tab
+    units = gathered[0]
+
+    index = {column["key"]: position for position, column in enumerate(tab["columns"])}
+    if not all(key in index for key in ("B", "F", "I")):
+        return tab
+
+    filled = 0
+    added = 0
+    for row in tab["rows"]:
+        dut = (row[index["B"]].get("v") or "").strip()
+        unit = units.get(dut)
+        if not unit:
+            continue
+        for station, _result, fail_col, _link in DERIVED_STATIONS:
+            got = (unit.get(station) or {}).get("fail") or ""
+            if not got:
+                continue
+            cell = row[index[fail_col]]
+            was = (cell.get("v") or "").strip()
+            names = [n for n in got.split("\n") if n]
+            # A name only the sheet has is kept: it was typed on purpose.
+            for name in (n.strip() for n in was.split("\n") if n.strip()):
+                if name not in names:
+                    names.append(name)
+            if names and "\n".join(names) != was:
+                cell["v"] = "\n".join(names)
+                filled += 1
+                added += max(0, len(names) - len([n for n in was.split("\n") if n.strip()]))
+    if filled:
+        tab["enriched"] = {"rows": filled, "added": added, "source": "pega3"}
+    return tab
+
+
+def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]], Dict[str, List[str]], int]]:
+    """Every unit pega3 tested that day, keyed by DUT serial.
+
+    Shared by the two callers that need it: rebuilding a day the workbook has
+    not reached, and filling the complete failure list into a day it has.
+
+    FACTORY_PEGA=0 stops here rather than at the call sites, so switching the
+    integration off really means no pega3 — a test that sets it and still
+    reaches the factory network passes or fails on where it is run.
+    """
+    if not pega.enabled():
+        return None
     try:
         listing = pega.day_suite_runs(day)
     except pega.PegaUnavailable:
@@ -388,6 +461,21 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
 
     if not units:
         return None
+    return units, versions, runs_seen
+
+
+def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """A day's tracker rebuilt from pega3 — the sheet's own source.
+
+    pega3 assigns the slots, so it knows all eight DUT serials, the part number,
+    every failing test case and the very link the sheet pastes into its FI Test
+    Link column. Rows come out per unit with MLT and HTT merged, which is the
+    shape the line's tabs have.
+    """
+    gathered = _pega_units(day)
+    if not gathered:
+        return None
+    units, versions, runs_seen = gathered
 
     labels = {station: _release_label(list(seen)) for station, seen in versions.items()}
     columns = _derived_columns(template, labels)

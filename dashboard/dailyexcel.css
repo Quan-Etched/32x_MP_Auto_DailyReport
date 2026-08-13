@@ -233,3 +233,38 @@ span.jira-key { color: var(--text-secondary); }
   font-size: 18px;
   color: var(--text-secondary);
 }
+
+/* ------------------------------------------------------- build provenance */
+/* Release, commit and repo in the masthead. Quiet by default — it is
+   reference, not a headline — but always present, because a page that cannot
+   say which version made it leaves the reader guessing. */
+
+.build {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.build a, .build span {
+  font-variant-numeric: tabular-nums;
+  border-radius: 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.build a:hover { color: var(--text-primary); border-color: var(--axis); }
+.build .build-release { font-weight: 650; color: var(--text-primary); }
+.build .build-commit { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.build .build-ahead { border: 0; padding: 0; color: var(--text-muted); }
+
+/* A published page built from a tree that is not any commit. */
+.build .build-dirty { border-color: var(--status-warning); color: var(--status-warning); }
+
+@media (max-width: 900px) {
+  .build .build-repo, .build .build-ahead { display: none; }
+}

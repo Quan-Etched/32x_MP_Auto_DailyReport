@@ -193,7 +193,11 @@ columns keep the sheet's own hyperlinks, which point at
 run.
 
 The **failure column lists every test case that failed on that unit**, oldest
-first, one per line — not just the first. A unit that fails eight tests has
+first, one per line — not just the first. On a day the workbook already covers,
+the sheet's own column is *filled in* from pega3 rather than replaced: the
+verdicts, links and Jira keys stay the line's, and a name the line typed that
+pega3 does not have is kept alongside. That recovered 47 failures on 08-11 and
+26 on 08-12 that the sheet had dropped. A unit that fails eight tests has
 eight things wrong with it, and the one that ran first is rarely the
 interesting one. Nest rows are left out (`chip5` fails because a leaf under it
 did, and `ServerNestedTestCase` would otherwise appear twice in one cell); set
@@ -295,6 +299,7 @@ src/factory/
   releases.py         per-release item views and compatibility diffs
   xlsx.py             a minimal .xlsx reader (stdlib: zip + XML)
   pega.py             read-only client for pega3 (the slot -> serial map)
+  version.py          which build made a page: release, commit, repo
   chips.py            per-chip verdicts inside a fixture run
   requests.py         what we need from other systems, and probes for it
   build_dailyexcel.py compiles the line's tracker tabs from daily/*.xlsx

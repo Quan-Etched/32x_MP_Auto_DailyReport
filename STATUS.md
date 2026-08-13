@@ -48,7 +48,7 @@ make status            # last fetch vs last update, per station
 
 | Check | Result |
 |---|---|
-| Unit tests | 255 passing (`make test`) |
+| Unit tests | 269 passing (`make test`) |
 | `/levels` | `l6, l10, l11, slt, module, bringup` |
 | Live collect | 1062 runs over 30 days across l6 + l10 + slt + module |
 | Status / duration resolved | all runs |
@@ -139,7 +139,16 @@ from pega3.
 | HTT verdicts agreeing | **64 of 64** | **41 of 41** |
 | FI test links agreeing | **all** | **all** |
 | Rows whose failure list contains the line's name | **39 of 40** | **24 of 24** |
-| Failures the sheet never recorded | +35 | +26 |
+| Failures the sheet never recorded | +47 | +26 |
+
+Those failures are no longer only in the derived days: the sheet's own tabs are
+filled in from pega3, so 08-11 and 08-12 list every failure on a unit exactly
+as 08-13 does. Only the two failure columns are touched — the verdicts, links
+and Jira keys stay the line's, and a name the line typed that pega3 lacks is
+kept alongside rather than overwritten.
+
+Every page also carries the build that made it (`v0.4 · 0ac933d · repo`), since
+a published copy is rsynced by hand and otherwise drifts from `main` silently.
 
 **The sheet is pega3 minus serial lot `26849410`.** On 08-11 the sheet holds
 lots 26849411 (71) and 26849413 (16); pega3 has those same 87 plus 25 units

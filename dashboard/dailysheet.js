@@ -246,6 +246,44 @@
     return wrap;
   }
 
+
+  /* Which build of the repo made this page. Published copies are rsynced by
+   * hand, so a reader cannot otherwise tell whether they are looking at the
+   * version that lists every failure on a unit or the one that listed the
+   * first — and those answer the same question differently. */
+  function renderBuild() {
+    var build = DATA.build || {};
+    if (!build.commit && !build.release) return;
+    var slot = byId('build');
+    if (!slot) return;
+
+    if (build.release) {
+      slot.appendChild(link(build.release, build.releaseUrl, 'release'));
+      if (build.commitsSinceRelease) {
+        slot.appendChild(h('span', { class: 'build-ahead',
+          text: '+' + build.commitsSinceRelease }));
+      }
+    }
+    if (build.commit) {
+      slot.appendChild(link(build.commit, build.commitUrl, 'commit'));
+    }
+    if (build.dirty) {
+      /* Built from a tree that is not any commit — worth saying out loud. */
+      slot.appendChild(h('span', { class: 'build-dirty', title:
+        'The working tree had uncommitted changes when this was built',
+        text: 'uncommitted' }));
+    }
+    if (build.repo) {
+      slot.appendChild(link('repo', build.repo, 'repo'));
+    }
+  }
+
+  function link(text, href, kind) {
+    if (!href) return h('span', { class: 'build-' + kind, text: text });
+    return h('a', { class: 'build-' + kind, href: href, target: '_blank',
+                    rel: 'noopener noreferrer', text: text });
+  }
+
   /* ----------------------------------------------------------------- notes */
 
   function renderNotes() {
@@ -253,6 +291,7 @@
     var cross = DATA.crossref || {};
 
     byId('meta').textContent = source.workbook || '';
+    renderBuild();
 
     byId('footer-meta').textContent =
       'Exported ' + (source.modifiedAt || 'unknown').replace('T', ' ').replace('+00:00', ' UTC') +

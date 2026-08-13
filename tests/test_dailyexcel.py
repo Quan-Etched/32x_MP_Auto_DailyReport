@@ -185,9 +185,27 @@ class XlsxReaderTest(unittest.TestCase):
 
 # ----------------------------------------------------------------- the bundle
 
-class DailyExcelBundleTest(unittest.TestCase):
+class NoPega:
+    """Pin FACTORY_PEGA=0 for a test class.
+
+    A unit test that reaches the factory network passes or fails on where it is
+    run, and it is slow: leaving this off made the module take eight seconds of
+    real HTTP. The pega3 paths have their own tests, against stubs.
+    """
+
+    def _pin_pega_off(self):
+        import os
+        previous = os.environ.get("FACTORY_PEGA")
+        os.environ["FACTORY_PEGA"] = "0"
+        self.addCleanup(lambda: os.environ.__setitem__("FACTORY_PEGA", previous)
+                        if previous is not None
+                        else os.environ.pop("FACTORY_PEGA", None))
+
+
+class DailyExcelBundleTest(NoPega, unittest.TestCase):
     def setUp(self):
         import tempfile
+        self._pin_pega_off()
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.path = TempWorkbook(self.tmp.name).path
@@ -287,7 +305,7 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class DerivedTabTest(unittest.TestCase):
+class DerivedTabTest(NoPega, unittest.TestCase):
     """The EOS fallback: days EOS has that the workbook has not caught up with.
 
     pega3 is switched off for these. A unit test that reaches the factory
@@ -296,15 +314,10 @@ class DerivedTabTest(unittest.TestCase):
     """
 
     def setUp(self):
-        import os
         import tempfile
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        previous = os.environ.get("FACTORY_PEGA")
-        os.environ["FACTORY_PEGA"] = "0"
-        self.addCleanup(lambda: os.environ.__setitem__("FACTORY_PEGA", previous)
-                        if previous is not None
-                        else os.environ.pop("FACTORY_PEGA", None))
+        self._pin_pega_off()
         self.path = TempWorkbook(self.tmp.name).path      # its only tab is 08-12
 
     #: Computed, not hard-coded: a literal epoch is a magic number nobody can
@@ -622,3 +635,78 @@ class PegaCacheTest(unittest.TestCase):
         self.pega._cache_path(path).write_text("{not json", encoding="utf-8")
         self.assertIsNone(self.pega._read_cache(path))
         self.assertFalse(self.pega._cache_path(path).exists())
+
+
+class EnrichmentTest(unittest.TestCase):
+    """Filling the sheet's lossy failure column from pega3.
+
+    The sheet is the line's record and stays so — only the two failure columns
+    are touched, and only where pega3 has the unit.
+    """
+
+    def setUp(self):
+        import tempfile
+        from factory import build_dailyexcel as bd
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.path = TempWorkbook(self.tmp.name).path
+        self.addCleanup(setattr, bd, "_pega_units", bd._pega_units)
+        # The workbook fixture's failing unit is 268494130000067, whose sheet
+        # cell already names two cases.
+        bd._pega_units = lambda day: ({
+            "268494130000067": {"mlt": {"fail": "SohuVfioPingTestCase\nSohuVrmTestCase\n"
+                                                "SohuI2cTestCase"}},
+        }, {"mlt": [], "htt": []}, 1)
+
+    def build(self, **kwargs):
+        return build_dailyexcel.build_bundle({}, path=self.path, derive=False, **kwargs)
+
+    def tab(self, **kwargs):
+        return self.build(**kwargs)["tabs"][0]
+
+    def test_the_failure_column_gains_what_the_sheet_omitted(self):
+        rows = self.tab()["rows"]
+        cell = rows[1][5]["v"].split("\n")
+        self.assertEqual(cell, ["SohuVfioPingTestCase", "SohuVrmTestCase",
+                                "SohuI2cTestCase"])
+
+    def test_the_sheet_s_own_columns_are_untouched(self):
+        # Jira is the one thing pega3 does not have; losing it would trade a
+        # better failure column for a worse page.
+        row = self.tab()["rows"][1]
+        self.assertEqual(row[10]["j"], ["ETCH-38719"])
+        self.assertEqual(row[4], {"v": "Failed", "t": "fail"})
+        self.assertEqual(row[1]["v"], "268494130000067")
+
+    def test_a_unit_pega3_does_not_have_keeps_the_sheet_s_text(self):
+        row = self.tab()["rows"][0]           # 268494130000006, passed
+        self.assertEqual(row[5], {})
+
+    def test_a_name_only_the_sheet_has_is_kept(self):
+        from factory import build_dailyexcel as bd
+        bd._pega_units = lambda day: ({
+            "268494130000067": {"mlt": {"fail": "SohuI2cTestCase"}}}, {}, 1)
+        names = self.tab()["rows"][1][5]["v"].split("\n")
+        # pega3's first, then what the person typed that pega3 lacks — a name
+        # written down deliberately is evidence even when it is not in the API.
+        self.assertEqual(names[0], "SohuI2cTestCase")
+        self.assertIn("SohuVfioPingTestCase", names)
+
+    def test_the_tab_records_that_it_was_enriched(self):
+        marker = self.tab()["enriched"]
+        self.assertEqual(marker["source"], "pega3")
+        self.assertEqual(marker["rows"], 1)
+
+    def test_enrichment_can_be_switched_off(self):
+        tab = self.tab(enrich=False)
+        self.assertNotIn("enriched", tab)
+        self.assertEqual(tab["rows"][1][5]["v"],
+                         "SohuVfioPingTestCase\nSohuVrmTestCase")
+
+    def test_an_unreachable_pega_leaves_the_sheet_exactly_as_it_was(self):
+        from factory import build_dailyexcel as bd
+        bd._pega_units = lambda day: None
+        tab = self.tab()
+        self.assertNotIn("enriched", tab)
+        self.assertEqual(tab["rows"][1][5]["v"],
+                         "SohuVfioPingTestCase\nSohuVrmTestCase")
