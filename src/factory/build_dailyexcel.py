@@ -277,6 +277,7 @@ def derived_tab(payload: Dict[str, Any], day: str,
         "derived": True,
         "derivedFrom": {
             "runs": len(runs),
+            "source": "eos",
             "versions": versions,
             "note": "Rebuilt from EOS. One row per chip; DUT serials live in "
                     "pega3 and the line's sheet, not in the API.",

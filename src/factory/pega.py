@@ -69,6 +69,12 @@ class PegaUnavailable(RuntimeError):
     """pega3 could not be reached. Never fatal — the caller degrades."""
 
 
+#: Set once the first call fails, so a host with no route to pega3 pays one
+#: timeout per build rather than one per day rebuilt. Reset per process, so a
+#: restored route is picked up on the next tick without touching config.
+_UNREACHABLE = False
+
+
 def base_url() -> str:
     return os.environ.get("FACTORY_PEGA_URL", DEFAULT_BASE_URL).rstrip("/")
 
@@ -89,6 +95,10 @@ def _cache_path(path: str) -> Path:
 
 
 def _get(path: str, cache: bool = False) -> Any:
+    global _UNREACHABLE
+    if _UNREACHABLE:
+        raise PegaUnavailable("pega3 was unreachable earlier in this run")
+
     if cache:
         cached = _cache_path(path)
         if cached.exists():
@@ -102,6 +112,11 @@ def _get(path: str, cache: bool = False) -> Any:
         with urllib.request.urlopen(url, timeout=TIMEOUT) as response:
             payload = json.loads(response.read().decode("utf-8", "replace"))
     except (urllib.error.URLError, OSError, ValueError) as exc:
+        # A name that does not resolve or a host with no route will not fix
+        # itself between one day and the next; stop paying the timeout.
+        if isinstance(exc, (urllib.error.URLError, OSError)):
+            _UNREACHABLE = True
+            log.info("pega3 unreachable, skipping it for the rest of this run: %s", exc)
         raise PegaUnavailable("{}: {}".format(url, exc)) from exc
 
     if cache:
