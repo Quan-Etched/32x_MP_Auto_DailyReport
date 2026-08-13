@@ -148,7 +148,12 @@ def _get(path: str, cache: bool = False, stale_ok: bool = False) -> Any:
         # itself between one day and the next; stop paying the timeout.
         if isinstance(exc, (urllib.error.URLError, OSError)):
             _UNREACHABLE = True
-            log.info("pega3 unreachable, using any cached copy instead: %s", exc)
+            # Only claim the cache when this call can actually use one. Saying
+            # "using a cached copy instead" on a probe that reads no cache is a
+            # log line asserting something it does not know.
+            log.info("pega3 unreachable (%s); %s", exc,
+                     "falling back to the cache" if cache
+                     else "this call has no cache to fall back to")
         if cache:
             hit = _read_cache(path)
             if hit is not None:
