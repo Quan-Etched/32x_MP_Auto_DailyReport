@@ -65,13 +65,12 @@ DEFAULT_RUN_URL_TEMPLATE = ""
 DEFAULT_SEARCH_URL_TEMPLATE = ""
 
 
-#: Jira browse root, for the ticket keys the daily tracker records in its notes
-#: column. Empty by default and for the same reason as the OCP templates above:
-#: the keys are real (``ETCH-38567``), but no URL carrying one has been observed
-#: from here, and a column of plausible-looking dead links is worse than plain
-#: text. Set FACTORY_JIRA_BASE once someone confirms the site, e.g.
-#: ``https://<site>.atlassian.net/browse``.
-DEFAULT_JIRA_BASE = ""
+#: Jira browse root for the ticket keys the daily tracker records in its notes
+#: column. Confirmed 2026-08-13 against the Atlassian API: the only accessible
+#: site is ``etched-ai``, and ``ETCH-38719`` — a key taken straight out of the
+#: sheet — resolves there. Unlike the OCP templates above this one is filled in,
+#: because it was verified rather than guessed. Override with FACTORY_JIRA_BASE.
+DEFAULT_JIRA_BASE = "https://etched-ai.atlassian.net/browse"
 
 
 def ocp_base() -> str:
