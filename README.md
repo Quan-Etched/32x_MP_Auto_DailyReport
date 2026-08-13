@@ -118,7 +118,7 @@ and none of the data.
 > runner cannot reach it. The dashboard host, being inside the network, both
 > fetches and serves.
 
-## Three dashboards and a drill-down
+## The pages
 
 **`dashboard/index.html` — station yield (the landing page).** Per-station daily yield, yield by
 software release, failure Pareto by root-cause area, and retest. Stations are
@@ -150,6 +150,30 @@ Filter keys: `station`, `day`, `release`, `status` (`pass` / `fail` / `abort` /
 same meanings `daily.py` gives them, so the row count always reconciles with the
 number that was clicked. `abort` means EOS's `error`; see
 `src/factory/build_runs.py`.
+
+**`dashboard/dailyexcel.html` — the line's daily MLT/HTT tracker.** The one page
+here that is *not* derived from the API. The module line keeps a Google Sheet of
+which units passed MLT and HTT each day, which test case failed and which Jira
+ticket tracks it — judgements no endpoint exposes, because a person made them.
+Export it to `daily/` and it is published as a faithful copy of the tab, colours
+and column widths included:
+
+```sh
+make dailyexcel        # also runs inside `make build`
+```
+
+Tabs are found by name, so `08-11 87x` and `08-12  51x` publish themselves and
+tomorrow's `08-13 62x` will too, with no code change. The **FI Test Link**
+columns keep the sheet's own hyperlinks, which point at
+`pega3:3000/suite_run/…` — pega3 asks for an ESVM login before it will show a
+run.
+
+A **DUT serial becomes a link into `runs.html`** when — and only when — the
+collected run table actually holds that serial. On the first build 32 of 138
+did, and the page says so: for these two days the sheet records 138 units while
+EOS returns 45 MLT/HTT runs per day. That gap is a finding about the two
+sources, so it is printed rather than papered over with 138 links, three
+quarters of which would land on an empty table.
 
 The **Source** column links out to OCP Logs. It has no confirmed per-run URL
 yet, so today it opens the search page and offers the run ID to copy; set
@@ -229,9 +253,12 @@ src/factory/
   build_stations.py   compiles the per-station views
   items.py            flattens test cases to numeric test items (SQLite)
   releases.py         per-release item views and compatibility diffs
+  xlsx.py             a minimal .xlsx reader (stdlib: zip + XML)
+  build_dailyexcel.py compiles the line's tracker tabs from daily/*.xlsx
   control.py          the /api routes behind the Update button
   cli.py              trust | levels | runs | inspect | collect | demo
-                      | build | refresh | status | report | items | serve
+                      | build | refresh | status | report | items
+                      | dailyexcel | serve
 
 dashboard/
   styles.css          palette + chrome (light/dark as role tokens)
@@ -239,6 +266,7 @@ dashboard/
   hourly.html + app.js                      hourly rates
   releases.html + releases.js + releases.css  test items by release
   runs.html + runtable.js + runs.css        raw run table (the drill-down)
+  dailyexcel.html + dailysheet.js + dailyexcel.css   the line's daily tracker
   update.js           the Update button, shared by every page
   data/*.js           generated bundles (gitignored)
 
@@ -247,14 +275,15 @@ tools/publish.sh           publish dashboard/: copy to FACTORY_WEB_ROOT, else
                            orphan force-push to gh-pages
 deploy/launchd/            the hourly agent plist (macOS)
 deploy/systemd/            the hourly user service + timer (Linux)
+daily/                     the tracker export (.xlsx) the daily page reads
 certs/                     fetched CA bundle (gitignored; `make trust`)
 data/raw/                  cached HTTP responses (gitignored)
 data/processed/            runs.json + fetch_state.json (gitignored)
 docs/                      api-usage.md · metrics.md · dataviz-notes.md
                            deploy.md (the dashboard host)
-tests/                     175 unit tests over parsing, metrics, fetch state,
-                           items, releases, the run bundle and the control
-                           endpoint
+tests/                     196 unit tests over parsing, metrics, fetch state,
+                           items, releases, the run bundle, the .xlsx reader
+                           and the control endpoint
 ```
 
 ## Before you trust a number
@@ -360,6 +389,6 @@ gitignored, so factory data is not committed.
 make test
 ```
 
-175 tests covering status normalization, timestamp and duration coercion, all
+196 tests covering status normalization, timestamp and duration coercion, all
 three plausible `suite_summary.json` shapes, station classification, the run
-bundle's filter populations, and every metric definition.
+bundle's filter populations, the .xlsx reader, and every metric definition.

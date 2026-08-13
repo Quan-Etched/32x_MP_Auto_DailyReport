@@ -10,6 +10,7 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
+        dailyexcel \
         schedule-install-macos schedule-uninstall-macos schedule-status-macos \
         schedule-install-systemd schedule-uninstall-systemd schedule-status-systemd \
         update clean distclean
@@ -21,6 +22,7 @@ help:
 	@echo "make status             last fetch vs last update, per station"
 	@echo "make publish            publish dashboard/ (FACTORY_WEB_ROOT, else gh-pages)"
 	@echo "make items [STATION=..]  flatten test cases to numeric test items"
+	@echo "make dailyexcel         compile daily/*.xlsx (MLT/HTT tracker) into the dashboard"
 	@echo "make schedule-install   install the hourly job (launchd / systemd timer)"
 	@echo "make demo               synthetic data + dashboard bundle (no API key needed)"
 	@echo "make collect [DAYS=2]   fetch real runs from the EOS API into data/processed/"
@@ -80,6 +82,12 @@ status:
 # Flatten test cases to test items (numeric layer) into data/processed/items.sqlite
 items:
 	$(PY) -m factory.cli items --station $(STATION)
+
+# Compile the line's daily MLT/HTT tracker tabs (daily/*.xlsx) into the
+# dashboard. Also runs as part of `make build`; this is for iterating on a new
+# export without a full rebuild.
+dailyexcel:
+	$(PY) -m factory.cli dailyexcel
 
 # ---------------------------------------------------------------- scheduler
 # Hourly, at :05, on whichever machine this is: launchd on a laptop, a systemd
@@ -160,7 +168,7 @@ schedule-status-systemd:
 
 clean:
 	rm -rf data/processed/* dashboard/data/metrics.js dashboard/data/stations.js \
-	       dashboard/data/runs.js
+	       dashboard/data/runs.js dashboard/data/dailyexcel.js
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
 
 # Also drops the cached HTTP responses, forcing a full refetch next collect.

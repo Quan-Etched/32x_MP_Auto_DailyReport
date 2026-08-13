@@ -48,7 +48,7 @@ make status            # last fetch vs last update, per station
 
 | Check | Result |
 |---|---|
-| Unit tests | 175 passing (`make test`) |
+| Unit tests | 196 passing (`make test`) |
 | `/levels` | `l6, l10, l11, slt, module, bringup` |
 | Live collect | 1062 runs over 30 days across l6 + l10 + slt + module |
 | Status / duration resolved | all runs |
@@ -81,6 +81,27 @@ arriving under the `slt` level, on 22-character `JE…` serials rather than
 the registry entry matched `module` alone. MLT now lists both levels. The level
 is where the log landed, not what was tested — all 135 test-case names in those
 runs are part of the module-level MLT vocabulary.
+
+## The line's daily tracker (v0.2)
+
+`dashboard/dailyexcel.html` publishes the module line's own MLT/HTT sheet —
+exported to `daily/*.xlsx`, read by a stdlib .xlsx reader (`src/factory/xlsx.py`,
+no openpyxl), reproduced tab for tab with the sheet's own colours and column
+widths. Tabs are discovered by name (`08-11 87x`, `08-12  51x`), so new days
+publish themselves.
+
+It is the only page not derived from the API, deliberately: which unit passed
+MLT, which test case failed and which Jira ticket tracks it are judgements a
+person made, and no endpoint carries them.
+
+**It also surfaces a coverage gap worth chasing.** The sheet records 138 units
+across 2026-08-11 and -12; EOS returns 45 MLT/HTT runs on each of those days,
+and only **32 of the 138 DUT serials appear in the collected run table at all**.
+Where they do match, the station resolves exactly as expected (`mlt` / `htt` on
+`rdqs_sweep_training`), so the join is right and the volume is not. Either the
+line tests units that never reach EOS, or they land under a level or a window
+this collection does not cover. A DUT is linked into `runs.html` only where the
+run exists, and the ratio is printed on the page rather than hidden.
 
 ## What was verified, and what it changed
 
@@ -134,6 +155,13 @@ against the MDM-installed root in the system keychain.
   them fail or error. They currently count toward those stations' yield. If the
   line agrees they are not units, the registry should exclude them the same way
   it excludes the `_krish` debug suites.
+- **No confirmed URL for a Jira key or an OCP run.** The tracker's notes column
+  holds real keys (`ETCH-38567`) and the run table wants a per-run OCP link;
+  neither renders as a link, because no URL carrying one has been observed from
+  here. Both are one environment variable away — `FACTORY_JIRA_BASE`,
+  `FACTORY_OCP_RUN_URL` — once someone logged into either tool pastes a real
+  one. Until then they stay plain text: a column of dead links is worse than a
+  column of keys.
 - **`EXITED` → `error` is an assumption.** It could equally mean a clean early
   exit. ~0.5% of entries, so low impact, but it should be confirmed with the EOS
   team rather than left as a guess.
@@ -189,13 +217,17 @@ src/factory/   eos_client · parse · collect · hourly · build_dashboard
                stations · rootcause · daily · fetchstate · build_stations
                demo_data · trust · cli · config
                items · releases · control
+               xlsx · build_dailyexcel · links
 dashboard/     index.html (station yield) · hourly.html (rates)
-               releases.html (test items by release) · update.js · styles.css
+               releases.html (test items by release) · runs.html (drill-down)
+               dailyexcel.html (the line's tracker) · update.js · styles.css
 tools/         hourly_refresh.sh · publish.sh (web root | gh-pages)
 deploy/        launchd/ (macOS agent) · systemd/ (Linux user timer)
 docs/          api-usage.md · metrics.md · dataviz-notes.md · deploy.md
-tests/         156 tests over parsing, metrics, stations, fetch state, items,
-               releases and the control endpoint
+daily/         the tracker export the daily page reads
+tests/         196 tests over parsing, metrics, stations, fetch state, items,
+               releases, the run bundle, the .xlsx reader and the control
+               endpoint
 ```
 
 Gitignored and never committed: `.env`, `certs/`, `data/`, `dashboard/data/`.

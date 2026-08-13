@@ -1,0 +1,222 @@
+/* The daily MLT/HTT tracker page.
+ *
+ * The spreadsheet's palette is reproduced as *roles*, not as pasted hex. The
+ * light values are the sheet's own (navy #1E3A5F header, Tailwind-ish green and
+ * red result fills); the dark values are designed to carry the same meaning at
+ * the same relative weight rather than being an inversion of them, which is the
+ * rule the rest of this dashboard follows.
+ *
+ * Every colour is defined on bare :root first, then overridden in both the
+ * media query and the [data-theme] scope, so the in-page toggle wins both ways.
+ */
+
+:root {
+  --sheet-head-bg:   #1e3a5f;
+  --sheet-head-text: #ffffff;
+  --sheet-pass-bg:   #d1fae5;
+  --sheet-pass-text: #065f46;
+  --sheet-fail-bg:   #fee2e2;
+  --sheet-fail-text: #991b1b;
+  --sheet-link:      #1d4ed8;
+  --sheet-zebra:     rgba(11, 11, 11, 0.025);
+  --sheet-rule:      rgba(11, 11, 11, 0.09);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    --sheet-head-bg:   #16283f;
+    --sheet-head-text: #eef2f7;
+    /* Washes rather than solid fills: a saturated block of green behind every
+       passing row is unreadable on a dark page and drowns the failures, which
+       are the rows anyone is actually looking for. */
+    --sheet-pass-bg:   rgba(6, 95, 70, 0.30);
+    --sheet-pass-text: #6ee7b7;
+    --sheet-fail-bg:   rgba(153, 27, 27, 0.32);
+    --sheet-fail-text: #fca5a5;
+    --sheet-link:      #7aa7e8;
+    --sheet-zebra:     rgba(255, 255, 255, 0.030);
+    --sheet-rule:      rgba(255, 255, 255, 0.10);
+  }
+}
+
+:root[data-theme="dark"] {
+  --sheet-head-bg:   #16283f;
+  --sheet-head-text: #eef2f7;
+  --sheet-pass-bg:   rgba(6, 95, 70, 0.30);
+  --sheet-pass-text: #6ee7b7;
+  --sheet-fail-bg:   rgba(153, 27, 27, 0.32);
+  --sheet-fail-text: #fca5a5;
+  --sheet-link:      #7aa7e8;
+  --sheet-zebra:     rgba(255, 255, 255, 0.030);
+  --sheet-rule:      rgba(255, 255, 255, 0.10);
+}
+
+/* ------------------------------------------------------------- summary row */
+
+.sheet-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.sheet-tile {
+  flex: 1 1 220px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  background: var(--card, transparent);
+}
+
+.sheet-tile .tile-title {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  /* The column headings carry the suite version (mlt_2026.220); keeping them
+     verbatim is what lets a reader tell two builds apart. */
+  overflow-wrap: anywhere;
+}
+
+.sheet-tile .tile-value {
+  display: block;
+  font-size: 26px;
+  line-height: 1.15;
+  margin: 4px 0 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.sheet-tile .tile-sub { font-size: 12px; color: var(--text-secondary); }
+.sheet-tile .tile-blank { color: var(--text-muted); }
+.sheet-tile.warn { border-color: var(--status-warning); }
+
+.sheet-summary .tone-pass { color: var(--sheet-pass-text); background: none; }
+.sheet-summary .tone-fail { color: var(--sheet-fail-text); background: none; }
+
+/* ------------------------------------------------------------------ table */
+
+.sheet-wrap {
+  /* The sheet is 11 columns wide and stays wide: scroll it inside its own box
+     rather than letting the page scroll sideways. */
+  max-height: 74vh;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.sheet-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  /* max-content, not 100%: at 100% the browser compresses columns below the
+     min-widths taken from the sheet, and 'SohuLlamaForwardIteratedTestCase'
+     breaks mid-word. The table takes the width it needs and the wrapper
+     scrolls; min-width keeps it filling the page when it is narrower. */
+  width: max-content;
+  min-width: 100%;
+  font-size: 13px;
+}
+
+.sheet-table caption {
+  caption-side: top;
+  text-align: left;
+  padding: 10px 12px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.sheet-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--sheet-head-bg);
+  color: var(--sheet-head-text);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  padding: 9px 10px;
+  white-space: normal;
+  vertical-align: bottom;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  /* The dashboard uppercases table headings; this one must not. The headings
+     carry the suite version (mlt_2026.220) and the line reads them as written,
+     so the sheet's own casing is the content, not a style choice. */
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.sheet-table thead th:last-child { border-right: 0; }
+
+.sheet-table tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--sheet-rule);
+  border-right: 1px solid var(--sheet-rule);
+  vertical-align: top;
+  text-align: left;
+  /* Short columns — date, serial, part, verdict, run id — never wrap. Wrapping
+     a date to two lines costs a row of height for every row on the page. */
+  white-space: nowrap;
+}
+
+/* The columns the sheet itself made wide: failure test cases and the Jira note.
+   pre-line because a cell can hold two test-case names on two lines, and that
+   is the difference between two names and one run-on. */
+.sheet-table tbody td.wrap {
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+.sheet-table tbody td:last-child { border-right: 0; }
+
+/* Stripe and hover paint the ROW; verdict fills paint the CELL. Done the other
+   way round — striping the cells — the zebra rule out-specifies td.tone-pass
+   and every other passing row silently loses its green. */
+.sheet-table tbody tr.odd { background: var(--sheet-zebra); }
+.sheet-table tbody tr:hover { background: var(--hover-wash); }
+
+.sheet-table td.serial {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Result cells keep the sheet's meaning: the fill *is* the verdict. */
+.sheet-table td.tone-pass {
+  background: var(--sheet-pass-bg);
+  color: var(--sheet-pass-text);
+  font-weight: 600;
+}
+
+.sheet-table td.tone-fail {
+  background: var(--sheet-fail-bg);
+  color: var(--sheet-fail-text);
+  font-weight: 600;
+}
+
+
+/* ------------------------------------------------------------------ links */
+
+.sheet-link {
+  color: var(--sheet-link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.sheet-link:hover { text-decoration-thickness: 2px; }
+
+/* A DUT that resolves into the run table reads as a link; one that does not is
+   plain text, so the difference is visible before the click rather than after. */
+.dut-link { text-decoration-style: solid; }
+
+.jira { display: inline-block; }
+
+.jira-key {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Not a link yet — see FACTORY_JIRA_BASE in src/factory/links.py. */
+span.jira-key { color: var(--text-secondary); }
+
+@media (max-width: 720px) {
+  .sheet-table { font-size: 12px; }
+  .sheet-wrap { max-height: 68vh; }
+}

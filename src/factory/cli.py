@@ -263,6 +263,20 @@ def cmd_build(args: argparse.Namespace) -> int:
         runs_path.stat().st_size / 1024, len(runs_bundle["runs"]),
         len(runs_bundle["testNames"]), runs_path))
 
+    # The line's hand-kept tracker. It has no API behind it, so a repo without
+    # the export simply does not get the page — never a failed build.
+    from . import build_dailyexcel
+    try:
+        daily_bundle = build_dailyexcel.build_bundle(payload)
+    except FileNotFoundError as exc:
+        print("Daily tracker skipped ({})".format(exc))
+    else:
+        daily_path = build_dailyexcel.write_bundle(daily_bundle)
+        print("Daily tracker ({:.0f} KB, {} tabs) -> {}".format(
+            daily_path.stat().st_size / 1024, len(daily_bundle["tabs"]), daily_path))
+        for warning in daily_bundle["warnings"]:
+            print("  WARNING {}".format(warning), file=sys.stderr)
+
     # The releases page needs the item store; skip rather than fail when it has
     # not been built yet (`make items`).
     if items_mod.DB_PATH.exists():
@@ -448,6 +462,37 @@ def _show_item(conn, items_mod, item: str, station: Optional[str]) -> None:
         print("    {:<18} {:<8} {:<10} {:>7}  {:.4g}{}".format(
             str(row["dut"])[:18], str(row["release"] or "—"),
             str(row["step_status"] or "—")[:10], row["lanes"], row["value"], flag))
+
+
+def cmd_dailyexcel(args: argparse.Namespace) -> int:
+    """Publish the module line's hand-kept tracker tabs as a dashboard page."""
+    from . import build_dailyexcel
+
+    # The run table is only used to decide which DUT serials can be linked into
+    # the drill-down, so a repo that has not collected yet still gets the page.
+    try:
+        payload = collect_mod.read_runs()
+    except (OSError, ValueError):
+        payload = {}
+
+    try:
+        bundle = build_dailyexcel.build_bundle(payload, path=args.workbook)
+    except FileNotFoundError as exc:
+        print("No tracker workbook: {}".format(exc), file=sys.stderr)
+        return 1
+
+    path = build_dailyexcel.write_bundle(bundle)
+    tabs = bundle["tabs"]
+    print("Daily tracker ({:.0f} KB, {} tabs: {}) -> {}".format(
+        path.stat().st_size / 1024, len(tabs),
+        ", ".join("{} × {}".format(tab["label"], len(tab["rows"])) for tab in tabs),
+        path))
+    cross = bundle["crossref"]
+    print("  {} of {} DUT serials resolve into the run table".format(
+        cross["matched"], cross["duts"]))
+    for warning in bundle["warnings"]:
+        print("  WARNING {}".format(warning), file=sys.stderr)
+    return 0
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
@@ -641,6 +686,13 @@ def _build_parser() -> argparse.ArgumentParser:
     report = subparsers.add_parser("report", help="print the hourly metrics as text")
     report.add_argument("--limit", type=int, default=12)
     report.set_defaults(handler=cmd_report)
+
+    dailyexcel = subparsers.add_parser(
+        "dailyexcel", help="compile the line's daily MLT/HTT tracker tabs"
+    )
+    dailyexcel.add_argument("--workbook", help="path to the .xlsx export "
+                                               "(default: newest in daily/)")
+    dailyexcel.set_defaults(handler=cmd_dailyexcel)
 
     serve = subparsers.add_parser("serve", help="serve the dashboard locally")
     serve.add_argument("--port", type=int, default=8787)
