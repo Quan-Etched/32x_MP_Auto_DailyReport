@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>What we need from other systems</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="stations.css">
+  <link rel="stylesheet" href="requests.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Feature requests</h1>
+    <span class="meta" id="meta"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" href="index.html">← Station yield</a>
+    <a class="theme-toggle" href="dailyexcel.html">Daily tracker →</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <p class="req-intro">
+    What this dashboard needs from systems it does not own — a route, a
+    certificate, an IAM grant, a field in someone else's API, or a decision.
+    <strong>The checkable ones check themselves</strong> on every build, so a
+    status here is as old as the page and no older.
+  </p>
+
+  <section class="req-summary" id="summary"></section>
+
+  <nav class="stationbar" id="filterbar" aria-label="Filter"></nav>
+
+  <main id="requests"></main>
+
+  <footer class="notes">
+    <p id="footer-meta"></p>
+    <p>
+      Anything we can do ourselves lives in <code>STATUS.md</code> instead — this
+      page is only for asks that need someone else. Add one in
+      <code>src/factory/requests.py</code>; give it a probe if the answer can be
+      checked rather than asserted.
+    </p>
+  </footer>
+
+</div>
+
+<script src="data/requests.js"></script>
+<script src="requests.js"></script>
+<script src="update.js"></script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+/* The feature-request page.
+ *
+ * Status is the primary information here, so it is encoded twice — a coloured
+ * pill and a left stripe on the card — and the stripe colours are the same
+ * semantic tokens the rest of the dashboard uses for good/warning/critical
+ * rather than a new palette invented for this page.
+ */
+
+:root {
+  --req-blocked:  var(--status-critical);
+  --req-open:     var(--status-warning);
+  --req-decision: var(--accent-solid);
+  --req-resolved: var(--status-good);
+  --req-unknown:  var(--text-muted);
+}
+
+.req-intro {
+  max-width: 62ch;
+  margin: 14px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.req-intro strong { color: var(--text-primary); }
+
+/* ----------------------------------------------------------------- summary */
+
+.req-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 18px 0 6px;
+}
+
+.req-tile {
+  flex: 1 1 180px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.req-tile .k {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.req-tile .v {
+  display: block;
+  font-size: 27px;
+  line-height: 1.15;
+  margin: 3px 0 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.req-tile .s { font-size: 12px; color: var(--text-secondary); }
+
+.req-tile.headline { border-color: var(--req-blocked); }
+.req-tile.headline .v { color: var(--req-blocked); }
+.req-tile.blocked .v  { color: var(--req-blocked); }
+.req-tile.open .v     { color: var(--req-open); }
+.req-tile.decision .v { color: var(--req-decision); }
+.req-tile.resolved .v { color: var(--req-resolved); }
+
+/* -------------------------------------------------------------------- card */
+
+main { display: flex; flex-direction: column; gap: 14px; margin-top: 16px; }
+
+.req {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--stripe, var(--border));
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.req-blocked  { --stripe: var(--req-blocked); }
+.req-open     { --stripe: var(--req-open); }
+.req-decision { --stripe: var(--req-decision); }
+.req-unknown  { --stripe: var(--req-unknown); }
+
+/* A resolved ask stays on the page — the list is a record, not a queue — but
+   it recedes so the open ones read first. */
+.req-resolved { --stripe: var(--req-resolved); opacity: 0.72; }
+.req-resolved:hover { opacity: 1; }
+
+.req-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.req-pri {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.pri-p0 { color: var(--req-blocked); border-color: var(--req-blocked); }
+.pri-p1 { color: var(--req-open); border-color: var(--req-open); }
+
+.req-owner {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.req-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  flex: 1 1 20rem;
+}
+
+/* ------------------------------------------------------------------ status */
+
+.req-status {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.pill {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+  color: #fff;
+}
+
+.pill-blocked  { background: var(--req-blocked); }
+.pill-open     { background: var(--req-open); }
+.pill-decision { background: var(--req-decision); }
+.pill-resolved { background: var(--req-resolved); }
+.pill-unknown  { background: var(--req-unknown); }
+
+.req-note { color: var(--text-secondary); }
+.req-checked { color: var(--text-muted); font-size: 12px; }
+
+/* ------------------------------------------------------------------- body */
+
+.req-need { margin: 0; line-height: 1.5; max-width: 74ch; }
+
+.req-evidence {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  line-height: 1.45;
+  max-width: 78ch;
+}
+
+.req-evidence li::marker { color: var(--text-muted); }
+
+.req-done, .req-aside {
+  margin: 0;
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+  font-size: 13.5px;
+  line-height: 1.45;
+  flex-wrap: wrap;
+}
+
+.req-done { padding-top: 9px; border-top: 1px dashed var(--border); }
+.req-done > span:last-child { color: var(--text-primary); max-width: 74ch; }
+.req-aside > span:last-child { color: var(--text-secondary); max-width: 74ch; }
+
+.req-done .lbl, .req-aside .lbl {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.req-done .lbl { color: var(--req-resolved); }
+.req-aside .lbl { color: var(--text-muted); }
+
+.req-raised { margin: 0; font-size: 12px; color: var(--text-muted); }
+
+.req code {
+  background: var(--hover-wash);
+  border-radius: 3px;
+  padding: 0.08em 0.34em;
+  font-size: 0.9em;
+  overflow-wrap: anywhere;
+}
+
+.req-empty { color: var(--text-secondary); }
+
+@media (max-width: 720px) {
+  .req-title { font-size: 15.5px; }
+  .req { padding: 14px; }
+}

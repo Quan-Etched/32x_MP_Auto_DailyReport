@@ -263,6 +263,16 @@ def cmd_build(args: argparse.Namespace) -> int:
         runs_path.stat().st_size / 1024, len(runs_bundle["runs"]),
         len(runs_bundle["testNames"]), runs_path))
 
+    # What we need from other systems, with the checkable asks re-checked. The
+    # probes reach the network, so failures are swallowed inside build_bundle:
+    # an unreachable host is an answer here, not an error.
+    from . import requests as requests_mod
+    requests_bundle = requests_mod.build_bundle(payload)
+    requests_path = requests_mod.write_bundle(requests_bundle)
+    print("Requests ({} open with other teams, {} blocking) -> {}".format(
+        len(requests_bundle["requests"]), requests_bundle["openBlocking"],
+        requests_path))
+
     # The line's hand-kept tracker. It has no API behind it, so a repo without
     # the export simply does not get the page — never a failed build.
     from . import build_dailyexcel
@@ -462,6 +472,27 @@ def _show_item(conn, items_mod, item: str, station: Optional[str]) -> None:
         print("    {:<18} {:<8} {:<10} {:>7}  {:.4g}{}".format(
             str(row["dut"])[:18], str(row["release"] or "—"),
             str(row["step_status"] or "—")[:10], row["lanes"], row["value"], flag))
+
+
+def cmd_requests(args: argparse.Namespace) -> int:
+    """Re-check the asks against other systems and rebuild that page."""
+    from . import requests as requests_mod
+
+    try:
+        payload = collect_mod.read_runs()
+    except (OSError, ValueError):
+        payload = {}
+
+    bundle = requests_mod.build_bundle(payload, probe=not args.no_probe)
+    path = requests_mod.write_bundle(bundle)
+    for entry in bundle["requests"]:
+        status = entry["status"]
+        print("  {:<10} {:<9} {:<24} {}".format(
+            entry["priority"], status["state"], entry["key"], status["note"][:60]))
+    print("{} asks, {} blocking automation -> {}".format(
+        len(bundle["requests"]), bundle["openBlocking"], path))
+    print("Checked on {} — a probe is only true where it ran.".format(bundle["builtOn"]))
+    return 0
 
 
 def cmd_dailyexcel(args: argparse.Namespace) -> int:
@@ -686,6 +717,13 @@ def _build_parser() -> argparse.ArgumentParser:
     report = subparsers.add_parser("report", help="print the hourly metrics as text")
     report.add_argument("--limit", type=int, default=12)
     report.set_defaults(handler=cmd_report)
+
+    requests_cmd = subparsers.add_parser(
+        "requests", help="re-check what we need from other systems"
+    )
+    requests_cmd.add_argument("--no-probe", action="store_true",
+                              help="list the asks without checking them")
+    requests_cmd.set_defaults(handler=cmd_requests)
 
     dailyexcel = subparsers.add_parser(
         "dailyexcel", help="compile the line's daily MLT/HTT tracker tabs"

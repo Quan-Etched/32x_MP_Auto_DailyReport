@@ -48,7 +48,7 @@ make status            # last fetch vs last update, per station
 
 | Check | Result |
 |---|---|
-| Unit tests | 221 passing (`make test`) |
+| Unit tests | 249 passing (`make test`) |
 | `/levels` | `l6, l10, l11, slt, module, bringup` |
 | Live collect | 1062 runs over 30 days across l6 + l10 + slt + module |
 | Status / duration resolved | all runs |
@@ -205,6 +205,13 @@ against the MDM-installed root in the system keychain.
   this ETL already collects — `runs.html` is the per-run permalink OCP itself
   cannot offer. And OCP's only run-identifying filter is DUT SERIAL, so the
   useful thing to hand a reader is the serial and the date.
+
+### Tracked on the feature-request page
+
+`dashboard/requests.html` now carries every ask against a system we do not own,
+with a probe where the answer can be checked rather than asserted. It is built
+hourly, so the status there is never older than the page. The escalations below are
+mirrored into it; this list stays as the written record.
 
 ### To escalate
 

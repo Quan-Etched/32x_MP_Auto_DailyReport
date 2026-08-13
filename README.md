@@ -151,6 +151,30 @@ same meanings `daily.py` gives them, so the row count always reconciles with the
 number that was clicked. `abort` means EOS's `error`; see
 `src/factory/build_runs.py`.
 
+**`dashboard/requests.html` — what we need from other systems.** A route, a
+certificate, an IAM grant, a field in someone else's API, a decision that is not
+ours. Only asks that need *someone else* — work we can do ourselves stays in
+STATUS.md.
+
+The checkable ones **check themselves on every build**: pega3 reachability, how
+many certificates the site serves, whether the l11 502 is still coming back,
+whether a Jira or OCP URL is configured. So an entry reads
+`blocked · checked 4 minutes ago` rather than making a claim of unknown age, and
+an ask someone quietly fixed turns green on the next hourly build with nobody
+editing the registry.
+
+Two things it is careful about, both learned the hard way. A probe is only true
+where it ran — "pega3 is reachable" from a laptop says nothing about the
+dashboard host — so the answer carries the hostname and the page prints it. And
+the TLS probe counts the certificates nginx *serves* rather than asking whether
+this machine can verify: import the missing intermediate locally, which is the
+documented workaround, and a verification-based check would go green while every
+other reader still gets a warning.
+
+```sh
+make requests          # re-check now; also runs inside `make build`
+```
+
 **`dashboard/dailyexcel.html` — the line's daily MLT/HTT tracker.** The one page
 here that is *not* derived from the API. The module line keeps a Google Sheet of
 which units passed MLT and HTT each day, which test case failed and which Jira
@@ -263,6 +287,9 @@ src/factory/
   items.py            flattens test cases to numeric test items (SQLite)
   releases.py         per-release item views and compatibility diffs
   xlsx.py             a minimal .xlsx reader (stdlib: zip + XML)
+  pega.py             read-only client for pega3 (the slot -> serial map)
+  chips.py            per-chip verdicts inside a fixture run
+  requests.py         what we need from other systems, and probes for it
   build_dailyexcel.py compiles the line's tracker tabs from daily/*.xlsx
   control.py          the /api routes behind the Update button
   cli.py              trust | levels | runs | inspect | collect | demo
@@ -276,6 +303,7 @@ dashboard/
   releases.html + releases.js + releases.css  test items by release
   runs.html + runtable.js + runs.css        raw run table (the drill-down)
   dailyexcel.html + dailysheet.js + dailyexcel.css   the line's daily tracker
+  requests.html + requests.js + requests.css   asks against other systems
   update.js           the Update button, shared by every page
   data/*.js           generated bundles (gitignored)
 
