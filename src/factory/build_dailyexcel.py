@@ -45,7 +45,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import chips, config, links, pega, stations, xlsx
+from . import chips, config, links, pega, rootcause, stations, xlsx
 
 #: ``08-11 87x`` / ``08-12  51x`` — month-day, then the line's own unit count.
 TAB_PATTERN = re.compile(r"^\s*(\d{1,2})-(\d{1,2})\s+(\d+)\s*x\s*$", re.IGNORECASE)
@@ -364,26 +364,26 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
             continue
         runs_seen += 1
         versions[station].append(entry.get("suite_name") or "")
-        failure = entry.get("first_failed_test_case") or ""
-        second = entry.get("second_failed_test_case") or ""
-        if second and second != failure:
-            failure = "{}\n{}".format(failure, second)
-
+        started = entry.get("start_time") or ""
         for part in pega.participants(detail):
             unit = units.setdefault(part["dut"], {
                 "pn": entry.get("dut_part_number") or "",
                 "asic": entry.get("asic_lot_code") or "",
             })
-            # A unit retested the same day keeps its latest verdict, which is
-            # what the line records — the sheet has one row per unit, not one
-            # per attempt.
+            # A unit retested the same day gets one row, not one per attempt —
+            # the sheet has one row per unit. The row is the *latest* attempt:
+            # keeping whichever run happened to be processed last made the
+            # verdict depend on the order pega3 returned its listing, and
+            # disagreed with the line on 9 of 87 units.
+            previous = unit.get(station)
+            if previous and previous["started"] >= started:
+                continue
             unit[station] = {
                 "status": part["status"],
-                # The run-level failure names the suite's first failure; it is
-                # only attributable to a unit that actually failed.
-                "fail": failure if part["status"] == "fail" else "",
+                "fail": _unit_failure(detail, part["slot"]) if part["status"] == "fail" else "",
                 "url": pega.run_url(run_id, part["slot"]),
                 "short": run_id.rsplit("_run_", 1)[-1],
+                "started": started,
             }
 
     if not units:
@@ -440,6 +440,38 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
         "counts": _counts(rows, columns),
         "crossref": {"matched": 0, "duts": len(units)},
     }
+
+
+def _unit_failure(detail: Dict[str, Any], slot: Optional[int]) -> str:
+    """The failing test case for one slot, not for the fixture.
+
+    pega3's run-level ``first_failed_test_case`` is the first failure anywhere
+    in the run, which is usually a container (``SltModuleNestedTestCase``) or
+    another chip's failure. Attributing it to every failed unit is how the
+    tracker's failure column ended up disagreeing with the line's on 21 of 87
+    rows.
+
+    The per-slot answer is in ``test_cases``, whose ``test_id`` carries the chip
+    index (``..._run_4cb95b11_chip0_dma``). Containers are skipped for the same
+    reason the Pareto skips them: a nest fails because a leaf under it did, and
+    the leaf is the signature the line writes down.
+    """
+    if slot is None:
+        return ""
+    best = None
+    for case in detail.get("test_cases") or []:
+        status = str(case.get("status") or "").lower()
+        if not status.startswith(("fail", "error")):
+            continue
+        if chips.chip_of(case.get("test_id") or "") != slot:
+            continue
+        name = case.get("test_name") or ""
+        if rootcause.is_container(name):
+            continue
+        start = case.get("start_time") or ""
+        if best is None or start < best[0]:
+            best = (start, name)
+    return best[1] if best else ""
 
 
 def _derived_link(run: Dict[str, Any], day: str) -> Dict[str, Any]:

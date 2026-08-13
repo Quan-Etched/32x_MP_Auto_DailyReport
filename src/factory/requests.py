@@ -315,19 +315,24 @@ REQUESTS: List[Dict[str, Any]] = [
         "priority": "Decision",
         "owner": "Module line",
         "title": "Decide whether the dashboard replaces the tracker sheet",
-        "need": "The daily tracker can be rebuilt from the API exactly — 2026-08-12 "
-                "came back 51 units of 51 with 92 verdicts and no disagreement. But "
-                "the sheet covers 14 of the day's 118 suite runs and nothing in the "
-                "data distinguishes those 14: same suites, same stations, same "
-                "serial family.",
+        "need": "The daily tracker can be rebuilt from the API exactly, and the "
+                "rule deciding which units it covers now looks like the serial "
+                "lot. If that is right, the sheet is fully derivable and can "
+                "retire; if it is a coincidence of two days, we need the real rule "
+                "before the page can claim to replace it.",
         "evidence": [
-            "Rebuilding 08-12 from pega3 reproduced the sheet row for row, "
-            "including the failing test-case names typed in by hand.",
-            "The sheet's 51 units came from 14 suite runs; pega3 recorded 118 that "
-            "day, 107 of them production.",
+            "Cross-check of 08-11 and 08-12: every verdict matches (87 + 64 and "
+            "51 + 41 units), and every FI test link matches.",
+            "The sheet is exactly pega3 minus serial lot 26849410. 08-11: sheet "
+            "has 26849411 x71 and 26849413 x16; pega3 adds 26849410 x25 and "
+            "nothing else. 08-12: no lot-10 units ran and the two agree 51 to 51.",
+            "The failure-case column matches on all but 7 of 41 rows (08-11) and "
+            "1 of 24 (08-12) — those are rows where several tests failed and the "
+            "line named a different one, which is judgement rather than data.",
         ],
-        "doneWhen": "Either the line states the selection rule and the page applies "
-                    "it, or the page shows every run and the sheet retires.",
+        "doneWhen": "The line confirms the lot rule (or gives the real one), and "
+                    "the page filters to it — or says the sheet retires and shows "
+                    "every unit.",
         "raised": "2026-08-13",
     },
     {

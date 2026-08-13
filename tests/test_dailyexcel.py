@@ -423,10 +423,26 @@ class PegaTabTest(unittest.TestCase):
          "first_failed_test_case": "", "second_failed_test_case": None},
     ]
 
+    #: test_id carries the chip index, which is how a failure is attributed to a
+    #: slot. chip1 fails too, on a unit that passed overall — if that leaked onto
+    #: chip0's row the column would name another unit's failure, which is exactly
+    #: what the run-level first_failed_test_case used to do.
+    def _case(run, chip, name, status, start):
+        return {"test_id": "%s_chip%d_%s" % (run, chip, name.lower()),
+                "test_name": name, "status": status, "start_time": start}
+
+    MLT = "mlt_2026.220.0-gitabc_run_4cb95b11"
     DETAIL = {
-        "mlt_2026.220.0-gitabc_run_4cb95b11": {"status": "failed", "participating": [
-            {"dut_sn": "268494130000045", "slot_number": 0, "status": "Failed"},
-            {"dut_sn": "268494130000044", "slot_number": 1, "status": "Passed"}]},
+        MLT: {"status": "failed",
+              "participating": [
+                  {"dut_sn": "268494130000045", "slot_number": 0, "status": "Failed"},
+                  {"dut_sn": "268494130000044", "slot_number": 1, "status": "Passed"}],
+              "test_cases": [
+                  _case(MLT, 0, "SltModuleNestedTestCase", "failed", "01:00"),
+                  _case(MLT, 0, "BootloaderResultTestCase", "failed", "01:05"),
+                  _case(MLT, 0, "SohuDmaTestCase", "failed", "01:09"),
+                  _case(MLT, 1, "SohuVrmTestCase", "failed", "01:02"),
+              ]},
         "htt_2026.224.0-gitdef_run_1af8af3d": {"status": "passed", "participating": [
             {"dut_sn": "268494130000045", "slot_number": 0, "status": "Passed"}]},
         "mlt_2026.218.0-gitxyz_validation_run_deadbeef": {"status": "passed",
@@ -455,10 +471,41 @@ class PegaTabTest(unittest.TestCase):
         self.assertEqual(row[4], {"v": "Failed", "t": "fail"})     # MLT
         self.assertEqual(row[7], {"v": "Passed", "t": "pass"})     # HTT
 
-    def test_the_failure_case_lands_only_on_the_unit_that_failed(self):
+    def test_the_failure_named_is_the_slot_s_own_first_leaf(self):
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
+        # chip0's first failing *leaf* — not SltModuleNestedTestCase, which is a
+        # container, and not chip1's SohuVrmTestCase.
         self.assertEqual(rows["268494130000045"][5]["v"], "BootloaderResultTestCase")
+
+    def test_a_passing_unit_gets_no_failure_even_when_its_slot_failed_a_test(self):
+        # chip1 has a failing test case but pega3 graded the unit Passed; the
+        # verdict is pega3's, and a failure name without a failure is noise.
+        rows = {r[1]["v"]: r for r in self.build()["rows"]}
         self.assertEqual(rows["268494130000044"][5], {})
+
+    def test_only_the_first_failure_is_named_not_every_one(self):
+        # Measured against the line's own sheet: naming the first failing leaf
+        # agrees on 35 of 49 rows, listing them all on 29 — the tracker records
+        # the first, not the set.
+        rows = {r[1]["v"]: r for r in self.build()["rows"]}
+        self.assertNotIn("SohuDmaTestCase", rows["268494130000045"][5]["v"])
+
+    def test_the_latest_attempt_wins_when_a_unit_runs_twice(self):
+        # Keeping whichever run pega3 returned last made the verdict depend on
+        # listing order and disagreed with the line on 9 of 87 units.
+        from factory import pega
+        late = "mlt_2026.220.0-gitabc_run_99999999"
+        listing = list(self.LISTING) + [dict(self.LISTING[0], suite_run_id=late,
+                                             start_time="2026-08-13T23:00:00Z")]
+        listing[0] = dict(listing[0], start_time="2026-08-13T01:00:00Z")
+        detail = dict(self.DETAIL)
+        detail[late] = {"status": "passed", "participating": [
+            {"dut_sn": "268494130000045", "slot_number": 0, "status": "Passed"}]}
+        pega.day_suite_runs = lambda day: listing
+        pega.suite_run = lambda run_id: detail[run_id]
+        rows = {r[1]["v"]: r for r in self.build()["rows"]}
+        self.assertEqual(rows["268494130000045"][4]["v"], "Passed")
+        self.assertTrue(rows["268494130000045"][6]["h"].endswith("run_99999999?slot_number=0"))
 
     def test_the_link_is_the_sheets_own_slot_url(self):
         row = next(r for r in self.build()["rows"] if r[1]["v"] == "268494130000044")

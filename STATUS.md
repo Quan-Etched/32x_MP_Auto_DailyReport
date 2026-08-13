@@ -126,6 +126,38 @@ line's decision; a day it has not reached yet is a gap. The DUT column says
 static BOM with every `serial_number` null, `suite_config` has none, and
 `resource_config` is never fetched because it holds credentials.
 
+## Cross-check: the tracker sheet against what we fetch
+
+Both hand-kept days were compared cell by cell against the same days rebuilt
+from pega3.
+
+| | 2026-08-11 | 2026-08-12 |
+|---|---|---|
+| Units in the sheet | 87 | 51 |
+| Present in the fetch | **87 of 87** | **51 of 51** |
+| MLT verdicts agreeing | **87 of 87** | **51 of 51** |
+| HTT verdicts agreeing | **64 of 64** | **41 of 41** |
+| FI test links agreeing | **all** | **all** |
+| Failure-case column | 34 of 41 | 23 of 24 |
+
+**The sheet is pega3 minus serial lot `26849410`.** On 08-11 the sheet holds
+lots 26849411 (71) and 26849413 (16); pega3 has those same 87 plus 25 units
+from lot 26849410 and nothing else. On 08-12 no lot-10 units ran, which is why
+that day matched exactly. That is very likely the curation rule nobody could
+name — it needs one sentence of confirmation from the line.
+
+The remaining failure-case differences are rows where several tests failed on a
+unit and the line wrote down a different one — `CheckFirmwareVersionTestCase`
+where the first failure was `SohuFlrTestCase`. Listing every failure instead of
+the first makes agreement *worse* (29/49 against 35/49), so the line records
+the first failing leaf and occasionally overrides it with judgement.
+
+Two bugs in the fetch were found by this comparison and fixed: the run-level
+`first_failed_test_case` was being attributed to every failed unit in a fixture
+(it is usually a container or another chip's failure), and a unit tested twice
+in a day kept whichever attempt pega3 happened to return last rather than the
+latest one.
+
 ## What was verified, and what it changed
 
 `make inspect` was run against l10, slt and module. Three findings materially
