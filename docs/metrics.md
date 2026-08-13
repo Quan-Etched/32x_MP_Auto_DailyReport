@@ -137,6 +137,41 @@ with no data, so the page can say *why* a station is empty. Debug suites
 **Release** is the middle component of the version string:
 `2026.207.0-git…` → `207`.
 
+### Run yield vs unit yield — two numbers, both true
+
+A module fixture drives **eight chips at once**, and EOS records the result as
+**one run with one status**. The line records the same event as **eight units**.
+So a run where one chip failed is:
+
+| | |
+|---|---|
+| **Run yield** (`Pass rate`) | 0 of 1 — the fixture did not pass |
+| **Unit yield** | 7 of 8 — seven chips are good |
+
+Neither is wrong and neither replaces the other. The run figure is what the API
+measured; the unit figure is what the line means when it says yield, and it is
+the one that reconciles with the daily tracker. The station page shows both.
+
+The gap is not small. Over the 30 days to 2026-08-13: MLT **28.5% run / 57.4%
+unit**, HTT **21.9% / 60.7%**, all stations **35.5% / 57.2%**. Reading the run
+figure as unit yield understates the line by roughly half.
+
+**How a chip's verdict is derived** (`src/factory/chips.py`): from the chip
+index in the test name, which appears in two spellings inside a single run —
+`server_setup_bootloader_result_chip4` and `chip6_llama70b_tp1_forward_iterated`.
+A chip fails if any of its **leaf** tests failed or errored. Containers are
+excluded exactly as the Pareto excludes them; without that every chip's
+signature comes back as `SltModuleNestedTestCase` instead of the real one.
+
+A failing test with **no** chip index — `server_setup`, the rig, the harness —
+is fixture-level and is not charged to any slot. Stations whose tests carry no
+chip index at all (the L10 stages) report no unit yield rather than a zero.
+
+**The check that this reconstructs what the line records:** on 2026-08-12,
+twelve of the thirteen failure test-case names in the tracker sheet appear as
+per-chip failures in EOS; on 08-11, twelve of fourteen. Those names are typed
+by hand into the sheet.
+
 ### Drilling into a number (`dashboard/runs.html`)
 
 Every count on the station page links to the runs behind it. The link carries a

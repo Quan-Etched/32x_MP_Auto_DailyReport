@@ -48,7 +48,7 @@ make status            # last fetch vs last update, per station
 
 | Check | Result |
 |---|---|
-| Unit tests | 196 passing (`make test`) |
+| Unit tests | 221 passing (`make test`) |
 | `/levels` | `l6, l10, l11, slt, module, bringup` |
 | Live collect | 1062 runs over 30 days across l6 + l10 + slt + module |
 | Status / duration resolved | all runs |
@@ -94,14 +94,37 @@ It is the only page not derived from the API, deliberately: which unit passed
 MLT, which test case failed and which Jira ticket tracks it are judgements a
 person made, and no endpoint carries them.
 
-**It also surfaces a coverage gap worth chasing.** The sheet records 138 units
-across 2026-08-11 and -12; EOS returns 45 MLT/HTT runs on each of those days,
-and only **32 of the 138 DUT serials appear in the collected run table at all**.
-Where they do match, the station resolves exactly as expected (`mlt` / `htt` on
-`rdqs_sweep_training`), so the join is right and the volume is not. Either the
-line tests units that never reach EOS, or they land under a level or a window
-this collection does not cover. A DUT is linked into `runs.html` only where the
-run exists, and the ratio is printed on the page rather than hidden.
+**The coverage gap it surfaced is now explained.** Reconciling the two tabs
+against EOS found three causes and no bug in either system:
+
+- **The day boundary.** The sheet buckets by **UTC**; this dashboard buckets by
+  factory-local time. DUT `268494130000018` runs at 17:30 PT on 08-11, its
+  runId is stamped `20260812_003002`, and the line files it under 08-12.
+  Comparing like for like lifted the MLT overlap from 4 of 13 to **10 of 13**.
+- **The unit of record.** A pega3 suite run drives **eight slots at once** —
+  the sheet's 87 rows for 08-11 came from 11 suite runs — while EOS records one
+  run per fixture carrying one `dutSerial` and no slot number. EOS therefore
+  sees roughly **one unit in eight**, which is the whole of the "138 units vs
+  45 runs" gap.
+- **The verdict.** Run status is the fixture's, not the unit's. See *Run yield
+  vs unit yield* in `docs/metrics.md`.
+
+Every sheet-vs-EOS disagreement ran one way — sheet `Passed`, EOS `fail`, never
+the reverse — which is the signature of the third cause and of nothing else.
+
+**Still open: the HTT version does not match.** The sheet and its pega3 links
+record HTT as `htt_2026.217.0-git3940b759` on those days, while EOS records
+`htt_2026.216.0-git1b767d1a` and has **no 2026.217 run anywhere** in the 30-day
+window. MLT agrees exactly (`2026.220.0-git2f1c2f23`), so this is HTT-specific
+and needs the HTT owner, not a code change.
+
+**Derived tabs.** A day EOS has that the workbook does not is rebuilt in the
+sheet's shape, one row per chip, labelled *Rebuilt from EOS — not the line's
+sheet*. Only days after the newest real tab: a day the sheet skipped is the
+line's decision; a day it has not reached yet is a gap. The DUT column says
+`chip 3` because the serials genuinely are not in the API — `bom_config` is a
+static BOM with every `serial_number` null, `suite_config` has none, and
+`resource_config` is never fetched because it holds credentials.
 
 ## What was verified, and what it changed
 
@@ -230,7 +253,7 @@ src/factory/   eos_client · parse · collect · hourly · build_dashboard
                stations · rootcause · daily · fetchstate · build_stations
                demo_data · trust · cli · config
                items · releases · control
-               xlsx · build_dailyexcel · links
+               xlsx · build_dailyexcel · links · chips
 dashboard/     index.html (station yield) · hourly.html (rates)
                releases.html (test items by release) · runs.html (drill-down)
                dailyexcel.html (the line's tracker) · update.js · styles.css

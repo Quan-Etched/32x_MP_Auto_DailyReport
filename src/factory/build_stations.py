@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import config, daily, fetchstate, stations
+from . import chips, config, daily, fetchstate, stations
 
 #: Units listed in the retest table. The counts above it always cover every
 #: unit; only the row list is capped.
@@ -97,6 +97,14 @@ def _view(runs: List[Dict[str, Any]], tz_name: str) -> Dict[str, Any]:
     detail = retest.pop("detail", [])
     return {
         "summary": daily.station_summary(runs, tz_name),
+        # Unit-level yield, beside the run-level yield rather than instead of
+        # it. A module fixture drives eight chips and EOS scores the fixture, so
+        # one bad chip reads as one failed run here and as one failed unit of
+        # eight on the line's own tracker. Both numbers are true about different
+        # populations, and replacing either with the other loses information:
+        # the run figure is what the API measured, the unit figure is what the
+        # line means by yield. Null where a station's tests carry no chip index.
+        "units": chips.summarize(runs),
         "daily": daily.daily_yield(runs, tz_name),
         "releases": daily.release_yield(runs, tz_name),
         "pareto": daily.top_yield_hits(runs),

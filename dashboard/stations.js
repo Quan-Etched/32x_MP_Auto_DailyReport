@@ -857,7 +857,7 @@
     renderStationBar();
     renderFreshness();
     renderNote(station);
-    renderTiles(view.summary, station);
+    renderTiles(view.summary, station, view.units);
 
     var dailyRows = (view.daily || []).map(function (r) {
       return {
@@ -957,7 +957,7 @@
    * FPY tile carries its own denominator (graded first attempts), the pass-rate
    * tile carries all graded runs, and abort means `status=error`.
    */
-  function renderTiles(summary, station) {
+  function renderTiles(summary, station, units) {
     clear(refs.tiles);
     var specs = [
       { label: 'Runs', value: fmtInt(summary.runs), n: summary.runs,
@@ -973,6 +973,22 @@
       { label: 'Abort', value: fmtInt(summary.abort), n: summary.abort,
         note: 'harness error', filter: { status: 'abort' } }
     ];
+    /* Unit yield, beside run yield rather than instead of it.
+     *
+     * A module fixture drives eight chips and EOS scores the fixture: one bad
+     * chip is one failed run here and one failed unit of eight on the line's
+     * own tracker. Both are true about different populations, so both are
+     * shown, and the tile says which is which. It has no drill-down because
+     * runs.html filters runs — there is no per-chip row to link to. */
+    if (units && units.yield !== null && units.yield !== undefined && units.units) {
+      specs.push({
+        label: 'Unit yield', value: fmtPct(units.yield), n: 0,
+        note: units.passed + ' / ' + (units.passed + units.failed) +
+              ' chips, across ' + fmtInt(units.runs) + ' fixture runs',
+        filter: {}
+      });
+    }
+
     specs.forEach(function (spec) {
       // A zero has nothing to drill into; linking it would promise rows that do
       // not exist.
