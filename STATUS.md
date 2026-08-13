@@ -1,21 +1,34 @@
 # Project status
 
-**As of 2026-08-11 (updated).** Snapshot of what works, what was verified against the live
+**As of 2026-08-13 (updated).** Snapshot of what works, what was verified against the live
 API, and what is still open. Metric definitions live in `docs/metrics.md`; the
 verified API schema in `docs/api-usage.md`.
 
 ## Published
 
-**https://cuddly-enigma-pz3pz29.pages.github.io/** — private GitHub Pages
-(`public: false`), Etched org login required; an anonymous fetch gets the login
-page and no data. Served from the `gh-pages` branch, replaced by a single orphan
-commit on each publish so the hourly bundles never accumulate in history.
+**https://32x-production.i.etched.com** — nginx serving `/var/www/32x-production`
+on `chuck-dashboard.usw2.i.etched.com` (t3.medium, AlmaLinux 9), inside the
+corporate network. The same host collects hourly at :05 under a systemd user
+timer with linger enabled, so it publishes whether or not anyone is logged in.
+Moved there 2026-08-13; the procedure is in `docs/deploy.md`.
 
-**Nothing publishes to it automatically until `make schedule-install` has run.**
-The site holds whatever was last pushed, so a repo that only ever ran
-`make refresh` (which rebuilds locally but does not publish) shows stale data
-while the local dashboard is current. `make update` and the dashboard's Update
-button both close that gap by hand; the launchd agent closes it hourly.
+Verified end to end from the box: 1260 runs collected, all four pages and all
+four data bundles served with the right sizes and MIME types, full chain in
+2m07s.
+
+Two caveats, both real:
+
+- **No login.** Anyone on the office network or VPN can read it, and it carries
+  DUT serials, failure signatures and yield. The Pages copy it replaced required
+  an authenticated Etched org member, so this is a genuine loosening. Not
+  routable from outside is the whole of its protection.
+- **Its TLS certificate does not verify** in any browser — see *To escalate*.
+
+**https://cuddly-enigma-pz3pz29.pages.github.io/** — the previous home, still
+private (`public: false`) and still reachable, now **frozen at its last
+publish**: the laptop launchd agent that fed it was uninstalled at the cutover.
+A `make update` from a laptop still refreshes it. Retire it once the internal
+host is blessed.
 
 ## State: working end to end on live data
 
@@ -26,7 +39,7 @@ production EOS. Nothing is stubbed.
 make trust             # one-time: internal CA
 make update            # THE full update: collect + items + rebuild + publish
 make serve             # http://127.0.0.1:8787/ — same thing on an Update button
-make schedule-install  # hourly launchd agent, :05 past the hour
+make schedule-install  # hourly at :05 — systemd timer on the host, launchd on a Mac
 make status            # last fetch vs last update, per station
 ```
 
@@ -137,18 +150,30 @@ against the MDM-installed root in the system keychain.
 - **The EOS TLS chain should be fixed server-side** — serve the IPA CA as the
   intermediate instead of the unrelated corporate root, and no client needs
   `make trust`.
+- **`32x-production.i.etched.com` serves its leaf certificate and nothing
+  else** — `openssl s_client -showcerts` returns exactly one cert — so no client
+  can build a path and every reader gets a browser warning. The issuer,
+  `O=IDM.ETCHED.COM, CN=Certificate Authority`, is signed by `Etched RSA
+  Corporate Root CA`, which MDM already installs on every managed Mac: pointing
+  `ssl_certificate` at the fullchain fixes it for everyone with no client
+  change. Same omission as EOS, one host up. Confirmed 2026-08-13: plain `curl`
+  fails, `curl --cacert certs/etched-internal-ca.pem` returns 200.
+- **Whether the site should be readable by anyone on the VPN** is a decision
+  nobody has actually made — it was a side effect of moving off Pages.
 
 ## Not done yet
 
 - Drill-down from the Failure Pareto into a test's `log_file` trace. The paths
   are already collected and stored per failure; nothing is wired to open them.
 - Hourly roll-up of per-test durations (collected per run, not aggregated).
-- **The publisher is one Mac, and the agent has to be installed on it.** The
-  hourly agent both collects and publishes, so the site goes stale whenever that
-  machine is asleep, off the VPN, or never had `make schedule-install` run. CI cannot
-  take over — EOS is on a private address a GitHub runner cannot reach. A
-  always-on host inside the network would fix it. The page's "last fetch" panel
-  is what makes the staleness visible rather than silent.
+- **The Update button is not wired up on the dashboard host.** nginx already
+  proxies `/api/` there to `127.0.0.1:8765`, which is exactly what
+  `factory.control` wants, so the published page could carry a working button
+  instead of a `Snapshot` chip. Two things block it: the control server binds
+  8787, and its POST guard requires a loopback `Host` header that an nginx proxy
+  will not send. Relaxing that guard means thinking about who can reach the
+  route once it is no longer loopback-only — the box is inside the network, but
+  so is everyone. `docs/deploy.md` has the detail.
 - The seven root-cause rules added for EOS signatures should be **ported back to
   `test-daily/tools/build_dashboard.py`**, or the two dashboards will bucket the
   same failure differently.
@@ -166,8 +191,9 @@ src/factory/   eos_client · parse · collect · hourly · build_dashboard
                items · releases · control
 dashboard/     index.html (station yield) · hourly.html (rates)
                releases.html (test items by release) · update.js · styles.css
-tools/         hourly_refresh.sh · publish.sh   deploy/launchd/  hourly agent
-docs/          api-usage.md · metrics.md · dataviz-notes.md
+tools/         hourly_refresh.sh · publish.sh (web root | gh-pages)
+deploy/        launchd/ (macOS agent) · systemd/ (Linux user timer)
+docs/          api-usage.md · metrics.md · dataviz-notes.md · deploy.md
 tests/         156 tests over parsing, metrics, stations, fetch state, items,
                releases and the control endpoint
 ```

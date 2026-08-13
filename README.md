@@ -41,22 +41,44 @@ address.
 
 `make report` prints the same metrics as text if you just want numbers.
 
-## Live site (Etched org members only)
+## Live site
 
-**https://cuddly-enigma-pz3pz29.pages.github.io/**
+**https://32x-production.i.etched.com**
 
-GitHub Pages, served from the `gh-pages` branch. The site is **private**
-(`public: false`): the URL is unguessable and an anonymous request is redirected
-to a GitHub login, so only authenticated Etched org members can open it. Verified
-— an unauthenticated fetch returns the login page and no data.
+Served by nginx from `/var/www/32x-production` on
+`chuck-dashboard.usw2.i.etched.com` — a t3.medium running AlmaLinux 9, inside
+the corporate network. That same host runs the collection hourly and
+unattended, which is the point of it: it can reach EOS (a GitHub runner cannot)
+and it does not sleep (a laptop does). The move is written up in
+[`docs/deploy.md`](docs/deploy.md).
 
-It still carries real factory data (DUT serials, failure signatures, yield), so
-keep it private. Same posture as the existing `test-daily` dashboard.
+**Access posture is weaker than the Pages copy it replaced.** There is no login
+on this site — anyone on the office network or VPN can read it, and it carries
+real factory data (DUT serials, failure signatures, yield). It is not routable
+from outside, which is the whole of its protection. If that is not enough,
+restricting it is an infra request, not a change here.
 
 ```sh
 make update           # THE FULL UPDATE: collect + items + rebuild + publish
-make publish          # push the current dashboard/ to gh-pages, nothing else
+make publish          # publish the current dashboard/, nothing else
 ```
+
+`make publish` has two targets and chooses by environment: with
+`FACTORY_WEB_ROOT` set — on the dashboard host, via `.env` — it copies into that
+directory; without it, on a laptop, it force-pushes to `gh-pages`. Everything
+upstream calls the one script either way.
+
+### The GitHub Pages copy
+
+**https://cuddly-enigma-pz3pz29.pages.github.io/** — the previous home, and
+still private (`public: false`): an unguessable URL, and an anonymous request is
+redirected to a GitHub login, so only authenticated Etched org members can open
+it. It is **frozen at its last publish**, because the laptop agent that fed it
+has been uninstalled.
+
+A `make update` from a laptop still refreshes it, which is worth knowing before
+you run one; `FACTORY_PUBLISH=0 make update` rebuilds locally and publishes
+nowhere. Retire it once the internal host has been blessed.
 
 ### The Update button
 
@@ -76,11 +98,16 @@ running two collections at once.
 Expect ~3–4 minutes: a 30-day collect dominates, and the item ingest is
 incremental (only runs it has not seen before cost API calls).
 
-**The button is only live on the locally served copy.** On the Pages site it
-renders as a `Snapshot · Nh ago` chip instead, because there is no server there
-to run anything — the API key, the internal CA and the git credential all live
-on the ETL machine. A button that could not do what it says would be worse than
-no button.
+**The button is only live on a locally served copy.** On any published copy it
+renders as a `Snapshot · Nh ago` chip instead, because nothing there answers
+`/api/ping`. A button that could not do what it says would be worse than no
+button.
+
+On the dashboard host that is a wiring gap rather than a law: nginx already
+proxies `https://32x-production.i.etched.com/api/` to `127.0.0.1:8765`, which is
+exactly what `factory.control` wants. Two things stand in the way — the control
+server binds 8787 and its POST guard requires a loopback `Host` header, which an
+nginx proxy will not send. See [`docs/deploy.md`](docs/deploy.md).
 
 Each publish is a **single orphan commit that replaces the branch**. The bundles
 are ~650 KB and rebuild hourly; committing them onto a branch with history would
@@ -88,8 +115,8 @@ grow the repository by that much every hour forever. `main` keeps all the code
 and none of the data.
 
 > CI cannot do the collection: EOS resolves to a private address, so a GitHub
-> runner cannot reach it. The Mac running the launchd agent fetches and pushes;
-> GitHub only serves.
+> runner cannot reach it. The dashboard host, being inside the network, both
+> fetches and serves.
 
 ## Three dashboards and a drill-down
 
@@ -136,14 +163,21 @@ minted locally and appear nowhere in the EOS payload.
 make refresh            # one tick: collect + record state + rebuild
 make update             # the same, plus items and a publish
 make status             # last fetch vs last update, per station
-make schedule-install   # launchd agent, :05 every hour  <- REQUIRED for the
-                        #   live site to stay current on its own
+make schedule-install   # hourly job at :05  <- REQUIRED for the live site to
+                        #   stay current on its own
 make schedule-status    # is it loaded, and what did the last tick do
 ```
 
-Without `make schedule-install` nothing updates the Pages site on its own and it
-freezes at the last manual publish. `make schedule-status` prints `not loaded`
-when that is the case.
+`schedule-install` dispatches on `uname`: a launchd agent on macOS, a systemd
+**user** timer on Linux (`deploy/systemd/`). User units need no root, which
+suits a host whose only sudo permission is `dnf install`. On Linux it also
+enables linger — without it a user timer stops at logout, which would reintroduce
+the very failure the always-on host exists to remove — and says so loudly if
+polkit refuses.
+
+Without `make schedule-install` nothing updates the live site on its own and it
+freezes at the last manual publish. `make schedule-status` says so when that is
+the case.
 
 The scheduler tracks **two different timestamps**, because conflating them is
 how a dashboard lies:
@@ -209,12 +243,15 @@ dashboard/
   data/*.js           generated bundles (gitignored)
 
 tools/hourly_refresh.sh    THE update path: lock, collect, items, build, publish
-tools/publish.sh           orphan force-push of dashboard/ to gh-pages
-deploy/launchd/            the hourly agent plist
+tools/publish.sh           publish dashboard/: copy to FACTORY_WEB_ROOT, else
+                           orphan force-push to gh-pages
+deploy/launchd/            the hourly agent plist (macOS)
+deploy/systemd/            the hourly user service + timer (Linux)
 certs/                     fetched CA bundle (gitignored; `make trust`)
 data/raw/                  cached HTTP responses (gitignored)
 data/processed/            runs.json + fetch_state.json (gitignored)
 docs/                      api-usage.md · metrics.md · dataviz-notes.md
+                           deploy.md (the dashboard host)
 tests/                     175 unit tests over parsing, metrics, fetch state,
                            items, releases, the run bundle and the control
                            endpoint
@@ -295,6 +332,21 @@ API traffic.
 intermediate instead of the unrelated corporate root; then no client needs this
 step. Worth filing.
 
+**The dashboard site has the same disease.**
+`32x-production.i.etched.com` serves its leaf and nothing else — one certificate,
+no intermediate — so a browser cannot build a path either, and every reader gets
+a warning. Its issuer, `O=IDM.ETCHED.COM, CN=Certificate Authority`, is signed by
+`Etched RSA Corporate Root CA`, which MDM already installs everywhere; serving
+the fullchain would make it verify with no client changes at all. Until then, a
+reader can supply the missing link locally without trusting anything new:
+
+```sh
+security import certs/etched-internal-ca.pem -k ~/Library/Keychains/login.keychain-db
+```
+
+The certificate still validates up to the MDM-installed root — this only hands
+macOS the intermediate the server omits.
+
 ## Security
 
 `EOS_API_KEY` is read from the environment (or a gitignored `.env`) by the Python
@@ -308,5 +360,6 @@ gitignored, so factory data is not committed.
 make test
 ```
 
-40 tests covering status normalization, timestamp and duration coercion, all
-three plausible `suite_summary.json` shapes, and every metric definition.
+175 tests covering status normalization, timestamp and duration coercion, all
+three plausible `suite_summary.json` shapes, station classification, the run
+bundle's filter populations, and every metric definition.

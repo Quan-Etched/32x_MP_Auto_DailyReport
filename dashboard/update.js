@@ -6,10 +6,11 @@
  * live: one click runs collect -> items -> build -> publish and streams the
  * stages back.
  *
- * Served by GitHub Pages there is no server to run anything — the EOS key, the
- * internal CA and the git credential are all on the ETL machine — so the same
- * markup renders as a freshness chip that says how old the snapshot is. A
- * button that could not do what it says would be worse than no button.
+ * On a published copy nothing answers /api/ping, so the same markup renders as
+ * a freshness chip saying how old the snapshot is. A button that could not do
+ * what it says would be worse than no button. (On the dashboard host that is a
+ * wiring gap, not a law: nginx proxies /api/ to 127.0.0.1:8765 there and the
+ * ETL runs on the same box. See docs/deploy.md.)
  *
  * Style note: plain ES5, no build step, no dependencies — same as the rest of
  * the dashboard, which has to open over file:// as well as http://.
@@ -113,22 +114,21 @@
     ]));
     el.panel.appendChild(h('p', {
       class: 'update-note',
-      text: 'GitHub Pages serves static files, so nothing here can reach the ' +
-            'EOS API. This page changes only when the ETL machine publishes a ' +
-            'new bundle — hourly from the launchd agent, or on demand.'
+      text: 'This is a published copy: static files, so nothing here can reach ' +
+            'the EOS API. It changes only when the dashboard host collects and ' +
+            'publishes a new bundle, which it does hourly at :05.'
     }));
-    el.panel.appendChild(h('p', { class: 'update-note', text: 'To update it now:' }));
-    el.panel.appendChild(h('pre', { class: 'update-cmd', text: 'make update' }));
     el.panel.appendChild(h('p', {
       class: 'update-note',
-      text: 'Or run `make serve` and use the Update button on the local ' +
-            'dashboard, which does the same thing and shows progress.'
+      text: 'To update it now, on the dashboard host:'
     }));
+    el.panel.appendChild(h('pre', { class: 'update-cmd', text: 'make update' }));
     if (stale) {
       el.panel.appendChild(h('p', {
         class: 'update-note',
-        text: 'Hourly publishing is installed with `make schedule-install`; ' +
-              '`make schedule-status` shows whether it is running.'
+        text: 'Two hours without a publish means the hourly job did not run or ' +
+              'could not finish. `make schedule-status` on the host says which, ' +
+              'and prints the tail of the last run.'
       }));
       el.panel.hidden = false;
     }
@@ -146,7 +146,7 @@
     } else {
       el.button.textContent = 'Update';
       el.button.setAttribute(
-        'title', 'Collect from EOS, rebuild, and publish to GitHub Pages');
+        'title', 'Collect from EOS, rebuild, and publish the dashboard');
     }
     if (state) renderPanel(state);
   }

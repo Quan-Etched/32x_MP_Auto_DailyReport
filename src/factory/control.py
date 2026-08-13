@@ -55,7 +55,7 @@ STEPS: List[Dict[str, str]] = [
     {"key": "collect", "label": "Fetch runs from EOS"},
     {"key": "items", "label": "Flatten new runs to test items"},
     {"key": "build", "label": "Rebuild the dashboard bundles"},
-    {"key": "publish", "label": "Publish to GitHub Pages"},
+    {"key": "publish", "label": "Publish the dashboard"},
 ]
 
 #: Enough log to diagnose a failure, bounded so a stuck job cannot grow without
