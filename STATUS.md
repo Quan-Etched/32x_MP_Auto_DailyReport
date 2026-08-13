@@ -35,17 +35,39 @@ make status            # last fetch vs last update, per station
 
 | Check | Result |
 |---|---|
-| Unit tests | 83 passing (`make test`) |
+| Unit tests | 175 passing (`make test`) |
 | `/levels` | `l6, l10, l11, slt, module, bringup` |
 | Live collect | 1062 runs over 30 days across l6 + l10 + slt + module |
 | Status / duration resolved | all runs |
-| Stations mapped | 6 of 9 producing data; HTT unmapped, L11 ×2 blocked |
+| Stations mapped | 8 of 10 producing data; L11 ×2 blocked (IAM) |
 | Pareto coverage | "Other" 10.2% (was 71% before the container + separator fixes) |
 | Dashboards | both render on real data, light + dark, headless-Chrome verified |
 
-Station counts over the 30 days to 2026-08-07: SLT 296 · Chip Screening 206 ·
-MLT 198 · L10 FAT 102 · L10 SFT 99 · L10 RIN 9 · unclassified 152.
-Line-wide: 910 classified runs, 420 units, FPY 58.2%, pass rate 40.2%.
+Station counts over the 30 days to 2026-08-13: SLT 300 · MLT 196 · HTT 132 ·
+Chip Screening 129 · L10 FAT 77 · L10 SFT 59 · L10 2U 14 · L10 RIN 3 ·
+unclassified 332. 910 classified runs of 1242.
+
+Around release 220 (2026-08-10) the L10 suites dropped the `6U_` infix
+(`L10_6U_FAT` -> `L10_FAT`). The registry matched only the old spelling, so
+every run under the new name fell to unclassified and L10 RIN — whose old-name
+runs had by then aged out of the window — read as a flat zero while the line was
+still running it. The patterns now accept both spellings.
+
+**HTT was never absent, only unnamed.** It runs under the suite
+`rdqs_sweep_training` — 132 runs, module level — and nothing in that string says
+HTT. The station was recorded as unmapped on the strength of a search for the
+literal token, which is evidence about a string and not about a station. The
+mapping is visible only in the FAMILY column of the OCP Logs UI; EOS's `/runs`
+returns seven fields and family is not one of them. A `htt_`-prefixed rename is
+already being trialled (an `htt_rdqs_sweep_training` run on DUT `RENAME_TEST_0`,
+2026-08-12), so the pattern accepts both spellings up front.
+
+**A station can span levels.** From 2026-08-11 the `mlt` suite also began
+arriving under the `slt` level, on 22-character `JE…` serials rather than
+15-digit unit serials; 32 real MLT runs sat in the unclassified bucket because
+the registry entry matched `module` alone. MLT now lists both levels. The level
+is where the log landed, not what was tested — all 135 test-case names in those
+runs are part of the module-level MLT vocabulary.
 
 ## What was verified, and what it changed
 
@@ -75,9 +97,6 @@ against the MDM-installed root in the system keychain.
 
 ### Blocked by the API — cannot be fixed here
 
-- **HTT station.** No suite matching HTT exists in EOS at any level (searched
-  suite, version, runId and prefix over 30 days). It is in the registry as
-  `unmapped` and renders an explicit card; give it a suite name and it works.
 - **L11 Provision / L11 Test.** EOS returns HTTP 502: the API key's IAM role is
   denied `s3:ListBucket` on `etched-mfg-prod-l11-raw`. Both are in the registry
   as `blocked`, render the real error, and need no code change once access is
@@ -90,6 +109,18 @@ against the MDM-installed root in the system keychain.
 
 ### Needs a decision from someone else
 
+- **290 `Vbb*` provisioning runs at level `l6` are unclassified** —
+  `VbbCec173xProvisioning{Internal,External,…}`, `VbbFlashAndLockBootloader`,
+  `VbbValidateProductionProvisioning` and five more, 07-14 to 08-12, 79 DUTs,
+  215 pass / 64 error / 11 fail. They look like a real provisioning stage rather
+  than engineering runs, but no station on the line has been named for them.
+  Check the FAMILY column in OCP Logs (the only place that mapping is visible)
+  and they can be registered the way HTT was.
+- **23 runs are on placeholder DUT serials** — `DRY_RUN_*` (21), `TEST`,
+  `RENAME_TEST_0` — spread across MLT, SLT, chip screening and HTT, and 20 of
+  them fail or error. They currently count toward those stations' yield. If the
+  line agrees they are not units, the registry should exclude them the same way
+  it excludes the `_krish` debug suites.
 - **`EXITED` → `error` is an assumption.** It could equally mean a clean early
   exit. ~0.5% of entries, so low impact, but it should be confirmed with the EOS
   team rather than left as a guess.

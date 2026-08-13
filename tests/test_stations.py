@@ -9,9 +9,23 @@ class ClassifyTest(unittest.TestCase):
     def test_live_suite_names_land_on_the_right_station(self):
         cases = [
             ("module", "mlt", "mlt"),
+            # The same suite also lands under slt (from 2026-08-11). Matching
+            # only `module` left 32 real MLT runs in the unclassified bucket.
+            ("slt", "mlt", "mlt"),
             ("l10", "L10_6U_FAT", "l10_fat"),
             ("l10", "L10_6U_SFT", "l10_sft"),
             ("l10", "L10_6U_RIN", "l10_rin"),
+            # Release 220 (2026-08-10) dropped the 6U_ infix. Both spellings
+            # have to land, or the rename zeroes the station.
+            ("l10", "L10_FAT", "l10_fat"),
+            ("l10", "L10_SFT", "l10_sft"),
+            ("l10", "L10_RIN", "l10_rin"),
+            ("l10", "L10_2U", "l10_2u"),
+            # HTT's suite name says nothing about HTT; the mapping comes from
+            # the OCP Logs family column, and the htt_ prefix is a rename that
+            # started appearing 2026-08-12.
+            ("module", "rdqs_sweep_training", "htt"),
+            ("module", "htt_rdqs_sweep_training", "htt"),
             ("slt", "slt", "slt"),
             ("slt", "Sohu_SLT", "slt"),
             ("slt", "chip_screening_parallel", "chip_screening"),
@@ -25,22 +39,32 @@ class ClassifyTest(unittest.TestCase):
         # L10_6U_FAT_krish is an engineering run; folding it into FAT would move
         # the number the line reports.
         for suite in ("L10_6U_FAT_krish", "L10_6U_FAT_debug_krish",
-                      "L10_6U_MEM_etch33931"):
+                      "L10_6U_MEM_etch33931",
+                      # 22 of 23 runs error out — a dev suite, not a stage.
+                      "L10_tests",
+                      # 2 test cases against L10_2U's 26.
+                      "L10_2U_SMOKE"):
             self.assertEqual(stations.classify("l10", suite), stations.UNCLASSIFIED, suite)
 
     def test_level_is_part_of_the_match(self):
         self.assertEqual(stations.classify("module", "L10_6U_FAT"), stations.UNCLASSIFIED)
 
-    def test_unmapped_and_blocked_stations_never_capture_runs(self):
-        # HTT has no pattern; L11 patterns exist but must not match live suites
-        # from readable levels.
-        for suite in ("mlt", "slt", "L10_6U_FAT", "chip_screening_parallel"):
+    def test_blocked_stations_never_capture_runs(self):
+        # L11's patterns exist but are unverified guesses, so they must not
+        # swallow live suites from the levels we can actually read.
+        for suite in ("mlt", "slt", "L10_6U_FAT", "chip_screening_parallel",
+                      "rdqs_sweep_training"):
             key = stations.classify("l10", suite)
-            self.assertNotIn(key, ("htt", "l11_provision", "l11_test"), suite)
+            self.assertNotIn(key, ("l11_provision", "l11_test"), suite)
+
+    def test_htt_does_not_poach_the_other_module_suites(self):
+        # HTT and MLT share the module level, so its pattern has to be anchored.
+        for suite in ("mlt", "chip_screening_parallel", "selfheal_repro_a"):
+            self.assertNotEqual(stations.classify("module", suite), "htt", suite)
 
     def test_registry_is_complete_and_ordered(self):
         keys = [s["key"] for s in stations.registry()]
-        for expected in ("mlt", "htt", "l10_fat", "l10_sft", "l10_rin",
+        for expected in ("mlt", "htt", "l10_fat", "l10_sft", "l10_rin", "l10_2u",
                          "l11_provision", "l11_test", "slt", "chip_screening"):
             self.assertIn(expected, keys)
         orders = [s["order"] for s in stations.registry()]

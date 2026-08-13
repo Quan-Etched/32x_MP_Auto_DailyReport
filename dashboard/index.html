@@ -14,6 +14,7 @@
     <h1>Station yield</h1>
     <span class="meta" id="meta"></span>
     <span class="spacer"></span>
+    <a class="theme-toggle" href="runs.html">Raw runs →</a>
     <a class="theme-toggle" href="releases.html">Test items by release →</a>
     <a class="theme-toggle" href="hourly.html">Hourly rates →</a>
     <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
@@ -38,7 +39,7 @@
         <div class="card-head">
           <div>
             <h2>Pass / fail / abort by day</h2>
-            <p class="sub">Runs counted on the day they started</p>
+            <p class="sub">Runs counted on the day they started · click a bar for that day's runs</p>
           </div>
           <span class="spacer"></span>
           <button type="button" class="view-toggle" data-toggle="daily-mix" aria-pressed="false">Table</button>
@@ -52,7 +53,7 @@
         <div class="card-head">
           <div>
             <h2>First-pass yield trend</h2>
-            <p class="sub">Hollow marker = thin sample (&lt;5 graded first attempts)</p>
+            <p class="sub">Hollow marker = thin sample (&lt;5 graded first attempts) · click a point for those first attempts</p>
           </div>
           <span class="spacer"></span>
           <button type="button" class="view-toggle" data-toggle="daily-fpy" aria-pressed="false">Table</button>
@@ -66,7 +67,7 @@
         <div class="card-head">
           <div>
             <h2>Pass / fail / abort by software release</h2>
-            <p class="sub">Release · date range tested</p>
+            <p class="sub">Release · date range tested · click a bar for that release's runs</p>
           </div>
           <span class="spacer"></span>
           <button type="button" class="view-toggle" data-toggle="rel-mix" aria-pressed="false">Table</button>
@@ -80,7 +81,7 @@
         <div class="card-head">
           <div>
             <h2>First-pass yield by software release</h2>
-            <p class="sub">Hollow marker = thin sample</p>
+            <p class="sub">Hollow marker = thin sample · click a point for those first attempts</p>
           </div>
           <span class="spacer"></span>
           <button type="button" class="view-toggle" data-toggle="rel-fpy" aria-pressed="false">Table</button>

@@ -240,7 +240,7 @@ def cmd_refresh(args: argparse.Namespace) -> int:
 
 
 def cmd_build(args: argparse.Namespace) -> int:
-    from . import build_stations, fetchstate, items as items_mod, releases
+    from . import build_runs, build_stations, fetchstate, items as items_mod, releases
 
     payload = collect_mod.read_runs()
     bundle = build_dashboard.build_bundle(payload)
@@ -250,10 +250,18 @@ def cmd_build(args: argparse.Namespace) -> int:
         "Bundled {} runs ({:.0f} KB) -> {}".format(len(bundle["runs"]), size_kb, path)
     )
 
-    stations_bundle = build_stations.build_bundle(payload, fetchstate.load())
+    state = fetchstate.load()
+    stations_bundle = build_stations.build_bundle(payload, state)
     stations_path = build_stations.write_bundle(stations_bundle)
     print("Stations bundle ({:.0f} KB) -> {}".format(
         stations_path.stat().st_size / 1024, stations_path))
+
+    # The run-level drill-down every number on the station page links into.
+    runs_bundle = build_runs.build_bundle(payload, state)
+    runs_path = build_runs.write_bundle(runs_bundle)
+    print("Runs bundle ({:.0f} KB, {} runs, {} test names) -> {}".format(
+        runs_path.stat().st_size / 1024, len(runs_bundle["runs"]),
+        len(runs_bundle["testNames"]), runs_path))
 
     # The releases page needs the item store; skip rather than fail when it has
     # not been built yet (`make items`).

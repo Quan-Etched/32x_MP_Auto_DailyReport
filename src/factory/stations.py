@@ -13,7 +13,22 @@ silently omitting it. Three states:
 ``unmapped`` the line runs it, but no matching suite name has been found in EOS
 ``blocked``  the suite exists but the API key cannot read that level's bucket
 
-Verified against a 30-day window on 2026-08-07.
+Verified against a 30-day window on 2026-08-11.
+
+Suite names are not stable over time: around release 220 (2026-08-10) the L10
+suites dropped the ``6U_`` infix (``L10_6U_FAT`` -> ``L10_FAT``), and HTT looks
+to be gaining an ``htt_`` prefix (a ``htt_rdqs_sweep_training`` run appeared on
+2026-08-12 under the DUT serial ``RENAME_TEST_0``). Patterns here accept both
+spellings, and should keep accepting both — a pattern that only matches today's
+name silently zeroes a station the next time the line renames one.
+
+**The suite name is not the station name.** HTT runs under
+``rdqs_sweep_training``; nothing in that string says HTT. The mapping is
+verifiable only from the FAMILY column of the OCP Logs UI, which EOS itself does
+not serve — ``/runs`` returns seven fields and family is not among them (see
+docs/api-usage.md). So "no suite matching X exists" is evidence about a string,
+never proof that a station is absent; check the family column before recording a
+station as unmapped.
 """
 
 from __future__ import annotations
@@ -71,15 +86,21 @@ class Station:
 #: Ordered as the line runs: module test -> chip screening -> SLT -> L10 -> L11.
 STATIONS: List[Station] = [
     Station(
-        key="mlt", label="MLT", level="module", order=10,
+        key="mlt", label="MLT", levels=("module", "slt"), order=10,
         patterns=[r"^mlt$", r"^sohu_mlt", r"^mlt_\d+$"],
-        note="Module-level test. 210 runs in the 30 days to 2026-08-07.",
+        note="Module-level test. Runs under both the module and slt levels: "
+             "from 2026-08-11 the same mlt suite began appearing under slt, on "
+             "the 22-character JE… serials rather than the 15-digit unit "
+             "serials. Same stage — every one of its 135 test-case names is "
+             "part of the module-level MLT vocabulary — so the level it lands "
+             "under does not change what was tested.",
     ),
     Station(
-        key="htt", label="HTT", state=UNMAPPED, order=20,
-        note="No suite matching HTT exists in EOS at any level "
-             "(searched suite, version, runId and prefix over 30 days). "
-             "Add the suite name to this registry entry and it starts working.",
+        key="htt", label="HTT", level="module", order=20,
+        patterns=[r"^(htt_)?rdqs_sweep_training$"],
+        note="Memory training sweep. The suite is named rdqs_sweep_training — "
+             "nothing in it says HTT, which is why an earlier search for that "
+             "string found nothing and left this station unmapped.",
     ),
     Station(
         key="chip_screening", label="Chip Screening", levels=("slt", "module"), order=30,
@@ -93,21 +114,30 @@ STATIONS: List[Station] = [
     ),
     Station(
         key="l10_fat", label="L10 FAT", levels=("l10", "l6"), order=50,
-        patterns=[r"^L10_6U_FAT$", r"^FAT$"],
-        note="Final assembly test. Debug variants (L10_6U_FAT_krish, "
+        patterns=[r"^L10_(6U_)?FAT$", r"^FAT$"],
+        note="Final assembly test. 6U chassis, under both the old L10_6U_FAT "
+             "and the current L10_FAT name. Debug variants (L10_6U_FAT_krish, "
              "L10_6U_FAT_debug_krish) are deliberately excluded — they are "
              "engineering runs and would distort yield.",
     ),
     Station(
         key="l10_sft", label="L10 SFT", levels=("l10", "l6"), order=60,
-        patterns=[r"^L10_6U_SFT$", r"^SFT$"],
-        note="System function test.",
+        patterns=[r"^L10_(6U_)?SFT$", r"^SFT$"],
+        note="System function test. 6U chassis, under both the old L10_6U_SFT "
+             "and the current L10_SFT name.",
     ),
     Station(
         key="l10_rin", label="L10 RIN", levels=("l10", "l6"), order=70,
-        patterns=[r"^L10_6U_RIN$", r"^RIN$"],
-        note="Run-in. Low volume — 10 runs in 30 days, so most days are a "
-             "thin sample.",
+        patterns=[r"^L10_(6U_)?RIN$", r"^RIN$"],
+        note="Run-in. Low volume — most days are a thin sample or empty.",
+    ),
+    Station(
+        key="l10_2u", label="L10 2U", levels=("l10", "l6"), order=75,
+        patterns=[r"^L10_2U$"],
+        note="2U chassis test. A different product from the 6U stations, not a "
+             "different stage of it: it shares only 12 of its 27 test cases "
+             "with L10 FAT, so its yield is kept separate rather than folded "
+             "in. L10_2U_SMOKE (a 2-case smoke test) is excluded.",
     ),
     Station(
         key="l11_provision", label="L11 Provision", level="l11",
@@ -127,6 +157,10 @@ STATIONS: List[Station] = [
 
 #: Runs that match no station. Kept visible rather than dropped — a suite that
 #: nobody has mapped is a finding, not noise.
+#:
+#: Deliberately left here: ``L10_tests`` (23 runs, 22 of them status=error, on
+#: the two engineering DUTs) reads as a dev suite rather than a line stage, and
+#: mapping it would put a near-100% failure rate into a station's yield.
 UNCLASSIFIED = "unclassified"
 
 BY_KEY: Dict[str, Station] = {station.key: station for station in STATIONS}

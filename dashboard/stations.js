@@ -63,6 +63,36 @@
     return a === b ? fmtDayShort(a) : fmtDayShort(a) + '–' + fmtDayShort(b);
   }
 
+  /* ------------------------------------------------------------ drill-down */
+
+  /**
+   * Build a runs.html link. Every number on this page is a count of runs, and
+   * this is how a reader gets from the number to the rows behind it.
+   *
+   * The filter keys are runs.html's, and its semantics are daily.py's — pass
+   * `status: 'abort'` for the abort tile (EOS calls that verdict `error`) and
+   * `status: 'graded'` for a pass-rate denominator. See build_runs.py.
+   */
+  function runsHref(extra) {
+    var parts = ['station=' + encodeURIComponent(state.station)];
+    Object.keys(extra || {}).forEach(function (key) {
+      var value = extra[key];
+      if (value === null || value === undefined || value === '') return;
+      parts.push(key + '=' + encodeURIComponent(value));
+    });
+    return 'runs.html#' + parts.join('&');
+  }
+
+  function drill(extra) { location.href = runsHref(extra); }
+
+  /* Shallow merge, ES5-style — no Object.assign, to match the rest of the file. */
+  function dict(base, extra) {
+    var out = {};
+    Object.keys(base || {}).forEach(function (k) { out[k] = base[k]; });
+    Object.keys(extra || {}).forEach(function (k) { out[k] = extra[k]; });
+    return out;
+  }
+
   function ago(iso) {
     if (!iso) return null;
     var then = Date.parse(iso);
@@ -117,7 +147,9 @@
     };
   }
 
-  function attachCursor(plot, count, onMove, onLeave) {
+  /* Arrow keys move a cursor through the bars; Enter opens the drill-down for
+   * wherever the cursor is, so the chart is reachable without a pointer. */
+  function attachCursor(plot, count, onMove, onLeave, onActivate) {
     var index = -1;
     plot.setAttribute('tabindex', '0');
     plot.setAttribute('role', 'application');
@@ -128,6 +160,9 @@
       else if (e.key === 'Home') { index = 0; onMove(0); e.preventDefault(); }
       else if (e.key === 'End') { index = count - 1; onMove(index); e.preventDefault(); }
       else if (e.key === 'Escape') { index = -1; onLeave(); }
+      else if ((e.key === 'Enter' || e.key === ' ') && onActivate && index >= 0) {
+        onActivate(index); e.preventDefault();
+      }
     });
     plot.addEventListener('blur', function () { index = -1; onLeave(); });
   }
@@ -278,13 +313,26 @@
 
     var hit = s('rect', { class: 'hit', x: margin.left, y: margin.top, width: innerW, height: innerH });
     svg.appendChild(hit);
-    hit.addEventListener('pointermove', function (e) {
+
+    function indexAt(e) {
       var box = svg.getBoundingClientRect();
       var lx = (e.clientX - box.left) * (width / box.width) - margin.left;
-      show(Math.max(0, Math.min(rows.length - 1, Math.floor(lx / band))));
-    });
+      return Math.max(0, Math.min(rows.length - 1, Math.floor(lx / band)));
+    }
+
+    hit.addEventListener('pointermove', function (e) { show(indexAt(e)); });
     hit.addEventListener('pointerleave', hide);
-    attachCursor(plot, rows.length, show, hide);
+
+    // Clicking opens the runs behind that bar. The target is the whole band
+    // rather than the drawn bar, so a thin one-run column is still easy to hit.
+    var activate = opts.onSelect ? function (i) {
+      if (rows[i]) opts.onSelect(rows[i]);
+    } : null;
+    if (activate) {
+      hit.setAttribute('class', 'hit drillable');
+      hit.addEventListener('click', function (e) { activate(indexAt(e)); });
+    }
+    attachCursor(plot, rows.length, show, hide, activate);
   }
 
   /* ------------------------------------------------------------ FPY trend */
@@ -401,13 +449,26 @@
 
     var hit = s('rect', { class: 'hit', x: margin.left, y: margin.top, width: innerW, height: innerH });
     svg.appendChild(hit);
-    hit.addEventListener('pointermove', function (e) {
+
+    function indexAt(e) {
       var box = svg.getBoundingClientRect();
       var lx = (e.clientX - box.left) * (width / box.width) - margin.left;
-      show(Math.max(0, Math.min(rows.length - 1, step ? Math.round(lx / step) : 0)));
-    });
+      return Math.max(0, Math.min(rows.length - 1, step ? Math.round(lx / step) : 0));
+    }
+
+    hit.addEventListener('pointermove', function (e) { show(indexAt(e)); });
     hit.addEventListener('pointerleave', hide);
-    attachCursor(plot, rows.length, show, hide);
+
+    // The trend plots the FPY denominator, so its drill-down carries that
+    // population — graded first attempts — not every run in the bucket.
+    var activate = opts.onSelect ? function (i) {
+      if (rows[i]) opts.onSelect(rows[i]);
+    } : null;
+    if (activate) {
+      hit.setAttribute('class', 'hit drillable');
+      hit.addEventListener('click', function (e) { activate(indexAt(e)); });
+    }
+    attachCursor(plot, rows.length, show, hide, activate);
   }
 
   /* ---------------------------------------------------------------- Pareto */
@@ -636,7 +697,13 @@
       var tr = h('tr');
       columns.forEach(function (c, i) {
         var cell = h(i === 0 ? 'th' : 'td', i === 0 ? { scope: 'row' } : null);
-        cell.textContent = c.get(row);
+        var text = c.get(row);
+        // A column with href() renders as a drill-down link, underlined like
+        // every other clickable number on the page. Zeroes stay plain text —
+        // there are no rows behind them.
+        var href = c.href && text !== '0' && text !== '—' ? c.href(row) : null;
+        if (href) cell.appendChild(h('a', { class: 'drill-cell', href: href, text: text }));
+        else cell.textContent = text;
         tr.appendChild(cell);
       });
       body.appendChild(tr);
@@ -754,7 +821,13 @@
         type: 'button',
         class: empty ? 'empty' : '',
         'aria-pressed': station.key === state.station ? 'true' : 'false',
-        onclick: function () { state.station = station.key; render(); }
+        onclick: function () {
+          state.station = station.key;
+          var next = '#station=' + encodeURIComponent(station.key);
+          if (window.history && history.replaceState) history.replaceState(null, '', next);
+          else location.hash = next;
+          render();
+        }
       }, [
         h('span', { text: station.label }),
         h('span', { class: 'n', text: empty ? stateWord(station) : String(station.runs) })
@@ -807,17 +880,25 @@
     renderLegend(document.getElementById('legend-rel-mix'), MIX_SERIES);
 
     renderMix(document.getElementById('plot-daily-mix'), dailyRows, {
-      ariaLabel: 'Pass, fail and abort counts per day'
+      ariaLabel: 'Pass, fail and abort counts per day. Click a bar for its runs',
+      onSelect: function (row) { drill({ day: row.raw.day }); }
     });
     renderTrend(document.getElementById('plot-daily-fpy'), dailyRows, {
-      ariaLabel: 'First-pass yield per day'
+      ariaLabel: 'First-pass yield per day. Click a point for its first attempts',
+      onSelect: function (row) {
+        drill({ day: row.raw.day, attempt: 'first', status: 'graded' });
+      }
     });
     renderMix(document.getElementById('plot-rel-mix'), relRows, {
-      ariaLabel: 'Pass, fail and abort counts per software release',
-      axisTitle: 'RELEASE · DATE RANGE TESTED'
+      ariaLabel: 'Pass, fail and abort counts per software release. Click a bar for its runs',
+      axisTitle: 'RELEASE · DATE RANGE TESTED',
+      onSelect: function (row) { drill({ release: row.raw.release }); }
     });
     renderTrend(document.getElementById('plot-rel-fpy'), relRows, {
-      ariaLabel: 'First-pass yield per software release'
+      ariaLabel: 'First-pass yield per software release. Click a point for its first attempts',
+      onSelect: function (row) {
+        drill({ release: row.raw.release, attempt: 'first', status: 'graded' });
+      }
     });
 
     var paretoRows = view[state.paretoMode] || [];
@@ -870,21 +951,40 @@
     refs.note.hidden = false;
   }
 
+  /**
+   * Headline tiles. Each value drills into exactly the population it counts, so
+   * the row count on runs.html always reconciles with the number clicked: the
+   * FPY tile carries its own denominator (graded first attempts), the pass-rate
+   * tile carries all graded runs, and abort means `status=error`.
+   */
   function renderTiles(summary, station) {
     clear(refs.tiles);
     var specs = [
-      { label: 'Runs', value: fmtInt(summary.runs), note: fmtInt(summary.units) + ' distinct units' },
-      { label: 'First-pass yield', value: fmtPct(summary.fpy),
-        note: summary.fpyPass + ' / ' + summary.fpyTotal + ' first attempts' },
-      { label: 'Pass rate', value: fmtPct(summary.passRate),
-        note: summary.pass + ' / ' + summary.graded + ' graded' },
-      { label: 'Fail', value: fmtInt(summary.fail), note: 'unit verdict' },
-      { label: 'Abort', value: fmtInt(summary.abort), note: 'harness error' }
+      { label: 'Runs', value: fmtInt(summary.runs), n: summary.runs,
+        note: fmtInt(summary.units) + ' distinct units', filter: {} },
+      { label: 'First-pass yield', value: fmtPct(summary.fpy), n: summary.fpyTotal,
+        note: summary.fpyPass + ' / ' + summary.fpyTotal + ' first attempts',
+        filter: { attempt: 'first', status: 'graded' } },
+      { label: 'Pass rate', value: fmtPct(summary.passRate), n: summary.graded,
+        note: summary.pass + ' / ' + summary.graded + ' graded',
+        filter: { status: 'graded' } },
+      { label: 'Fail', value: fmtInt(summary.fail), n: summary.fail,
+        note: 'unit verdict', filter: { status: 'fail' } },
+      { label: 'Abort', value: fmtInt(summary.abort), n: summary.abort,
+        note: 'harness error', filter: { status: 'abort' } }
     ];
     specs.forEach(function (spec) {
+      // A zero has nothing to drill into; linking it would promise rows that do
+      // not exist.
+      var value = spec.n
+        ? h('a', {
+            class: 'value drill', href: runsHref(spec.filter), text: spec.value,
+            title: 'Show the ' + fmtInt(spec.n) + ' runs behind this number'
+          })
+        : h('div', { class: 'value', text: spec.value });
       refs.tiles.appendChild(h('div', { class: 'card tile' }, [
         h('div', { class: 'label', text: spec.label }),
-        h('div', { class: 'value', text: spec.value }),
+        value,
         h('div', { class: 'foot' }, [h('span', { class: 'delta', text: spec.note })])
       ]));
     });
@@ -912,36 +1012,50 @@
   }
 
   function renderTables(dailyRows, relRows, paretoRows, view) {
+    // Day and release are the two slices people ask each other for by name
+    // ("what happened on 8/11?", "how is 220 doing?"), so every count in these
+    // tables is a link to exactly those runs.
+    var byDay = function (extra) {
+      return function (r) { return runsHref(dict({ day: r.raw.day }, extra)); };
+    };
+    var byRelease = function (extra) {
+      return function (r) { return runsHref(dict({ release: r.raw.release }, extra)); };
+    };
+
     renderTable(document.getElementById('table-daily-mix'), 'Pass / fail / abort by day', [
-      { label: 'Day', get: function (r) { return r.raw.day; } },
-      { label: 'Runs', get: function (r) { return fmtInt(r.total); } },
-      { label: 'Pass', get: function (r) { return fmtInt(r.pass); } },
-      { label: 'Fail', get: function (r) { return fmtInt(r.fail); } },
-      { label: 'Abort', get: function (r) { return fmtInt(r.abort); } },
+      { label: 'Day', get: function (r) { return r.raw.day; }, href: byDay() },
+      { label: 'Runs', get: function (r) { return fmtInt(r.total); }, href: byDay() },
+      { label: 'Pass', get: function (r) { return fmtInt(r.pass); }, href: byDay({ status: 'pass' }) },
+      { label: 'Fail', get: function (r) { return fmtInt(r.fail); }, href: byDay({ status: 'fail' }) },
+      { label: 'Abort', get: function (r) { return fmtInt(r.abort); }, href: byDay({ status: 'abort' }) },
       { label: 'Units', get: function (r) { return fmtInt(r.raw.units); } }
     ], dailyRows);
 
     renderTable(document.getElementById('table-daily-fpy'), 'First-pass yield by day', [
-      { label: 'Day', get: function (r) { return r.raw.day; } },
-      { label: 'FPY', get: function (r) { return fmtPct(r.fpy); } },
-      { label: 'First attempts', get: function (r) { return r.fpyPass + ' / ' + r.fpyTotal; } },
+      { label: 'Day', get: function (r) { return r.raw.day; }, href: byDay() },
+      { label: 'FPY', get: function (r) { return fmtPct(r.fpy); },
+        href: byDay({ attempt: 'first', status: 'graded' }) },
+      { label: 'First attempts', get: function (r) { return r.fpyPass + ' / ' + r.fpyTotal; },
+        href: byDay({ attempt: 'first', status: 'graded' }) },
       { label: 'Sample', get: function (r) { return r.thin ? 'thin' : 'graded'; } }
     ], dailyRows);
 
     renderTable(document.getElementById('table-rel-mix'), 'Pass / fail / abort by release', [
-      { label: 'Release', get: function (r) { return r.label; } },
+      { label: 'Release', get: function (r) { return r.label; }, href: byRelease() },
       { label: 'Dates', get: function (r) { return r.sub || '—'; } },
-      { label: 'Runs', get: function (r) { return fmtInt(r.total); } },
-      { label: 'Pass', get: function (r) { return fmtInt(r.pass); } },
-      { label: 'Fail', get: function (r) { return fmtInt(r.fail); } },
-      { label: 'Abort', get: function (r) { return fmtInt(r.abort); } }
+      { label: 'Runs', get: function (r) { return fmtInt(r.total); }, href: byRelease() },
+      { label: 'Pass', get: function (r) { return fmtInt(r.pass); }, href: byRelease({ status: 'pass' }) },
+      { label: 'Fail', get: function (r) { return fmtInt(r.fail); }, href: byRelease({ status: 'fail' }) },
+      { label: 'Abort', get: function (r) { return fmtInt(r.abort); }, href: byRelease({ status: 'abort' }) }
     ], relRows);
 
     renderTable(document.getElementById('table-rel-fpy'), 'First-pass yield by release', [
-      { label: 'Release', get: function (r) { return r.label; } },
+      { label: 'Release', get: function (r) { return r.label; }, href: byRelease() },
       { label: 'Dates', get: function (r) { return r.sub || '—'; } },
-      { label: 'FPY', get: function (r) { return fmtPct(r.fpy); } },
-      { label: 'First attempts', get: function (r) { return r.fpyPass + ' / ' + r.fpyTotal; } },
+      { label: 'FPY', get: function (r) { return fmtPct(r.fpy); },
+        href: byRelease({ attempt: 'first', status: 'graded' }) },
+      { label: 'First attempts', get: function (r) { return r.fpyPass + ' / ' + r.fpyTotal; },
+        href: byRelease({ attempt: 'first', status: 'graded' }) },
       { label: 'Sample', get: function (r) { return r.thin ? 'thin' : 'graded'; } }
     ], relRows);
 
@@ -1011,6 +1125,22 @@
       clearTimeout(timer);
       timer = setTimeout(render, 140);
     });
+
+    // The selected station lives in the hash, so "look at L10 RIN" is a link
+    // rather than an instruction. Back/forward move between stations.
+    window.addEventListener('hashchange', function () {
+      var next = stationFromHash();
+      if (next !== state.station) { state.station = next; render(); }
+    });
+  }
+
+  /* Unknown keys fall back to All stations rather than rendering an empty page
+   * for a station that no longer exists in the registry. */
+  function stationFromHash() {
+    var match = /(?:^|[#&])station=([^&]+)/.exec(location.hash || '');
+    var key = match ? decodeURIComponent(match[1]) : '';
+    var views = DATA.views || {};
+    return key && Object.prototype.hasOwnProperty.call(views, key) ? key : '__all__';
   }
 
   function boot() {
@@ -1034,6 +1164,7 @@
     refs.footer.textContent = 'Built ' + (DATA.generatedAt || 'unknown') +
       ' from a collection at ' + (DATA.collectedAt || 'unknown') + '.';
 
+    state.station = stationFromHash();
     wire();
     render();
   }

@@ -105,7 +105,8 @@ schedule-status:
 	@tail -12 data/logs/refresh.log 2>/dev/null || echo "no log yet"
 
 clean:
-	rm -rf data/processed/* dashboard/data/metrics.js dashboard/data/stations.js
+	rm -rf data/processed/* dashboard/data/metrics.js dashboard/data/stations.js \
+	       dashboard/data/runs.js
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
 
 # Also drops the cached HTTP responses, forcing a full refetch next collect.

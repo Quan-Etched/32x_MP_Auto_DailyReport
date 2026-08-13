@@ -137,6 +137,29 @@ with no data, so the page can say *why* a station is empty. Debug suites
 **Release** is the middle component of the version string:
 `2026.207.0-git…` → `207`.
 
+### Drilling into a number (`dashboard/runs.html`)
+
+Every count on the station page links to the runs behind it. The link carries a
+filter in the URL hash, and those filters are defined here, not re-invented:
+
+| Filter | Means |
+| --- | --- |
+| `status=abort` | `status == "error"` — the line says abort, EOS says error |
+| `status=graded` | the pass / fail / error triple; never `skip` or `unknown` |
+| `attempt=first` | `attempt == 1`, the FPY population |
+| `day=` | the factory-local calendar day, same bucket as the day chart |
+| `release=` | the release number, same derivation as the release chart |
+
+So the FPY tile links to `attempt=first&status=graded` — its own denominator —
+and the row count on the run table equals the number that was clicked. If those
+two ever disagree one of them is wrong; `tests/test_build_runs.py` pins the
+populations against `daily.py`.
+
+The **First fail** column reports the first failing *leaf* test, skipping
+container entries (`rootcause.is_container`) for the same reason the Pareto
+does: a nest fails whenever anything under it fails, so `chip1` is true but
+useless where `chip1_sa_sort_rampup_hbm` is the signature.
+
 ### (a) Yield vs daily
 
 One row per local calendar day that has runs. Stacked pass / fail / **abort**

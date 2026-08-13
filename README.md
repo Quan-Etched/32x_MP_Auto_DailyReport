@@ -91,16 +91,44 @@ and none of the data.
 > runner cannot reach it. The Mac running the launchd agent fetches and pushes;
 > GitHub only serves.
 
-## Two dashboards
+## Three dashboards and a drill-down
 
 **`dashboard/index.html` — station yield (the landing page).** Per-station daily yield, yield by
 software release, failure Pareto by root-cause area, and retest. Stations are
-test stages (MLT, L10 FAT / SFT / RIN, SLT, chip screening), defined in
-`src/factory/stations.py`. Format follows the existing daily dashboard
+test stages (MLT, HTT, L10 FAT / SFT / RIN / 2U, SLT, chip screening), defined
+in `src/factory/stations.py`. Suite names do not always say which station they
+belong to — HTT runs under `rdqs_sweep_training` — so check the FAMILY column in
+OCP Logs before concluding a station has no data. Format follows the existing daily dashboard
 (`go/test-dashboard`) so the two read alike.
 
 **`dashboard/hourly.html` — hourly rates.** Throughput, yield, cycle time and
 failure Pareto bucketed by hour.
+
+**`dashboard/runs.html` — the raw run table.** Every number on the station page
+is a count of runs, and every one of them links here, to the rows behind it.
+Underlined figures are the ones you can drill into; charts drill from the bar.
+One row per run, expandable to its test cases.
+
+The filter lives in the URL hash, so a view is a link someone can paste:
+
+```
+runs.html#station=l10_rin                          one station
+runs.html#station=mlt&release=220                  a release
+runs.html#station=mlt&day=2026-08-11&status=fail   a day's failures
+runs.html#station=slt&attempt=first&status=graded  the FPY denominator
+```
+
+Filter keys: `station`, `day`, `release`, `status` (`pass` / `fail` / `abort` /
+`graded`), `attempt` (`first` / `retest`), `dut`, `suite`, `level` — with the
+same meanings `daily.py` gives them, so the row count always reconciles with the
+number that was clicked. `abort` means EOS's `error`; see
+`src/factory/build_runs.py`.
+
+The **Source** column links out to OCP Logs. It has no confirmed per-run URL
+yet, so today it opens the search page and offers the run ID to copy; set
+`FACTORY_OCP_RUN_URL` to turn it into direct per-run links
+(`src/factory/links.py`). pega4 cannot be linked at all — its suite-run IDs are
+minted locally and appear nowhere in the EOS payload.
 
 ## Hourly refresh
 
@@ -176,7 +204,8 @@ dashboard/
   index.html + stations.js + stations.css   station yield (landing)
   hourly.html + app.js                      hourly rates
   releases.html + releases.js + releases.css  test items by release
-  update.js           the Update button, shared by all three pages
+  runs.html + runtable.js + runs.css        raw run table (the drill-down)
+  update.js           the Update button, shared by every page
   data/*.js           generated bundles (gitignored)
 
 tools/hourly_refresh.sh    THE update path: lock, collect, items, build, publish
@@ -186,8 +215,9 @@ certs/                     fetched CA bundle (gitignored; `make trust`)
 data/raw/                  cached HTTP responses (gitignored)
 data/processed/            runs.json + fetch_state.json (gitignored)
 docs/                      api-usage.md · metrics.md · dataviz-notes.md
-tests/                     156 unit tests over parsing, metrics, fetch state,
-                           items, releases and the control endpoint
+tests/                     175 unit tests over parsing, metrics, fetch state,
+                           items, releases, the run bundle and the control
+                           endpoint
 ```
 
 ## Before you trust a number

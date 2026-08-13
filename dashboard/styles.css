@@ -302,6 +302,34 @@ body {
   line-height: 1.2;
 }
 
+/* A number that can be drilled into is underlined — the one affordance shared
+ * by every clickable figure on these pages, so a reader can tell at a glance
+ * which numbers have rows behind them and which are just numbers. The colour
+ * stays the text colour: on a page of large figures, five blue tiles would read
+ * as decoration rather than as links. */
+a.drill {
+  display: block;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--axis);
+}
+
+a.drill:hover,
+a.drill:focus-visible { text-decoration-color: var(--accent-solid); color: var(--accent-solid); }
+
+a.drill-cell {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--axis);
+}
+
+a.drill-cell:hover,
+a.drill-cell:focus-visible { color: var(--accent-solid); text-decoration-color: var(--accent-solid); }
+
 .tile .foot {
   display: flex;
   align-items: center;
@@ -395,6 +423,8 @@ body {
 
 .crosshair { stroke: var(--axis); stroke-width: 1; pointer-events: none; }
 .hit { fill: transparent; cursor: crosshair; }
+/* Charts whose bars open the run table say so with the pointer. */
+.hit.drillable { cursor: pointer; }
 
 .mark:focus { outline: none; }
 .mark:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 1px; }
