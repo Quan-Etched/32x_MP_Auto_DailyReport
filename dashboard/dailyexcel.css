@@ -220,3 +220,16 @@ span.jira-key { color: var(--text-secondary); }
   .sheet-table { font-size: 12px; }
   .sheet-wrap { max-height: 68vh; }
 }
+
+/* A tab rebuilt from the API rather than exported from the line's sheet. The
+   warning colour is the point: the numbers are ours, not theirs. */
+.sheet-tile.derived {
+  flex-basis: 100%;
+  border-color: var(--status-warning);
+  border-left-width: 3px;
+}
+
+.sheet-tile.derived .tile-value {
+  font-size: 18px;
+  color: var(--text-secondary);
+}

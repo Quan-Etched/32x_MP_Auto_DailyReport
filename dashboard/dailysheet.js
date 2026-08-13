@@ -67,7 +67,9 @@
         'aria-pressed': active ? 'true' : 'false'
       }, [
         document.createTextNode(tab.label),
-        h('span', { class: 'n', text: tab.rows.length + ' units' })
+        h('span', { class: 'n', text: tab.derived
+          ? tab.rows.length + ' chips · derived'
+          : tab.rows.length + ' units' })
       ]);
       button.addEventListener('click', function () {
         location.hash = 'day=' + tab.day;
@@ -83,6 +85,19 @@
    * finding about the two sources, and flattening it here would hide it. */
   function renderSummary(tab) {
     el.summary.innerHTML = '';
+
+    /* A derived tab must never be mistaken for the line's own record. It says
+     * so before the numbers, not in a footnote under them. */
+    if (tab.derived) {
+      var from = tab.derivedFrom || {};
+      el.summary.appendChild(h('div', { class: 'sheet-tile derived' }, [
+        h('span', { class: 'tile-title', text: 'Rebuilt from EOS — not the line\u2019s sheet' }),
+        h('strong', { class: 'tile-value', text: from.runs + ' runs' }),
+        h('span', { class: 'tile-sub', text:
+          'One row per chip, graded from the per-chip test names. DUT serials ' +
+          'are not in the API — they live in pega3 and the tracker sheet.' })
+      ]));
+    }
     var counts = tab.counts || {};
     Object.keys(counts).forEach(function (key) {
       var entry = counts[key];
@@ -152,9 +167,11 @@
     el.body.innerHTML = '';
     el.body.appendChild(body);
 
-    el.caption.textContent =
-      tab.rows.length + ' units — ' + (tab.day || tab.label) +
-      ', as recorded by the line';
+    el.caption.textContent = tab.derived
+      ? tab.rows.length + ' chips across ' + (tab.derivedFrom || {}).runs +
+        ' fixture runs — ' + (tab.day || tab.label) + ', rebuilt from EOS'
+      : tab.rows.length + ' units — ' + (tab.day || tab.label) +
+        ', as recorded by the line';
   }
 
   function renderCell(cell, column, wrap) {
@@ -189,7 +206,7 @@
       td.appendChild(h('a', {
         class: 'sheet-link dut-link',
         href: 'runs.html#dut=' + encodeURIComponent(cell.d),
-        title: 'Every collected run for this DUT'
+        title: cell.title || 'Every collected run for this DUT'
       }, [document.createTextNode(value)]));
       return td;
     }

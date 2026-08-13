@@ -44,7 +44,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import config, links, xlsx
+from . import chips, config, links, stations, xlsx
 
 #: ``08-11 87x`` / ``08-12  51x`` — month-day, then the line's own unit count.
 TAB_PATTERN = re.compile(r"^\s*(\d{1,2})-(\d{1,2})\s+(\d+)\s*x\s*$", re.IGNORECASE)
@@ -71,6 +71,15 @@ RESULT_COLUMNS = ("E", "H")
 LINK_COLUMNS = ("G", "J")
 
 DEFAULT_DIR = config.REPO_ROOT / "daily"
+
+#: Days EOS has module MLT/HTT data for, but the workbook does not, are rebuilt
+#: from the API so the page keeps going when nobody has exported the sheet yet.
+#: Capped: the point is "today and the day before", not a parallel history that
+#: quietly competes with the line's own record.
+DERIVE_LIMIT = 3
+
+#: The stations the tracker covers, and the column pair each one fills.
+DERIVED_STATIONS = (("mlt", "E", "F", "G"), ("htt", "H", "I", "J"))
 
 
 def workbook_path(explicit: Optional[str] = None) -> Path:
@@ -117,7 +126,8 @@ def source_url() -> str:
 # --------------------------------------------------------------------- build
 
 def build_bundle(
-    payload: Optional[Dict[str, Any]] = None, path: Optional[Path] = None
+    payload: Optional[Dict[str, Any]] = None, path: Optional[Path] = None,
+    derive: bool = True,
 ) -> Dict[str, Any]:
     source = workbook_path(str(path) if path else None)
     book = xlsx.Workbook(source)
@@ -135,6 +145,23 @@ def build_bundle(
         warnings.append(
             "no tab in {} is named like 'MM-DD Nx' — nothing to publish".format(
                 source.name))
+
+    # Days EOS knows about that the workbook has not caught up with. Derived
+    # tabs are marked as such and never overwrite a real one — the line's own
+    # record wins wherever it exists.
+    if derive:
+        have = {tab["day"] for tab in tabs if tab["day"]}
+        # Only days *after* the newest real tab. A day the sheet skipped is the
+        # line's decision, not a gap to fill; a day it has not reached yet is.
+        newest = max(have) if have else ""
+        candidates = sorted({_utc_day(run.get("startTs")) for run in (payload or {}).get("runs", [])
+                             if run.get("level") == "module"
+                             and run.get("stationKey") in ("mlt", "htt")} - {None} - have)
+        candidates = [day for day in candidates if day > newest]
+        for day in candidates[-DERIVE_LIMIT:]:
+            built = derived_tab(payload or {}, day)
+            if built:
+                tabs.append(built)
 
     tabs.sort(key=lambda tab: tab["day"] or "")
     matched = sum(tab["crossref"]["matched"] for tab in tabs)
@@ -163,6 +190,139 @@ def build_bundle(
         },
         "warnings": warnings,
     }
+
+
+def derived_tab(payload: Dict[str, Any], day: str) -> Optional[Dict[str, Any]]:
+    """Rebuild a day's tracker tab from EOS, one row per chip.
+
+    WHY ONE ROW PER CHIP, AND WHY THE SERIALS ARE MISSING
+    A fixture run tests eight chips and EOS records it as one run carrying one
+    ``dutSerial`` — and does not say which slot that serial sat in. The other
+    seven serials exist only in pega3 and in the line's own sheet. Neither
+    ``bom_config`` (every ``serial_number: null``) nor ``suite_config`` carries
+    them; ``resource_config`` is never fetched, because it holds credentials.
+
+    So the unit column says ``chip 3``. The run's serial is not dropped — it
+    rides on the test link, which is also what makes the row clickable into the
+    run table. Guessing which chip it belonged to would put a real serial next
+    to the wrong verdict, which is worse than admitting the gap.
+
+    MLT and HTT are separate fixture runs, so a derived row fills one station's
+    columns and leaves the other blank — the same convention the sheet already
+    uses for a unit that failed MLT and never reached HTT.
+    """
+    runs = [
+        run for run in payload.get("runs", [])
+        if run.get("level") == "module"
+        and run.get("stationKey") in ("mlt", "htt")
+        and _utc_day(run.get("startTs")) == day
+    ]
+    if not runs:
+        return None
+
+    versions = {}
+    for station, _, _, _ in DERIVED_STATIONS:
+        seen = [r.get("version") for r in runs if r.get("stationKey") == station]
+        versions[station] = _release_label(seen)
+
+    titles = [
+        "Date", "DUT SN", "ASIC SN", "DUT PN",
+        "MLT Results {}".format(versions["mlt"]),
+        "MLT Failure Test Case {}".format(versions["mlt"]),
+        "FI Test Link",
+        "HTT Results {}".format(versions["htt"]),
+        "HTT Failure Test Case {}".format(versions["htt"]),
+        "FI Test Link", "Jira",
+    ]
+    letters = [xlsx.column_letters(i) for i in range(len(titles))]
+    # The sheet's own widths, so a derived tab sits beside a real one without
+    # the columns jumping.
+    widths = {"B": 18.13, "C": 4.38, "E": 25.25, "F": 34.0,
+              "H": 10.63, "I": 32.0, "J": 8.88, "K": 44.25}
+    columns = [{"key": letter, "title": title, "width": widths.get(letter)}
+               for letter, title in zip(letters, titles)]
+    index = {letter: position for position, letter in enumerate(letters)}
+
+    rows: List[List[Dict[str, Any]]] = []
+    for station, result_col, fail_col, link_col in DERIVED_STATIONS:
+        for run in sorted((r for r in runs if r.get("stationKey") == station),
+                          key=lambda r: r.get("startTs") or 0):
+            graded = chips.grade(run)
+            for chip_index, entry in graded["chips"].items():
+                row = [{} for _ in titles]
+                row[index["A"]] = {"v": day}
+                row[index["B"]] = {"v": "chip {}".format(chip_index)}
+                status = entry["status"]
+                if status in ("pass", "fail"):
+                    row[index[result_col]] = {
+                        "v": "Passed" if status == "pass" else "Failed",
+                        "t": status,
+                    }
+                else:
+                    row[index[result_col]] = {"v": status.title()}
+                if entry["firstFail"]:
+                    row[index[fail_col]] = {"v": entry["firstFail"]}
+                row[index[link_col]] = _derived_link(run, day)
+                rows.append(row)
+
+    header_counts = _counts(rows, columns)
+    return {
+        "name": "{} (derived)".format(day),
+        "label": day[5:],
+        "day": day,
+        "claimedUnits": None,
+        "derived": True,
+        "derivedFrom": {
+            "runs": len(runs),
+            "versions": versions,
+            "note": "Rebuilt from EOS. One row per chip; DUT serials live in "
+                    "pega3 and the line's sheet, not in the API.",
+        },
+        "columns": columns,
+        "rows": rows,
+        "counts": header_counts,
+        "crossref": {"matched": 0, "duts": 0},
+    }
+
+
+def _derived_link(run: Dict[str, Any], day: str) -> Dict[str, Any]:
+    """The run's own identity, pointing at the rows behind it.
+
+    Text is the timestamp tail of the runId — what OCP Logs shows in its RUN ID
+    column — and the link goes to the drill-down filtered to the serial EOS did
+    record, which is the one identifier that survives the trip.
+    """
+    run_id = run.get("runId") or ""
+    dut = (run.get("dutSerial") or "").strip()
+    tail = run_id.rsplit("_", 2)[-2:] if "_" in run_id else [run_id]
+    cell: Dict[str, Any] = {"v": "_".join(tail) if tail else run_id}
+    if dut:
+        cell["d"] = dut
+        cell["title"] = "EOS run {} · recorded DUT {}".format(run_id, dut)
+    return cell
+
+
+def _release_label(versions: List[Optional[str]]) -> str:
+    """``mlt_2026.220`` from the versions actually seen, or a blank marker."""
+    seen = [v for v in versions if v]
+    if not seen:
+        return "(no runs)"
+    release = stations.release_of(seen[0])
+    label = "2026.{}".format(release) if release else str(seen[0])
+    return label if len(set(seen)) == 1 else "{} +{} more".format(label, len(set(seen)) - 1)
+
+
+def _utc_day(ts: Optional[int]) -> Optional[str]:
+    """The tracker's day boundary is UTC, not the factory-local one.
+
+    Established by reconciliation: DUT 268494130000018 runs at 17:30 local on
+    08-11, its runId is stamped ``20260812_003002``, and the sheet files it
+    under 08-12. Bucketing a derived tab in local time would put its rows on a
+    different day from the tabs beside it.
+    """
+    if not ts:
+        return None
+    return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d")
 
 
 def _tab(book, name, match, known_duts, warnings) -> Dict[str, Any]:

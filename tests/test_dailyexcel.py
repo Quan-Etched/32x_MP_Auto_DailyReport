@@ -11,6 +11,7 @@ import io
 import json
 import unittest
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 from factory import build_dailyexcel, xlsx
@@ -284,3 +285,101 @@ class DailyExcelBundleTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DerivedTabTest(unittest.TestCase):
+    """Days EOS has that the workbook has not caught up with."""
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.path = TempWorkbook(self.tmp.name).path      # its only tab is 08-12
+
+    #: Computed, not hard-coded: a literal epoch is a magic number nobody can
+    #: check, and the first draft of it was a day out.
+    #: 01:50Z is 18:50 the previous day in the factory zone, which is exactly
+    #: the window where the two day boundaries disagree.
+    LATER = int(datetime(2026, 8, 13, 1, 50, 38, tzinfo=timezone.utc).timestamp())
+    EARLIER = int(datetime(2026, 8, 10, 1, 50, 38, tzinfo=timezone.utc).timestamp())
+
+    def run_at(self, ts, station="mlt", status="fail", tests=None):
+        return {
+            "runId": "mlt_2026.220.0-gitabc_20260813_015038",
+            "dutSerial": "268494130000061", "level": "module",
+            "stationKey": station, "version": "2026.220.0-gitabc",
+            "startTs": ts, "status": status,
+            "tests": tests if tests is not None else [
+                {"name": "chip0_boot", "status": "pass",
+                 "displayName": "BootloaderResultTestCase"},
+                {"name": "chip1_boot", "status": "fail",
+                 "displayName": "BootloaderResultTestCase"},
+            ],
+        }
+
+    def build(self, runs, derive=True):
+        return build_dailyexcel.build_bundle(
+            {"runs": runs}, path=self.path, derive=derive)
+
+    def test_a_later_day_is_derived(self):
+        tabs = self.build([self.run_at(self.LATER)])["tabs"]
+        self.assertEqual([t["day"] for t in tabs], ["2026-08-12", "2026-08-13"])
+        self.assertTrue(tabs[1]["derived"])
+        self.assertFalse(tabs[0].get("derived", False))
+
+    def test_a_day_the_sheet_skipped_is_left_alone(self):
+        # Earlier than the newest real tab: the line chose not to track it, and
+        # backfilling would compete with its record rather than extend it.
+        tabs = self.build([self.run_at(self.EARLIER)])["tabs"]
+        self.assertEqual([t["day"] for t in tabs], ["2026-08-12"])
+
+    def test_derive_can_be_switched_off(self):
+        tabs = self.build([self.run_at(self.LATER)], derive=False)["tabs"]
+        self.assertEqual(len(tabs), 1)
+
+    def test_one_row_per_chip_not_per_run(self):
+        tab = self.build([self.run_at(self.LATER)])["tabs"][1]
+        self.assertEqual(len(tab["rows"]), 2)
+        self.assertEqual([row[1]["v"] for row in tab["rows"]], ["chip 0", "chip 1"])
+
+    def test_verdicts_are_per_chip_even_though_the_run_failed(self):
+        tab = self.build([self.run_at(self.LATER, status="fail")])["tabs"][1]
+        self.assertEqual(tab["rows"][0][4], {"v": "Passed", "t": "pass"})
+        self.assertEqual(tab["rows"][1][4], {"v": "Failed", "t": "fail"})
+        self.assertEqual(tab["rows"][1][5]["v"], "BootloaderResultTestCase")
+
+    def test_the_other_station_columns_stay_blank(self):
+        # MLT and HTT are separate fixture runs, so a derived row fills one
+        # pair — the same convention the sheet uses when a unit never reached
+        # HTT because it failed MLT.
+        tab = self.build([self.run_at(self.LATER)])["tabs"][1]
+        for row in tab["rows"]:
+            self.assertEqual(row[7], {})           # HTT Results
+            self.assertEqual(row[8], {})           # HTT Failure Test Case
+
+    def test_headings_carry_the_versions_actually_seen(self):
+        tab = self.build([self.run_at(self.LATER)])["tabs"][1]
+        titles = [c["title"] for c in tab["columns"]]
+        self.assertEqual(titles[4], "MLT Results 2026.220")
+        self.assertEqual(titles[7], "HTT Results (no runs)")
+        self.assertEqual(len(titles), 11)
+
+    def test_the_link_keeps_the_serial_eos_did_record(self):
+        tab = self.build([self.run_at(self.LATER)])["tabs"][1]
+        link = tab["rows"][0][6]
+        self.assertEqual(link["d"], "268494130000061")
+        self.assertIn("268494130000061", link["title"])
+
+    def test_a_derived_day_uses_the_utc_boundary(self):
+        # 2026-08-13T01:50Z is 2026-08-12 18:50 in the factory's zone. The
+        # tracker files it under the UTC day, so the derived tab must too or it
+        # lands beside the wrong tab.
+        tab = self.build([self.run_at(self.LATER)])["tabs"][1]
+        self.assertEqual(tab["day"], "2026-08-13")
+
+    def test_a_run_with_no_chip_tests_contributes_no_rows(self):
+        run = self.run_at(self.LATER, tests=[
+            {"name": "server_setup", "status": "fail",
+             "displayName": "ServerNestedTestCase"}])
+        tabs = self.build([run])["tabs"]
+        self.assertEqual(tabs[1]["rows"], [])
