@@ -1,0 +1,19 @@
+# Hourly trigger for factory-refresh.service, at :05 past the hour — the same
+# cadence the launchd agent uses on a laptop.
+#
+# OnCalendar follows the host clock (UTC on the EC2 box); ":05 hourly" means the
+# same thing in any zone, and the dashboard cuts its own buckets in FACTORY_TZ
+# regardless, so there is nothing to keep in step here.
+
+[Unit]
+Description=Run the factory refresh at :05 past every hour
+
+[Timer]
+OnCalendar=*:05
+# Catch up after a reboot or a maintenance window instead of silently skipping
+# to the next hour — a missed tick is exactly when the site looks stale.
+Persistent=true
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,31 @@
+# One full update: collect from EOS, ingest items, rebuild, publish.
+#
+# A *user* unit, not a system one: the only sudo permission on the dashboard
+# host is `dnf install`, and this needs none — it runs as the user who owns the
+# repo, the API key and the web root.
+#
+# Installed by `make schedule-install`; __REPO__ is replaced at install time.
+# Started by factory-refresh.timer, never enabled directly.
+
+[Unit]
+Description=factory_data_analysis — collect from EOS, rebuild, publish
+Documentation=file://__REPO__/README.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO__
+ExecStart=/bin/bash __REPO__/tools/hourly_refresh.sh
+
+# The script logs to data/logs/refresh.log; the journal keeps the same output
+# for `systemctl --user status` and survives a log trim.
+StandardOutput=journal
+StandardError=journal
+
+# A 30-day collect takes minutes and the box also serves the site. Yield to it.
+Nice=10
+IOSchedulingClass=idle
+
+# Longer than the control endpoint's own 45-minute watchdog, so a wedged run is
+# killed once, by whichever noticed first, and never twice.
+TimeoutStartSec=50min

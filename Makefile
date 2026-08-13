@@ -10,6 +10,8 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
+        schedule-install-macos schedule-uninstall-macos schedule-status-macos \
+        schedule-install-systemd schedule-uninstall-systemd schedule-status-systemd \
         update clean distclean
 
 help:
@@ -17,9 +19,9 @@ help:
 	@echo "make update             FULL UPDATE: collect + items + rebuild + publish"
 	@echo "make refresh            one scheduler tick: collect + rebuild (WINDOW=30 days)"
 	@echo "make status             last fetch vs last update, per station"
-	@echo "make publish            push dashboard/ to GitHub Pages (private)"
+	@echo "make publish            publish dashboard/ (FACTORY_WEB_ROOT, else gh-pages)"
 	@echo "make items [STATION=..]  flatten test cases to numeric test items"
-	@echo "make schedule-install   install the hourly launchd agent"
+	@echo "make schedule-install   install the hourly job (launchd / systemd timer)"
 	@echo "make demo               synthetic data + dashboard bundle (no API key needed)"
 	@echo "make collect [DAYS=2]   fetch real runs from the EOS API into data/processed/"
 	@echo "make build              compile data/processed/runs.json into the dashboard bundle"
@@ -80,13 +82,28 @@ items:
 	$(PY) -m factory.cli items --station $(STATION)
 
 # ---------------------------------------------------------------- scheduler
-# Hourly launchd agent. launchd follows local time and DST, so :05 stays :05
-# through PST/PDT.
+# Hourly, at :05, on whichever machine this is: launchd on a laptop, a systemd
+# *user* timer on the Linux dashboard host. The public target names stay the
+# same so the README, STATUS and muscle memory do not fork per platform.
+REPO_DIR      := $(shell pwd)
+UNAME_S       := $(shell uname -s)
+
+ifeq ($(UNAME_S),Darwin)
+SCHED := macos
+else
+SCHED := systemd
+endif
+
+schedule-install:   schedule-install-$(SCHED)
+schedule-uninstall: schedule-uninstall-$(SCHED)
+schedule-status:    schedule-status-$(SCHED)
+
+# -------------------------------------------------------------------- macOS
+# launchd follows local time and DST, so :05 stays :05 through PST/PDT.
 LAUNCHD_LABEL := com.etched.factory-analysis-refresh
 LAUNCHD_DEST  := $(HOME)/Library/LaunchAgents/$(LAUNCHD_LABEL).plist
-REPO_DIR      := $(shell pwd)
 
-schedule-install:
+schedule-install-macos:
 	@mkdir -p $(HOME)/Library/LaunchAgents data/logs
 	@sed 's|__REPO__|$(REPO_DIR)|g' deploy/launchd/$(LAUNCHD_LABEL).plist > $(LAUNCHD_DEST)
 	@launchctl unload $(LAUNCHD_DEST) 2>/dev/null || true
@@ -94,13 +111,50 @@ schedule-install:
 	@echo "Installed $(LAUNCHD_LABEL) — runs at :05 every hour."
 	@echo "Logs: data/logs/refresh.log"
 
-schedule-uninstall:
+schedule-uninstall-macos:
 	@launchctl unload $(LAUNCHD_DEST) 2>/dev/null || true
 	@rm -f $(LAUNCHD_DEST)
 	@echo "Removed $(LAUNCHD_LABEL)."
 
-schedule-status:
+schedule-status-macos:
 	@launchctl list | grep $(LAUNCHD_LABEL) || echo "not loaded"
+	@echo "---"
+	@tail -12 data/logs/refresh.log 2>/dev/null || echo "no log yet"
+
+# ------------------------------------------------------------------- systemd
+# User units, so none of this needs root — the dashboard host grants exactly one
+# sudo permission (dnf install) and this uses none of it.
+SYSTEMD_DIR  := $(HOME)/.config/systemd/user
+SYSTEMD_UNIT := factory-refresh
+
+schedule-install-systemd:
+	@mkdir -p $(SYSTEMD_DIR) data/logs
+	@sed 's|__REPO__|$(REPO_DIR)|g' deploy/systemd/$(SYSTEMD_UNIT).service \
+	    > $(SYSTEMD_DIR)/$(SYSTEMD_UNIT).service
+	@cp deploy/systemd/$(SYSTEMD_UNIT).timer $(SYSTEMD_DIR)/$(SYSTEMD_UNIT).timer
+	@systemctl --user daemon-reload
+	@systemctl --user enable --now $(SYSTEMD_UNIT).timer
+	@# A user timer dies at logout unless the user lingers, which is precisely
+	@# the failure this host exists to eliminate. Say so loudly if it is refused.
+	@loginctl enable-linger $(USER) 2>/dev/null \
+	    && echo "Linger enabled — the timer runs whether or not you are logged in." \
+	    || echo "WARNING: could not enable linger. The timer will STOP when you log out. Ask #infra-help for: loginctl enable-linger $(USER)"
+	@# Don't wait out a 30-day collect just to install a timer.
+	@systemctl --user start --no-block $(SYSTEMD_UNIT).service
+	@echo "Installed $(SYSTEMD_UNIT).timer — runs at :05 every hour; first tick started now."
+
+schedule-uninstall-systemd:
+	@systemctl --user disable --now $(SYSTEMD_UNIT).timer 2>/dev/null || true
+	@rm -f $(SYSTEMD_DIR)/$(SYSTEMD_UNIT).timer $(SYSTEMD_DIR)/$(SYSTEMD_UNIT).service
+	@systemctl --user daemon-reload
+	@echo "Removed $(SYSTEMD_UNIT)."
+
+schedule-status-systemd:
+	@systemctl --user list-timers $(SYSTEMD_UNIT).timer --no-pager 2>/dev/null | head -4 || echo "not loaded"
+	@systemctl --user is-active $(SYSTEMD_UNIT).service >/dev/null 2>&1 \
+	    && echo "state: a refresh is running now" \
+	    || echo "state: idle — $$(systemctl --user show -p Result --value $(SYSTEMD_UNIT).service 2>/dev/null) on last run"
+	@loginctl show-user $(USER) -p Linger 2>/dev/null || true
 	@echo "---"
 	@tail -12 data/logs/refresh.log 2>/dev/null || echo "no log yet"
 

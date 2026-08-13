@@ -1,7 +1,16 @@
 #!/bin/bash
-# Publish dashboard/ to the gh-pages branch, which GitHub Pages serves.
+# Publish dashboard/ to wherever this machine serves it from.
 #
-# WHY AN ORPHAN FORCE-PUSH
+# TWO TARGETS, ONE SCRIPT
+# Set FACTORY_WEB_ROOT and publishing is a copy into a directory an nginx
+# already serves (the always-on host inside the network). Leave it unset and
+# publishing is an orphan force-push to gh-pages (a laptop, which has no web
+# server of its own). Everything upstream — `make update`, the hourly job, the
+# Update button — calls this one script either way, so the repo keeps its one
+# update path and the two hosts cannot drift into two different publish
+# behaviours.
+#
+# WHY AN ORPHAN FORCE-PUSH (gh-pages target)
 # The data bundles are ~650 KB and are rebuilt every hour. Committing them onto
 # a branch with history would add that much to the repository every hour
 # forever. Each publish is therefore a single orphan commit that replaces the
@@ -22,6 +31,11 @@ set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO" || exit 1
 
+# `make publish` reaches this script directly, without going through
+# hourly_refresh.sh, so read .env here too — otherwise the publish target would
+# depend on which entry point was used.
+[ -f "$REPO/.env" ] && set -a && . "$REPO/.env" && set +a
+
 BRANCH="${PAGES_BRANCH:-gh-pages}"
 REMOTE="${PAGES_REMOTE:-origin}"
 STAGE="$(mktemp -d)"
@@ -32,6 +46,32 @@ if [ ! -f "$REPO/dashboard/data/stations.js" ]; then
     exit 1
 fi
 
+# ------------------------------------------------------- target 1: a web root
+# A host that serves the dashboard itself has nothing to push: publishing is a
+# copy into the directory nginx already points at. No git, no credential, no
+# remote — which is the point, since that host holds the API key and runs
+# unattended.
+if [ -n "${FACTORY_WEB_ROOT:-}" ]; then
+    if [ ! -d "$FACTORY_WEB_ROOT" ]; then
+        echo "publish: FACTORY_WEB_ROOT=$FACTORY_WEB_ROOT is not a directory" >&2
+        exit 1
+    fi
+
+    # --delete so a page removed from dashboard/ stops being served rather than
+    # lingering as an orphan. Copy in place rather than moving a staged
+    # directory: files created inside the web root inherit its SELinux context,
+    # while a directory moved in from $HOME would keep the home context and
+    # nginx would serve 403s.
+    if ! rsync -a --delete --exclude '.git' "$REPO/dashboard/" "$FACTORY_WEB_ROOT/"; then
+        echo "publish: copy to $FACTORY_WEB_ROOT failed" >&2
+        exit 1
+    fi
+
+    echo "Published $(du -sh "$FACTORY_WEB_ROOT" | cut -f1) to $FACTORY_WEB_ROOT"
+    exit 0
+fi
+
+# ------------------------------------------------------ target 2: gh-pages
 cp -R "$REPO/dashboard/." "$STAGE/"
 touch "$STAGE/.nojekyll"          # serve files verbatim, no Jekyll processing
 
