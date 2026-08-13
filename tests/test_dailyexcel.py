@@ -401,6 +401,12 @@ class DerivedTabTest(unittest.TestCase):
         self.assertEqual(tabs[1]["rows"], [])
 
 
+def _case(run, chip, name, status, start):
+    """One pega3 test-case row. test_id carries the chip index, as the API's does."""
+    return {"test_id": "%s_chip%d_%s" % (run, chip, name.lower()),
+            "test_name": name, "status": status, "start_time": start}
+
+
 class PegaTabTest(unittest.TestCase):
     """The good path: a day rebuilt from pega3, which knows every slot's unit.
 
@@ -427,10 +433,6 @@ class PegaTabTest(unittest.TestCase):
     #: slot. chip1 fails too, on a unit that passed overall — if that leaked onto
     #: chip0's row the column would name another unit's failure, which is exactly
     #: what the run-level first_failed_test_case used to do.
-    def _case(run, chip, name, status, start):
-        return {"test_id": "%s_chip%d_%s" % (run, chip, name.lower()),
-                "test_name": name, "status": status, "start_time": start}
-
     MLT = "mlt_2026.220.0-gitabc_run_4cb95b11"
     DETAIL = {
         MLT: {"status": "failed",
@@ -471,11 +473,37 @@ class PegaTabTest(unittest.TestCase):
         self.assertEqual(row[4], {"v": "Failed", "t": "fail"})     # MLT
         self.assertEqual(row[7], {"v": "Passed", "t": "pass"})     # HTT
 
-    def test_the_failure_named_is_the_slot_s_own_first_leaf(self):
+    def test_every_failure_on_the_slot_is_named(self):
+        # A unit that fails eight tests has eight things wrong with it. The
+        # first one to run is rarely the interesting one.
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        # chip0's first failing *leaf* — not SltModuleNestedTestCase, which is a
-        # container, and not chip1's SohuVrmTestCase.
-        self.assertEqual(rows["268494130000045"][5]["v"], "BootloaderResultTestCase")
+        self.assertEqual(rows["268494130000045"][5]["v"].split("\n"),
+                         ["BootloaderResultTestCase", "SohuDmaTestCase"])
+
+    def test_another_slot_s_failure_never_leaks_onto_this_unit(self):
+        rows = {r[1]["v"]: r for r in self.build()["rows"]}
+        self.assertNotIn("SohuVrmTestCase", rows["268494130000045"][5]["v"])
+
+    def test_containers_are_left_out_of_the_list(self):
+        # chip0's nest failed only because a leaf under it did, and
+        # ServerNestedTestCase would appear twice in one cell.
+        rows = {r[1]["v"]: r for r in self.build()["rows"]}
+        self.assertNotIn("SltModuleNestedTestCase", rows["268494130000045"][5]["v"])
+
+    def test_a_unit_failing_only_nests_still_gets_a_name(self):
+        # An empty cell beside "Failed" is the one thing this column must not say.
+        from factory import pega
+        run = "mlt_2026.220.0-gitabc_run_nestonly"
+        listing = [dict(self.LISTING[0], suite_run_id=run)]
+        detail = {run: {"status": "failed",
+                        "participating": [{"dut_sn": "268494130000045",
+                                           "slot_number": 0, "status": "Failed"}],
+                        "test_cases": [_case(run, 0, "SltModuleNestedTestCase",
+                                                  "failed", "01:00")]}}
+        pega.day_suite_runs = lambda day: listing
+        pega.suite_run = lambda run_id: detail[run_id]
+        rows = {r[1]["v"]: r for r in self.build()["rows"]}
+        self.assertEqual(rows["268494130000045"][5]["v"], "SltModuleNestedTestCase")
 
     def test_a_passing_unit_gets_no_failure_even_when_its_slot_failed_a_test(self):
         # chip1 has a failing test case but pega3 graded the unit Passed; the
@@ -483,12 +511,11 @@ class PegaTabTest(unittest.TestCase):
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
         self.assertEqual(rows["268494130000044"][5], {})
 
-    def test_only_the_first_failure_is_named_not_every_one(self):
-        # Measured against the line's own sheet: naming the first failing leaf
-        # agrees on 35 of 49 rows, listing them all on 29 — the tracker records
-        # the first, not the set.
+    def test_failures_are_listed_oldest_first(self):
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        self.assertNotIn("SohuDmaTestCase", rows["268494130000045"][5]["v"])
+        names = rows["268494130000045"][5]["v"].split("\n")
+        self.assertEqual(names[0], "BootloaderResultTestCase")   # 01:05
+        self.assertEqual(names[-1], "SohuDmaTestCase")           # 01:09
 
     def test_the_latest_attempt_wins_when_a_unit_runs_twice(self):
         # Keeping whichever run pega3 returned last made the verdict depend on

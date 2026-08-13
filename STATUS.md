@@ -48,7 +48,7 @@ make status            # last fetch vs last update, per station
 
 | Check | Result |
 |---|---|
-| Unit tests | 249 passing (`make test`) |
+| Unit tests | 255 passing (`make test`) |
 | `/levels` | `l6, l10, l11, slt, module, bringup` |
 | Live collect | 1062 runs over 30 days across l6 + l10 + slt + module |
 | Status / duration resolved | all runs |
@@ -138,7 +138,8 @@ from pega3.
 | MLT verdicts agreeing | **87 of 87** | **51 of 51** |
 | HTT verdicts agreeing | **64 of 64** | **41 of 41** |
 | FI test links agreeing | **all** | **all** |
-| Failure-case column | 34 of 41 | 23 of 24 |
+| Rows whose failure list contains the line's name | **39 of 40** | **24 of 24** |
+| Failures the sheet never recorded | +35 | +26 |
 
 **The sheet is pega3 minus serial lot `26849410`.** On 08-11 the sheet holds
 lots 26849411 (71) and 26849413 (16); pega3 has those same 87 plus 25 units
@@ -146,11 +147,18 @@ from lot 26849410 and nothing else. On 08-12 no lot-10 units ran, which is why
 that day matched exactly. That is very likely the curation rule nobody could
 name — it needs one sentence of confirmation from the line.
 
-The remaining failure-case differences are rows where several tests failed on a
-unit and the line wrote down a different one — `CheckFirmwareVersionTestCase`
-where the first failure was `SohuFlrTestCase`. Listing every failure instead of
-the first makes agreement *worse* (29/49 against 35/49), so the line records
-the first failing leaf and occasionally overrides it with judgement.
+The failure column now lists **every** test case that failed on the unit, not
+the first — a unit that fails eight tests has eight things wrong with it. That
+turns the column into a superset of the line's: 63 of 64 rows contain the name
+a person typed, and 61 further failures appear that the sheet never recorded.
+
+The single row that does not contain it is instructive. On 08-11 the sheet
+names `RunAllAttnTestsSingleChipTestCase` for DUT 268494110000091. That unit
+sat in slot 7 of run 4d1531d6 and had no such failure; the `RunAllAttn…`
+failure in that fixture belongs to **slot 1**, DUT 268494110000060, and is
+spelled `RunAllAttnHbmBypassTestsSingleChipTestCase`. It is a neighbouring
+slot's failure written on the wrong row — which is the kind of error that stops
+happening when the column is derived rather than transcribed.
 
 Two bugs in the fetch were found by this comparison and fixed: the run-level
 `first_failed_test_case` was being attributed to every failed unit in a fixture

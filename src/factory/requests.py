@@ -326,9 +326,11 @@ REQUESTS: List[Dict[str, Any]] = [
             "The sheet is exactly pega3 minus serial lot 26849410. 08-11: sheet "
             "has 26849411 x71 and 26849413 x16; pega3 adds 26849410 x25 and "
             "nothing else. 08-12: no lot-10 units ran and the two agree 51 to 51.",
-            "The failure-case column matches on all but 7 of 41 rows (08-11) and "
-            "1 of 24 (08-12) — those are rows where several tests failed and the "
-            "line named a different one, which is judgement rather than data.",
+            "The failure column lists every failure on the unit, so it is a "
+            "superset of the sheet's: 63 of 64 rows contain the name a person "
+            "typed, plus 61 failures the sheet never recorded. The single "
+            "exception is a neighbouring slot's failure written on the wrong "
+            "row of the sheet.",
         ],
         "doneWhen": "The line confirms the lot rule (or gives the real one), and "
                     "the page filters to it — or says the sheet retires and shows "

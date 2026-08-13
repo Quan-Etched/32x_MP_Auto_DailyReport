@@ -192,6 +192,13 @@ columns keep the sheet's own hyperlinks, which point at
 `pega3:3000/suite_run/…` — pega3 asks for an ESVM login before it will show a
 run.
 
+The **failure column lists every test case that failed on that unit**, oldest
+first, one per line — not just the first. A unit that fails eight tests has
+eight things wrong with it, and the one that ran first is rarely the
+interesting one. Nest rows are left out (`chip5` fails because a leaf under it
+did, and `ServerNestedTestCase` would otherwise appear twice in one cell); set
+`FACTORY_DAILY_CONTAINERS=1` for the literal list pega3's UI shows.
+
 A **DUT serial becomes a link into `runs.html`** when — and only when — the
 collected run table actually holds that serial. On the first build 32 of 138
 did, and the page says so: for these two days the sheet records 138 units while

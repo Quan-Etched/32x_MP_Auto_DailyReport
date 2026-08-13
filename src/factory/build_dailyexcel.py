@@ -380,7 +380,7 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
                 continue
             unit[station] = {
                 "status": part["status"],
-                "fail": _unit_failure(detail, part["slot"]) if part["status"] == "fail" else "",
+                "fail": _unit_failures(detail, part["slot"]) if part["status"] == "fail" else "",
                 "url": pega.run_url(run_id, part["slot"]),
                 "short": run_id.rsplit("_run_", 1)[-1],
                 "started": started,
@@ -442,36 +442,55 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
     }
 
 
-def _unit_failure(detail: Dict[str, Any], slot: Optional[int]) -> str:
-    """The failing test case for one slot, not for the fixture.
+def _unit_failures(detail: Dict[str, Any], slot: Optional[int]) -> str:
+    """Every test case that failed on one slot, oldest first, one per line.
 
-    pega3's run-level ``first_failed_test_case`` is the first failure anywhere
-    in the run, which is usually a container (``SltModuleNestedTestCase``) or
-    another chip's failure. Attributing it to every failed unit is how the
-    tracker's failure column ended up disagreeing with the line's on 21 of 87
-    rows.
+    NOT the run's first failure. pega3's run-level ``first_failed_test_case``
+    names the first failure anywhere in the fixture, which is usually a nest or
+    another chip's problem; attributing it to a unit names someone else's fault.
 
-    The per-slot answer is in ``test_cases``, whose ``test_id`` carries the chip
-    index (``..._run_4cb95b11_chip0_dma``). Containers are skipped for the same
-    reason the Pareto skips them: a nest fails because a leaf under it did, and
-    the leaf is the signature the line writes down.
+    NOT just this slot's first failure either. A unit that fails eight tests has
+    eight things wrong with it, and the one that happened to run first is rarely
+    the interesting one — on DUT 268494130000069 (run 384ac187, slot 5) the first
+    is BootloaderResultTestCase while the list also holds SohuVrmTestCase,
+    SohuI2cTestCase and six more. The tracker sheet already writes several names
+    into a cell on its own rows, so the shape is the line's, not an invention.
+
+    Nest rows are left out: ``chip5`` (SltModuleNestedTestCase) and
+    ``server_setup`` (ServerNestedTestCase) fail *because* a leaf under them did,
+    and ServerNestedTestCase would appear twice in the same cell — once for
+    server_setup and once for vbb_dependent_tests — which reads as a bug. Set
+    ``FACTORY_DAILY_CONTAINERS=1`` for the literal list pega3's UI shows.
+
+    A unit whose only failures are nests still gets a name rather than a blank
+    cell: no leaf failed, but something did, and an empty cell beside "Failed"
+    is the one thing this column must never say.
     """
     if slot is None:
         return ""
-    best = None
-    for case in detail.get("test_cases") or []:
+    keep_containers = os.environ.get("FACTORY_DAILY_CONTAINERS", "").strip() in ("1", "true", "yes")
+
+    leaves: List[str] = []
+    nests: List[str] = []
+    for case in sorted(detail.get("test_cases") or [],
+                       key=lambda c: c.get("start_time") or ""):
         status = str(case.get("status") or "").lower()
         if not status.startswith(("fail", "error")):
             continue
         if chips.chip_of(case.get("test_id") or "") != slot:
             continue
-        name = case.get("test_name") or ""
-        if rootcause.is_container(name):
+        name = (case.get("test_name") or "").strip()
+        if not name:
             continue
-        start = case.get("start_time") or ""
-        if best is None or start < best[0]:
-            best = (start, name)
-    return best[1] if best else ""
+        target = nests if rootcause.is_container(name) else leaves
+        if name not in target:
+            target.append(name)
+
+    if keep_containers:
+        names = leaves + [n for n in nests if n not in leaves]
+    else:
+        names = leaves or nests
+    return "\n".join(names)
 
 
 def _derived_link(run: Dict[str, Any], day: str) -> Dict[str, Any]:
