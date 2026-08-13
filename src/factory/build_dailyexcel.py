@@ -159,7 +159,9 @@ def build_bundle(
                              and run.get("stationKey") in ("mlt", "htt")} - {None} - have)
         candidates = [day for day in candidates if day > newest]
         for day in candidates[-DERIVE_LIMIT:]:
-            built = derived_tab(payload or {}, day)
+            newest_real = next((tab for tab in reversed(tabs)
+                                if not tab.get("derived")), None)
+            built = derived_tab(payload or {}, day, template=newest_real)
             if built:
                 tabs.append(built)
 
@@ -192,7 +194,8 @@ def build_bundle(
     }
 
 
-def derived_tab(payload: Dict[str, Any], day: str) -> Optional[Dict[str, Any]]:
+def derived_tab(payload: Dict[str, Any], day: str,
+                template: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """Rebuild a day's tracker tab from EOS, one row per chip.
 
     WHY ONE ROW PER CHIP, AND WHY THE SERIALS ARE MISSING
@@ -225,23 +228,12 @@ def derived_tab(payload: Dict[str, Any], day: str) -> Optional[Dict[str, Any]]:
         seen = [r.get("version") for r in runs if r.get("stationKey") == station]
         versions[station] = _release_label(seen)
 
-    titles = [
-        "Date", "DUT SN", "ASIC SN", "DUT PN",
-        "MLT Results {}".format(versions["mlt"]),
-        "MLT Failure Test Case {}".format(versions["mlt"]),
-        "FI Test Link",
-        "HTT Results {}".format(versions["htt"]),
-        "HTT Failure Test Case {}".format(versions["htt"]),
-        "FI Test Link", "Jira",
-    ]
-    letters = [xlsx.column_letters(i) for i in range(len(titles))]
-    # The sheet's own widths, so a derived tab sits beside a real one without
-    # the columns jumping.
-    widths = {"B": 18.13, "C": 4.38, "E": 25.25, "F": 34.0,
-              "H": 10.63, "I": 32.0, "J": 8.88, "K": 44.25}
-    columns = [{"key": letter, "title": title, "width": widths.get(letter)}
-               for letter, title in zip(letters, titles)]
-    index = {letter: position for position, letter in enumerate(letters)}
+    # The newest real tab is the format. Titles and widths are copied from it
+    # verbatim and only the version token is swapped, so a derived tab is
+    # indistinguishable from the line's own beside it — and stays that way if
+    # the line renames a heading, instead of drifting until someone notices.
+    columns = _derived_columns(template, versions)
+    index = {column["key"]: position for position, column in enumerate(columns)}
 
     rows: List[List[Dict[str, Any]]] = []
     for station, result_col, fail_col, link_col in DERIVED_STATIONS:
@@ -249,17 +241,18 @@ def derived_tab(payload: Dict[str, Any], day: str) -> Optional[Dict[str, Any]]:
                           key=lambda r: r.get("startTs") or 0):
             graded = chips.grade(run)
             for chip_index, entry in graded["chips"].items():
-                row = [{} for _ in titles]
+                row = [{} for _ in columns]
                 row[index["A"]] = {"v": day}
                 row[index["B"]] = {"v": "chip {}".format(chip_index)}
                 status = entry["status"]
+                # The sheet leaves a result cell blank when that stage did not
+                # run on that unit; a chip whose tests were all skipped is the
+                # same statement, so it is written the same way.
                 if status in ("pass", "fail"):
                     row[index[result_col]] = {
                         "v": "Passed" if status == "pass" else "Failed",
                         "t": status,
                     }
-                else:
-                    row[index[result_col]] = {"v": status.title()}
                 if entry["firstFail"]:
                     row[index[fail_col]] = {"v": entry["firstFail"]}
                 row[index[link_col]] = _derived_link(run, day)
@@ -285,6 +278,45 @@ def derived_tab(payload: Dict[str, Any], day: str) -> Optional[Dict[str, Any]]:
     }
 
 
+#: Fallback when the workbook has no real tab to copy — the widths observed on
+#: the line's own tabs, so the shape is right even with nothing to imitate.
+FALLBACK_WIDTHS = {"B": 18.13, "C": 4.38, "E": 25.25, "F": 34.0,
+                   "H": 10.63, "I": 32.0, "J": 8.88, "K": 48.38}
+
+FALLBACK_TITLES = ("Date", "DUT SN", "ASIC SN", "DUT PN",
+                   "MLT Results mlt_", "MLT Failure Test Case mlt_",
+                   "FI Test Link", "HTT Results htt_",
+                   "HTT Failure Test Case htt_", "FI Test Link", "Jira")
+
+#: ``mlt_2026.220`` / ``htt_2026.217`` inside a column heading.
+VERSION_TOKEN = re.compile(r"(mlt|htt)_[0-9.]+", re.IGNORECASE)
+
+
+def _derived_columns(template: Optional[Dict[str, Any]],
+                     versions: Dict[str, str]) -> List[Dict[str, Any]]:
+    """The real tab's columns, with each heading's version token swapped."""
+    source = (template or {}).get("columns") or [
+        {"key": xlsx.column_letters(i), "title": title,
+         "width": FALLBACK_WIDTHS.get(xlsx.column_letters(i))}
+        for i, title in enumerate(FALLBACK_TITLES)
+    ]
+
+    columns = []
+    for column in source:
+        title = column.get("title") or ""
+        # Swap in the version this day actually ran, keeping the prefix the
+        # line writes (mlt_2026.220, not 2026.220).
+        def swap(match):
+            release = versions.get(match.group(1).lower())
+            return "{}_{}".format(match.group(1), release) if release else ""
+        columns.append({
+            "key": column.get("key"),
+            "title": VERSION_TOKEN.sub(swap, title).strip(),
+            "width": column.get("width"),
+        })
+    return columns
+
+
 def _derived_link(run: Dict[str, Any], day: str) -> Dict[str, Any]:
     """The run's own identity, pointing at the rows behind it.
 
@@ -306,7 +338,10 @@ def _release_label(versions: List[Optional[str]]) -> str:
     """``mlt_2026.220`` from the versions actually seen, or a blank marker."""
     seen = [v for v in versions if v]
     if not seen:
-        return "(no runs)"
+        # Nothing ran for this station that day. The heading drops its version
+        # rather than inheriting the template's, which would claim a build that
+        # never ran above a column that is entirely empty.
+        return None
     release = stations.release_of(seen[0])
     label = "2026.{}".format(release) if release else str(seen[0])
     return label if len(set(seen)) == 1 else "{} +{} more".format(label, len(set(seen)) - 1)

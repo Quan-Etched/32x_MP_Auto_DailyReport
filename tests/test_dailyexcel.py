@@ -360,8 +360,13 @@ class DerivedTabTest(unittest.TestCase):
     def test_headings_carry_the_versions_actually_seen(self):
         tab = self.build([self.run_at(self.LATER)])["tabs"][1]
         titles = [c["title"] for c in tab["columns"]]
-        self.assertEqual(titles[4], "MLT Results 2026.220")
-        self.assertEqual(titles[7], "HTT Results (no runs)")
+        # The heading keeps the line's own prefix (mlt_2026.220, not
+        # 2026.220) because it is copied from the real tab and only the
+        # version token is swapped.
+        self.assertEqual(titles[4], "MLT Results mlt_2026.220")
+        # Nothing ran for HTT that day, so the heading drops the version
+        # instead of inheriting one that never ran.
+        self.assertEqual(titles[7], "HTT Results")
         self.assertEqual(len(titles), 11)
 
     def test_the_link_keeps_the_serial_eos_did_record(self):
