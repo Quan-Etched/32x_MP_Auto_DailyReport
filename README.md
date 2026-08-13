@@ -175,11 +175,20 @@ EOS returns 45 MLT/HTT runs per day. That gap is a finding about the two
 sources, so it is printed rather than papered over with 138 links, three
 quarters of which would land on an empty table.
 
-The **Source** column links out to OCP Logs. It has no confirmed per-run URL
-yet, so today it opens the search page and offers the run ID to copy; set
-`FACTORY_OCP_RUN_URL` to turn it into direct per-run links
-(`src/factory/links.py`). pega4 cannot be linked at all — its suite-run IDs are
-minted locally and appear nowhere in the EOS payload.
+The **Source** column links out to OCP Logs, which **has no per-run URL** —
+confirmed in a logged-in browser: selecting three different runs left the
+address bar at `https://ocplogs.core.etched.com` every time, because the RUNS
+tab keeps its filter and selection in memory. So the column opens the tool and
+offers the identifier to copy, and that is the most there is. `FACTORY_OCP_RUN_URL`
+remains as an override if OCP ever grows real routes (`src/factory/links.py`).
+
+Worth knowing: OCP's RUN ID column is our `runId` character for character, so
+OCP Logs is a second reader of the same records — **`runs.html` is the per-run
+permalink OCP cannot give you.** Its only run-identifying filter is DUT SERIAL,
+so serial + date is what to hand someone who needs to open it by hand.
+
+pega4 cannot be linked at all — its suite-run IDs are minted locally and appear
+nowhere in the EOS payload.
 
 ## Hourly refresh
 

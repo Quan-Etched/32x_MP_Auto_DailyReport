@@ -155,13 +155,11 @@ against the MDM-installed root in the system keychain.
   them fail or error. They currently count toward those stations' yield. If the
   line agrees they are not units, the registry should exclude them the same way
   it excludes the `_krish` debug suites.
-- **No confirmed URL for a Jira key or an OCP run.** The tracker's notes column
-  holds real keys (`ETCH-38567`) and the run table wants a per-run OCP link;
-  neither renders as a link, because no URL carrying one has been observed from
-  here. Both are one environment variable away — `FACTORY_JIRA_BASE`,
-  `FACTORY_OCP_RUN_URL` — once someone logged into either tool pastes a real
-  one. Until then they stay plain text: a column of dead links is worse than a
-  column of keys.
+- **No Jira URL yet.** The tracker's notes column holds real keys
+  (`ETCH-38567`) but none renders as a link, because no URL carrying one has
+  been observed from here. It is one environment variable away
+  (`FACTORY_JIRA_BASE`) once someone pastes a real one. Until then the keys stay
+  plain text: a column of dead links is worse than a column of keys.
 - **`EXITED` → `error` is an assumption.** It could equally mean a clean early
   exit. ~0.5% of entries, so low impact, but it should be confirmed with the EOS
   team rather than left as a guess.
@@ -169,6 +167,21 @@ against the MDM-installed root in the system keychain.
   collected window, so a short window inflates FPY. The last run showed 123 runs
   across only 35 units — mostly retries — so hours with no first attempts report
   `—`. Decide the standard collection window before FPY is used as a KPI.
+
+### Settled — do not re-investigate
+
+- **OCP Logs has no per-run URL.** Confirmed 2026-08-13 by selecting three runs
+  in a logged-in browser: the address bar stayed `https://ocplogs.core.etched.com`
+  for all three while the detail pane changed. The RUNS tab keeps its filter and
+  its selection in memory, so neither a run permalink nor a pre-filtered search
+  link exists to be constructed. The Source column therefore opens the tool and
+  offers the identifier, which is the most that can be done.
+
+  The investigation established two better things. OCP's RUN ID column is our
+  `runId` character for character, so OCP Logs is a second reader of the records
+  this ETL already collects — `runs.html` is the per-run permalink OCP itself
+  cannot offer. And OCP's only run-identifying filter is DUT SERIAL, so the
+  useful thing to hand a reader is the serial and the date.
 
 ### To escalate
 

@@ -2,22 +2,33 @@
 
 ONE PLACE, DELIBERATELY EMPTY BY DEFAULT
 ----------------------------------------
-The templates below are unset, and the Source column degrades to a link to the
-OCP Logs search page plus a copy-the-run-ID button. That is not laziness: it is
-the difference between one honest click and a column of dead links.
+The templates below are unset, and the Source column degrades to a link to OCP
+Logs plus the identifier to copy. That is not laziness: it is the difference
+between one honest click and a column of dead links.
 
-What is known:
+``ocplogs.core.etched.com`` is behind Okta SSO, so its routes cannot be read
+from here — they had to be observed in a browser by someone logged in. They
+have been, and the answer is no.
 
-* Our ``runId`` (``L10_RIN_2026.220.0-git13b172eb_20260810_234450``) is the same
-  string OCP Logs shows in its RUN ID column, so a per-run OCP route almost
-  certainly keys on it.
-* ``ocplogs.core.etched.com`` is behind Okta SSO. Fetching it with the internal
-  CA returns the sign-in page, so its routes cannot be read from here — they
-  have to be observed in a browser by someone logged in.
-* A screenshot of the RUNS tab with FROM, TO, SUITE and FAMILY all set showed a
-  bare ``https://ocplogs.core.etched.com`` in the address bar, which suggests
-  that page keeps its filter state in memory rather than in the URL. If that
-  holds, ``SEARCH_URL_TEMPLATE`` has nothing to point at and should stay empty.
+**CONFIRMED 2026-08-13: there is no per-run OCP URL.** Someone logged in
+selected three different runs — two MLT, one HTT — and the address bar stayed
+``https://ocplogs.core.etched.com`` for all of them while the detail pane
+changed completely. The RUNS tab holds both its filter and its selection in
+memory, so neither a run link nor a pre-filtered search link can be
+constructed. Both templates below stay empty, and this is settled rather than
+open: do not spend another afternoon looking for the route.
+
+Two things that investigation did establish, and that are worth more than the
+link would have been:
+
+* **OCP's RUN ID column is our ``runId``**, character for character
+  (``mlt_2026.220.0-git2f1c2f23_20260812_013949``). OCP Logs is a second reader
+  of the same records this ETL collects — which is why ``runs.html`` is already
+  the per-run permalink that OCP itself cannot offer.
+* **OCP's only run-identifying filter is DUT SERIAL** (with LEVEL, FROM/TO,
+  FAMILY, SUITE, VERSION and STATION). There is no run-id box, so the thing to
+  hand a reader who needs to open OCP by hand is the serial and the date, not
+  the run id.
 
 **pega4 cannot be linked at all.** Its suite-run pages use IDs it mints itself
 (``/suite_run/L10_RIN_run_a868a9eb``); that identifier appears nowhere in the EOS
@@ -44,11 +55,13 @@ from typing import Any, Dict
 #: The OCP Logs web UI. Valid on its own — the RUNS tab is its landing page.
 DEFAULT_OCP_BASE = "https://ocplogs.core.etched.com"
 
-#: Per-run permalink. Empty until someone logged into OCP confirms the route.
+#: Per-run permalink. Empty because OCP has none — confirmed by observation,
+#: not assumed. Kept as an override so a future OCP that grows real routes needs
+#: an environment variable rather than a patch.
 DEFAULT_RUN_URL_TEMPLATE = ""
 
-#: Pre-filtered search — a day, a release or a DUT. Empty for the same reason,
-#: and possibly not expressible as a URL at all (see above).
+#: Pre-filtered search — a day, a release or a DUT. Empty for the same reason:
+#: the RUNS tab keeps its filter in memory, so there is no URL to point at.
 DEFAULT_SEARCH_URL_TEMPLATE = ""
 
 
