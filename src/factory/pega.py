@@ -94,18 +94,50 @@ def _cache_path(path: str) -> Path:
     return CACHE_DIR / (hashlib.sha1(path.encode("utf-8")).hexdigest() + ".json")
 
 
-def _get(path: str, cache: bool = False) -> Any:
-    global _UNREACHABLE
-    if _UNREACHABLE:
-        raise PegaUnavailable("pega3 was unreachable earlier in this run")
+def _read_cache(path: str) -> Optional[Any]:
+    cached = _cache_path(path)
+    if not cached.exists():
+        return None
+    try:
+        return json.loads(cached.read_text(encoding="utf-8"))
+    except ValueError:
+        cached.unlink()                              # corrupt: refetch
+        return None
 
-    if cache:
-        cached = _cache_path(path)
-        if cached.exists():
-            try:
-                return json.loads(cached.read_text(encoding="utf-8"))
-            except ValueError:
-                cached.unlink(missing_ok=True)      # corrupt: refetch
+
+def _write_cache(path: str, payload: Any) -> None:
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    _cache_path(path).write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _get(path: str, cache: bool = False, stale_ok: bool = False) -> Any:
+    """Fetch, preferring the cache where the answer cannot change.
+
+    ``stale_ok`` marks a request whose answer *does* change — a day's run list
+    grows while the day is running — but where a cached copy still beats
+    nothing. The network is tried first for those, and the cache catches the
+    fall.
+
+    THE CACHE IS ALSO A TRANSPORT. The dashboard host has no route to pega3
+    (its DNS does not know the name), so it can never populate this itself.
+    A laptop on the VPN can, and ``data/raw/pega/`` copies across like the CA
+    bundle does — which is why a cache read must not depend on the network
+    being reachable, and why the unreachable short-circuit is checked *after*
+    the cache rather than before it.
+    """
+    global _UNREACHABLE
+
+    if cache and not stale_ok:
+        hit = _read_cache(path)
+        if hit is not None:
+            return hit
+
+    if _UNREACHABLE:
+        if cache:
+            hit = _read_cache(path)
+            if hit is not None:
+                return hit
+        raise PegaUnavailable("pega3 was unreachable earlier in this run")
 
     url = "{}{}".format(base_url(), path)
     try:
@@ -116,15 +148,18 @@ def _get(path: str, cache: bool = False) -> Any:
         # itself between one day and the next; stop paying the timeout.
         if isinstance(exc, (urllib.error.URLError, OSError)):
             _UNREACHABLE = True
-            log.info("pega3 unreachable, skipping it for the rest of this run: %s", exc)
+            log.info("pega3 unreachable, using any cached copy instead: %s", exc)
+        if cache:
+            hit = _read_cache(path)
+            if hit is not None:
+                return hit
         raise PegaUnavailable("{}: {}".format(url, exc)) from exc
 
     if cache:
         # Only a finished run is safe to keep: one still running would freeze
         # mid-flight and never update.
-        if str(payload.get("status", "")).lower() not in ("running", "", "none"):
-            CACHE_DIR.mkdir(parents=True, exist_ok=True)
-            _cache_path(path).write_text(json.dumps(payload), encoding="utf-8")
+        if stale_ok or str(payload.get("status", "")).lower() not in ("running", "", "none"):
+            _write_cache(path, payload)
     return payload
 
 
@@ -161,7 +196,8 @@ def day_suite_runs(day: str) -> List[Dict[str, Any]]:
         payload = _get(
             "/api/history/data-analysis/suite-runs"
             "?start={start}&end={end}&page={page}&per_page={size}".format(
-                start=start, end=end, page=page, size=PAGE_SIZE))
+                start=start, end=end, page=page, size=PAGE_SIZE),
+            cache=True, stale_ok=True)
         batch = payload.get("suite_runs") or []
         collected.extend(batch)
         total = payload.get("total")

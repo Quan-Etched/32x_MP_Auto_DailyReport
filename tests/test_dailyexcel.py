@@ -493,3 +493,58 @@ class PegaTabTest(unittest.TestCase):
             raise pega.PegaUnavailable("no route to host")
         pega.day_suite_runs = boom
         self.assertIsNone(build_dailyexcel._pega_tab("2026-08-13", None))
+
+
+class PegaCacheTest(unittest.TestCase):
+    """The cache is also the transport to a host with no route to pega3.
+
+    The dashboard host's DNS does not know the name, so it can never populate
+    this itself; a laptop on the VPN does, and data/raw/pega/ is copied across
+    like the CA bundle. That only works if a cache read never depends on the
+    network being reachable.
+    """
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        from factory import pega
+        self.pega = pega
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.addCleanup(setattr, pega, "CACHE_DIR", pega.CACHE_DIR)
+        self.addCleanup(setattr, pega, "_UNREACHABLE", False)
+        pega.CACHE_DIR = Path(tmp.name)
+        pega._UNREACHABLE = False
+
+    def test_a_cached_answer_is_served_when_the_host_is_unreachable(self):
+        self.pega._write_cache("/api/test_suite_run/x", {"dut_sn": "268494130000045"})
+        self.pega._UNREACHABLE = True
+        self.assertEqual(self.pega._get("/api/test_suite_run/x", cache=True),
+                         {"dut_sn": "268494130000045"})
+
+    def test_an_uncached_path_still_fails_when_unreachable(self):
+        self.pega._UNREACHABLE = True
+        with self.assertRaises(self.pega.PegaUnavailable):
+            self.pega._get("/api/test_suite_run/missing", cache=True)
+
+    def test_a_stale_ok_request_falls_back_to_cache_on_a_network_error(self):
+        # The day listing grows while the day runs, so it prefers the network —
+        # but a stale copy beats no copy when there is no network at all.
+        path = "/api/history/data-analysis/suite-runs?start=x"
+        self.pega._write_cache(path, {"suite_runs": [{"suite_run_id": "a"}], "total": 1})
+        import os
+        previous = os.environ.get("FACTORY_PEGA_URL")
+        os.environ["FACTORY_PEGA_URL"] = "http://192.0.2.1:9"   # black-holed
+        self.addCleanup(lambda: os.environ.__setitem__("FACTORY_PEGA_URL", previous)
+                        if previous is not None
+                        else os.environ.pop("FACTORY_PEGA_URL", None))
+        self.pega.TIMEOUT = 0.35
+        self.addCleanup(setattr, self.pega, "TIMEOUT", 8.0)
+        got = self.pega._get(path, cache=True, stale_ok=True)
+        self.assertEqual(got["total"], 1)
+
+    def test_a_corrupt_cache_entry_is_discarded_rather_than_raising(self):
+        path = "/api/test_suite_run/bad"
+        self.pega._cache_path(path).write_text("{not json", encoding="utf-8")
+        self.assertIsNone(self.pega._read_cache(path))
+        self.assertFalse(self.pega._cache_path(path).exists())

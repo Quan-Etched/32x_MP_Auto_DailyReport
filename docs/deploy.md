@@ -114,6 +114,38 @@ off rather than collecting twice. Exit codes: **2** the fetch failed, **3** the
 fetch worked but publishing did not — in which case the local bundles are
 current and `make publish` alone will retry.
 
+### The pega3 cache is carried, not fetched
+
+The dashboard host cannot resolve `pega3` (`Name or service not known`), and
+`pega3.core.etched.com` hits the `*.core.etched.com` wildcard at
+`10.48.145.214`, which is not pega3. The real address is `100.102.15.102`, a
+Tailscale one a laptop on the VPN has and the box does not.
+
+pega3 is the only source of the slot -> DUT serial map, so without it the daily
+tracker names units `chip 3` instead of `268494130000045`. The data does not
+have to be fetched *by the box*: `data/raw/pega/` is a cache on disk, and it
+copies across like the CA bundle. Warm it where there is a route, then send it:
+
+```sh
+# laptop, on the VPN
+make dailyexcel                       # fetches pega3 and fills data/raw/pega/
+rsync -av data/raw/pega/ \
+  chuck@chuck-dashboard.usw2.i.etched.com:factory_data_analysis/data/raw/pega/
+```
+
+The box then builds real serials from the cache. It still tries the network
+first for the day listing — a day's runs grow while the day is running — and
+falls back to the cached copy, so a carried cache is a floor rather than a
+ceiling. Re-send it whenever you want the box's view of today to catch up;
+finished runs are immutable, so the transfer is small and mostly additive.
+
+Fixing the route removes the whole step, which is the better answer:
+
+> #infra-help: `chuck-dashboard.usw2.i.etched.com` needs to reach pega3 (ESVM)
+> on port 3000. `pega3` does not resolve there, and `pega3.core.etched.com`
+> resolves to the `*.core.etched.com` wildcard rather than to pega3. From a
+> laptop it is `100.102.15.102` (Tailscale).
+
 ### Updating the code
 
 Another `rsync` from the laptop — step 3, **including its `--exclude '.env'`**.
