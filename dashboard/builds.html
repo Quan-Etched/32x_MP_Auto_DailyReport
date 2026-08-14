@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New builds and retests</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="stations.css">
+  <link rel="stylesheet" href="builds.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Builds &amp; retests</h1>
+    <span class="meta" id="meta"></span>
+    <span class="build" id="build"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" href="index.html">← Station yield</a>
+    <a class="theme-toggle" href="dailyexcel.html">Daily tracker →</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <p class="bld-intro">
+    Whether a unit was seeing this station for the <strong>first time</strong> or
+    coming back for a <strong>retest</strong> — and if it is back, what happened
+    last time. When a release claims to fix something, it is the units it was
+    <em>not</em> developed against that carry the evidence.
+  </p>
+
+  <section class="bld-tiles" id="tiles"></section>
+
+  <nav class="stationbar" id="stationbar" aria-label="Station"></nav>
+
+  <section class="bld-controls">
+    <label class="bld-search">
+      <span>Previously failed</span>
+      <input type="search" id="prior-filter" placeholder="e.g. LlamaForwardIterated"
+             autocomplete="off">
+    </label>
+    <label class="bld-check">
+      <input type="checkbox" id="only-retest"> Retests of failed units only
+    </label>
+    <span class="spacer"></span>
+    <button type="button" class="view-toggle" id="copy-tsv">Copy table</button>
+  </section>
+
+  <div class="table-wrap">
+    <table class="bld-table" id="table">
+      <caption id="caption"></caption>
+      <thead>
+        <tr>
+          <th scope="col">Date</th>
+          <th scope="col">DUT SN</th>
+          <th scope="col">Station</th>
+          <th scope="col">Build / retest</th>
+          <th scope="col">Result</th>
+          <th scope="col">Failed this time</th>
+          <th scope="col">Failed last time</th>
+          <th scope="col">Run</th>
+        </tr>
+      </thead>
+      <tbody id="body"></tbody>
+    </table>
+  </div>
+
+  <p class="bld-more" id="more" hidden></p>
+
+  <footer class="notes">
+    <p id="footer-meta"></p>
+    <p>
+      <strong>&ldquo;New&rdquo; is relative to the collected window.</strong> A unit
+      is called new when it has not been through this station inside it; widen the
+      window and some of today's new builds become retests. The window is printed
+      above. A retest's history is not relative in the same way — if a unit failed
+      here before, it failed.
+    </p>
+  </footer>
+
+</div>
+
+<script src="data/builds.js"></script>
+<script src="builds.js"></script>
+<script src="update.js"></script>
+</body>
+</html>

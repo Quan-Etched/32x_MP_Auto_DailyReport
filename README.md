@@ -155,6 +155,30 @@ same meanings `daily.py` gives them, so the row count always reconciles with the
 number that was clicked. `abort` means EOS's `error`; see
 `src/factory/build_runs.py`.
 
+**`dashboard/builds.html` — new builds and retests.** Whether a unit was seeing
+a station for the first time or coming back, and if it is back, what it failed
+last time. Colour-coded, but the word is there too — the page is meant to be
+screenshotted into a thread.
+
+```sh
+make builds            # also runs inside `make build`
+```
+
+It exists because "the new suite passes" is only evidence if the units it passed
+on are not the units the fix was written against. The **previously failed**
+filter is the point rather than a convenience: typing `LlamaForwardIterated`
+gives the units that failed it before and have since been retested — 42 of them
+across MLT and HTT at the time of writing — which is the list needed to validate
+a fix on boards it was *not* developed on.
+
+Line-wide the split is stark: **new builds pass 63.7%, retests of failed units
+27.4%**.
+
+*"New" is relative to the collected window* — widen it and some of today's new
+builds become retests, the same caveat first-pass yield carries. A retest's
+history is not relative in the same way: if a unit failed here before, it failed.
+The page prints its window.
+
 **`dashboard/direct.html` — station yield, straight from the controllers.** The
 same page as the landing one, computed from pega2–pega5 instead of from EOS.
 Each page says which it is, in a **Data source** cell beside Last fetch.
@@ -354,6 +378,7 @@ src/factory/
   build_l10.py        the L10 tracker: FAT/SFT/RIN/2U from pega4
   pega_collect.py     the run table built from the controllers, not from EOS
   compare.py          measures the gap between the two, at build time
+  build_history.py    new build or retest, and what a unit failed last time
   version.py          which build made a page: release, commit, repo
   chips.py            per-chip verdicts inside a fixture run
   requests.py         what we need from other systems, and probes for it
@@ -373,6 +398,7 @@ dashboard/
   requests.html + requests.js + requests.css   asks against other systems
   l10.html            the L10 tracker (same renderer as the module one)
   direct.html         station yield from the controllers (same renderer again)
+  builds.html + builds.js + builds.css   new builds vs retests
   update.js           the Update button, shared by every page
   data/*.js           generated bundles (gitignored)
 

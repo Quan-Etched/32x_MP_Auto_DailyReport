@@ -48,7 +48,7 @@ make status            # last fetch vs last update, per station
 
 | Check | Result |
 |---|---|
-| Unit tests | 321 passing (`make test`) |
+| Unit tests | 335 passing (`make test`) |
 | `/levels` | `l6, l10, l11, slt, module, bringup` |
 | Live collect | 1062 runs over 30 days across l6 + l10 + slt + module |
 | Status / duration resolved | all runs |
@@ -167,6 +167,27 @@ run belongs to, and the registry snapshot the page renders, are both derived
 from code and re-derived when `runs.json` is read — before this, editing
 `stations.py` and running `make build` changed nothing until the next collect,
 which looked exactly like the edit not working.
+
+## New builds vs retests
+
+`dashboard/builds.html` marks every run as a new build — the unit's first time
+through that station in the window — or a retest, and a retest carries what the
+unit failed last time.
+
+It was built for a question that had no answer: when `mlt_2026.225` was
+validated, 24 units went through it, 8 of them the debug set the fix was
+developed on, and nothing could separate those from the other 16. The
+**previously failed** filter does exactly that — `LlamaForwardIterated` returns
+42 units that failed it and have since been retested, which is the list needed
+to validate a fix on boards it was not written against.
+
+Line-wide the split is worth knowing on its own: **new builds pass 63.7%,
+retests after a failure 27.4%, retests after a pass 73.0%.**
+
+History is per station and is walked across the whole collected window before
+the tail is published, so a unit whose earlier failure fell outside the
+published days is still shown as a retest — presenting it as a new build is the
+error that would make a fix look better than it is.
 
 ## Two station pages, and why they disagree
 

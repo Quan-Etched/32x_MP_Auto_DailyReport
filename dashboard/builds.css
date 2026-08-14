@@ -1,0 +1,186 @@
+/* Builds and retests.
+ *
+ * The classification is the content, so it is encoded three ways: a coloured
+ * dot, a coloured serial, and the word itself. Colour alone fails a screenshot
+ * pasted into a thread, a printout, and a reader who cannot distinguish the
+ * hues — and this page exists to be pasted into threads.
+ */
+
+:root {
+  --bld-new:  #0f6b4f;
+  --bld-fail: #98252a;
+  --bld-pass: #1c62b8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    --bld-new:  #5fc9a2;
+    --bld-fail: #f0959a;
+    --bld-pass: #7aa7e8;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bld-new:  #5fc9a2;
+  --bld-fail: #f0959a;
+  --bld-pass: #7aa7e8;
+}
+
+.bld-intro {
+  max-width: 74ch;
+  margin: 14px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.bld-intro strong { color: var(--text-primary); }
+
+.bld-tiles { display: flex; flex-wrap: wrap; gap: 12px; margin: 18px 0 6px; }
+
+.bld-tile {
+  flex: 1 1 220px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--tone, var(--border));
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.bld-tile.k-new  { --tone: var(--bld-new); }
+.bld-tile.k-fail { --tone: var(--bld-fail); }
+.bld-tile.k-pass { --tone: var(--bld-pass); }
+
+.bld-tile .k { display: block; font-size: 12px; color: var(--text-muted); }
+.bld-tile .v {
+  display: block;
+  font-size: 26px;
+  line-height: 1.15;
+  margin: 3px 0 2px;
+  font-variant-numeric: tabular-nums;
+  color: var(--tone);
+}
+.bld-tile .s { display: block; font-size: 12px; color: var(--text-secondary); }
+.bld-tile .s.dim { color: var(--text-muted); margin-top: 2px; }
+
+/* ------------------------------------------------------------- controls */
+
+.bld-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 14px 0 0;
+  font-size: 13px;
+}
+
+.bld-search { display: flex; align-items: center; gap: 8px; }
+.bld-search span { color: var(--text-secondary); white-space: nowrap; }
+
+.bld-search input {
+  font: inherit;
+  padding: 5px 9px;
+  min-width: 15rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--page);
+  color: var(--text-primary);
+}
+
+.bld-search input:focus-visible { outline: 2px solid var(--accent-solid); }
+.bld-check { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+
+/* ---------------------------------------------------------------- table */
+
+.bld-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+
+.bld-table caption {
+  caption-side: top;
+  text-align: left;
+  padding: 12px 0 8px;
+  color: var(--text-secondary);
+}
+
+.bld-table th {
+  text-align: left;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 6px 14px 6px 0;
+  border-bottom: 1px solid var(--axis);
+  white-space: nowrap;
+}
+
+.bld-table td {
+  padding: 6px 14px 6px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  /* The shared stylesheet right-aligns table cells for the numeric tables it
+     was written for; every column here is text. */
+  text-align: left;
+}
+
+.bld-table tbody tr:hover { background: var(--hover-wash); }
+.bld-table .day { white-space: nowrap; color: var(--text-secondary); }
+
+.bld-table .dut {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bld-table .kind { white-space: nowrap; font-weight: 600; }
+
+.bld-table .dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 7px;
+  background: currentColor;
+  vertical-align: middle;
+}
+
+.k-new  { color: var(--bld-new); }
+.k-fail { color: var(--bld-fail); }
+.k-pass { color: var(--bld-pass); }
+
+.bld-table .res { text-transform: capitalize; }
+.r-pass  { color: var(--status-good); }
+.r-fail  { color: var(--status-critical); }
+.r-error { color: var(--status-serious); }
+
+.bld-table .fails {
+  white-space: pre-line;
+  max-width: 30ch;
+  color: var(--text-secondary);
+}
+
+.bld-table .fails.prior { color: var(--text-muted); }
+.bld-table .runlink { color: var(--accent-solid); white-space: nowrap; }
+.bld-more { color: var(--text-muted); font-size: 13px; }
+
+@media (max-width: 900px) {
+  .bld-table .fails { max-width: 20ch; }
+}
+
+/* Build provenance, same treatment as the tracker's. */
+.build { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; font-size: 12px; }
+.build a, .build span {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+.build a:hover { color: var(--text-primary); }
+.build .build-release { font-weight: 650; color: var(--text-primary); }
+.build .build-commit { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+/* A run with seventeen failures should not push the next row off the screen. */
+.bld-table .fails .more {
+  display: block;
+  color: var(--text-muted);
+  font-style: italic;
+}

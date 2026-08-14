@@ -265,6 +265,13 @@ def cmd_build(args: argparse.Namespace) -> int:
                 pega_payload, pega_collect.fetch_state(pega_payload))
             pega_path = build_stations.write_bundle(
                 pega_bundle, config.DASHBOARD_DATA_DIR / "pega_stations.js")
+            # Same payload again: which units were new to a station and which
+            # came back. Free, since the collection is already in hand.
+            from . import build_history
+            builds_path = build_history.write_bundle(
+                build_history.build_bundle(pega_payload))
+            print("Builds ({:.0f} KB) -> {}".format(
+                builds_path.stat().st_size / 1024, builds_path))
             print("Pega stations ({:.0f} KB, {} unit runs) -> {}".format(
                 pega_path.stat().st_size / 1024, pega_payload["runCount"], pega_path))
         else:
@@ -532,6 +539,30 @@ def cmd_requests(args: argparse.Namespace) -> int:
     print("{} asks, {} blocking automation -> {}".format(
         len(bundle["requests"]), bundle["openBlocking"], path))
     print("Checked on {} — a probe is only true where it ran.".format(bundle["builtOn"]))
+    return 0
+
+
+def cmd_builds(args: argparse.Namespace) -> int:
+    """New build or retest, per unit per station, from the controllers."""
+    from . import build_history, pega_collect
+
+    payload = pega_collect.collect(days=30)
+    if not payload["runs"]:
+        print("No runs from the controllers.", file=sys.stderr)
+        return 1
+    bundle = build_history.build_bundle(payload, days=args.days)
+    path = build_history.write_bundle(bundle)
+    counts = bundle["counts"]
+    print("Builds ({:.0f} KB, {} runs over {} units) -> {}".format(
+        path.stat().st_size / 1024, counts["runs"], counts["units"], path))
+    for key, label in (("new", "new builds"),
+                       ("retestAfterFail", "retests after a failure"),
+                       ("retestAfterPass", "retests after a pass")):
+        entry = counts[key]
+        rate = entry["rate"]
+        print("  {:<24} {:>4}  pass rate {}".format(
+            label, entry["runs"],
+            "{:.1f}%".format(100 * rate) if rate is not None else "—"))
     return 0
 
 
@@ -817,6 +848,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="build the station page straight from the ESVM controllers")
     pega_stations.add_argument("--days", type=int, default=30)
     pega_stations.set_defaults(handler=cmd_pega_stations)
+
+    builds = subparsers.add_parser(
+        "builds", help="mark each run as a new build or a retest")
+    builds.add_argument("--days", type=int, default=14)
+    builds.set_defaults(handler=cmd_builds)
 
     l10 = subparsers.add_parser("l10", help="build the L10 daily tracker from pega4")
     l10.add_argument("--days", type=int, default=build_l10_default_days())

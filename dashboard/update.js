@@ -68,7 +68,7 @@
   function bundle() {
     return window.__FACTORY_STATIONS__ || window.__FACTORY_METRICS__ ||
            window.__FACTORY_RELEASES__ || window.__FACTORY_DAILY_EXCEL__ ||
-           window.__FACTORY_REQUESTS__ || {};
+           window.__FACTORY_REQUESTS__ || window.__FACTORY_BUILDS__ || {};
   }
 
   function generatedAt() {
