@@ -134,5 +134,17 @@ class LinkTest(unittest.TestCase):
         self.assertIn("pega4:3000", bundle["rows"][0]["url"])
 
 
+class FailureNamesTest(unittest.TestCase):
+    def test_the_nest_is_not_the_failure(self):
+        """SltModuleNestedTestCase fails because a leaf under it did. Printing
+        it as the prior failure puts the same word on every returning unit."""
+        bundle = build_history.build_bundle(payload([
+            run("A", "mlt", "fail", DAY,
+                ["SltModuleNestedTestCase", "SohuLaneRepairTestCase"]),
+            run("A", "mlt", "pass", DAY + HOUR)]))
+        latest = max(bundle["rows"], key=lambda r: r["ts"])
+        self.assertEqual(latest["priorFailures"], ["SohuLaneRepairTestCase"])
+
+
 if __name__ == "__main__":
     unittest.main()

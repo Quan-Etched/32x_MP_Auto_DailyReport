@@ -542,6 +542,31 @@ def cmd_requests(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_validation(args: argparse.Namespace) -> int:
+    """The units that went through one suite, and how they reconcile."""
+    from . import build_validation, pega_collect
+
+    suite = args.suite or build_validation.DEFAULT_SUITE
+    host = args.host or build_validation.DEFAULT_HOST
+    collected = build_validation.collect(suite=suite, host=host)
+    if not collected["units"]:
+        print("No units found for {} on {}.".format(suite, host), file=sys.stderr)
+        return 1
+
+    bundle = build_validation.build_bundle(pega_collect.collect(days=30), collected)
+    path = build_validation.write_bundle(bundle)
+    counts = bundle["counts"]
+    print("Validation ({:.0f} KB, {} units) -> {}".format(
+        path.stat().st_size / 1024, counts["units"], path))
+    print("  {} passed / {} failed  ({} new: {} passed · {} seen before: {} passed)".format(
+        counts["passed"], counts["failed"],
+        counts["new"]["units"], counts["new"]["passed"],
+        counts["seen"]["units"], counts["seen"]["passed"]))
+    print("  the same station ran {} units that day across {} other suites".format(
+        bundle["reconcile"]["dayTotal"], len(bundle["reconcile"]["siblings"])))
+    return 0
+
+
 def cmd_builds(args: argparse.Namespace) -> int:
     """New build or retest, per unit per station, from the controllers."""
     from . import build_history, pega_collect
@@ -848,6 +873,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="build the station page straight from the ESVM controllers")
     pega_stations.add_argument("--days", type=int, default=30)
     pega_stations.set_defaults(handler=cmd_pega_stations)
+
+    validation = subparsers.add_parser(
+        "validation", help="one suite's validation run, unit by unit")
+    validation.add_argument("--suite", default=None)
+    validation.add_argument("--host", default=None)
+    validation.set_defaults(handler=cmd_validation)
 
     builds = subparsers.add_parser(
         "builds", help="mark each run as a new build or a retest")

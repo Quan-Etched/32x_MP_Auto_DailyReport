@@ -10,7 +10,7 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        dailyexcel requests l10 pega-stations builds \
+        dailyexcel requests l10 pega-stations builds validation \
         schedule-install-macos schedule-uninstall-macos schedule-status-macos \
         schedule-install-systemd schedule-uninstall-systemd schedule-status-systemd \
         update clean distclean
@@ -105,6 +105,11 @@ pega-stations:
 builds:
 	$(PY) -m factory.cli builds
 
+# One suite's validation run, unit by unit, with the reconciliation that
+# explains why other pages report a different count for the same day.
+validation:
+	$(PY) -m factory.cli validation
+
 # Re-check what we need from other systems (routes, certs, IAM, API fields) and
 # rebuild that page. Also runs as part of `make build`.
 requests:
@@ -190,7 +195,7 @@ schedule-status-systemd:
 clean:
 	rm -rf data/processed/* dashboard/data/metrics.js dashboard/data/stations.js \
 	       dashboard/data/runs.js dashboard/data/dailyexcel.js \
-	       dashboard/data/requests.js dashboard/data/l10daily.js dashboard/data/pega_stations.js dashboard/data/builds.js
+	       dashboard/data/requests.js dashboard/data/l10daily.js dashboard/data/pega_stations.js dashboard/data/builds.js dashboard/data/validation.js
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
 
 # Also drops the cached HTTP responses, forcing a full refetch next collect.

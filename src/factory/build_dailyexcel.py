@@ -621,7 +621,13 @@ def _release_label(versions: List[Optional[str]]) -> Optional[str]:
         return None
     dominant = Counter(seen).most_common(1)[0][0]
     release = stations.release_of(dominant)
-    return "2026.{}".format(release) if release else str(dominant)
+    # release_of returns the input unchanged when it cannot parse one, so
+    # "2026." must only be prepended to something that really is a release
+    # number. Without the check, mlt_validation_2026.225.0-gitb937ca2c came out
+    # as "mlt_2026.validation_2026.225.0-gitb937ca2c" in the column heading.
+    if release and str(release).isdigit():
+        return "2026.{}".format(release)
+    return str(dominant)
 
 
 def _utc_day(ts: Optional[int]) -> Optional[str]:

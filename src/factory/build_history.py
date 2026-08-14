@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import config, pega, stations, version
+from . import config, pega, rootcause, stations, version
 
 #: Days of history to publish. Long enough to hold a validation campaign and
 #: the batch it is being compared against.
@@ -51,12 +51,21 @@ def _day_of(ts: Optional[int]) -> Optional[str]:
 
 
 def _failure_names(run: Dict[str, Any]) -> List[str]:
-    """The distinct test classes that failed, in the order they ran."""
+    """The distinct leaf tests that failed, in the order they ran.
+
+    Containers are dropped: a nest fails because something under it did, so
+    ``SltModuleNestedTestCase`` heads the list on nearly every failed unit and
+    says nothing about any of them. The leaf below it is the signature a reader
+    can act on, and it is what the daily tracker prints for the same run.
+    """
     names: List[str] = []
     for failure in run.get("failures") or []:
         name = failure.get("display") or failure.get("test")
-        if name and name not in names:
-            names.append(name)
+        if not name or name in names:
+            continue
+        if rootcause.is_container(failure.get("display"), failure.get("test")):
+            continue
+        names.append(name)
     return names
 
 
