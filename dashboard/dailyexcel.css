@@ -435,3 +435,12 @@ span.jira-key { color: var(--text-secondary); }
   cursor: pointer;
   text-decoration: underline;
 }
+
+/* The tiles describe whatever the filter left showing, so the filter is stated
+   beside them rather than only in the caption below the table. */
+.sheet-tile.filtered {
+  border-color: var(--accent-solid);
+  box-shadow: inset 3px 0 0 var(--accent-solid);
+}
+
+.sheet-tile.filtered .tile-value { color: var(--accent-solid); }

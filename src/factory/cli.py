@@ -215,6 +215,34 @@ def cmd_refresh(args: argparse.Namespace) -> int:
                   file=sys.stderr)
         return 2
 
+    # An unreachable EOS does not raise: the collector records the failure per
+    # level and returns an empty payload, which then overwrote the stored runs
+    # with nothing and published a dashboard reading zero everywhere. Measured,
+    # not theorised — one pointed-at-a-dead-host run reduced a 30-day snapshot
+    # to 0 runs and the station bundle from 145 KB to 18 KB.
+    #
+    # So an empty payload with errors on it is a failed fetch, not a fetch that
+    # found nothing. A genuinely quiet window has no level errors and is still
+    # written.
+    if _is_empty_failure(payload):
+        try:
+            held = collect_mod.read_runs()
+        except (OSError, ValueError):
+            held = {}
+        if held.get("runs"):
+            detail = "; ".join("{}: {}".format(level, str(err)[:80])
+                               for level, err in payload["levelErrors"].items())
+            fetchstate.record_failure(detail)
+            print("Fetch FAILED, keeping the {} runs already collected: {}".format(
+                len(held["runs"]), detail), file=sys.stderr)
+            try:
+                _step("build", "EOS unreachable - rebuilding what does not need it")
+                cmd_build(args)
+            except Exception as build_exc:                # noqa: BLE001
+                print("Rebuild after failed fetch also failed: {}".format(build_exc),
+                      file=sys.stderr)
+            return 2
+
     collect_mod.write_runs(payload)
     state = fetchstate.record_fetch(payload)
 
@@ -251,6 +279,17 @@ def cmd_refresh(args: argparse.Namespace) -> int:
         for level, err in payload["levelErrors"].items():
             print("  level {} unavailable: {}".format(level, err[:120]), file=sys.stderr)
     return 0
+
+
+def _is_empty_failure(payload: Dict[str, Any]) -> bool:
+    """Did this fetch come back empty *because it failed*?
+
+    An unreachable EOS does not raise — the collector records the failure per
+    level and returns a payload with no runs. Written to disk, that replaces
+    the collected history with nothing. A genuinely quiet window looks the same
+    except that nothing errored, and it is still written.
+    """
+    return not payload.get("runs") and bool(payload.get("levelErrors"))
 
 
 def cmd_build(args: argparse.Namespace) -> int:

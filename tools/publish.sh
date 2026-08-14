@@ -51,6 +51,47 @@ fi
 # copy into the directory nginx already points at. No git, no credential, no
 # remote — which is the point, since that host holds the API key and runs
 # unattended.
+
+# Browsers cache stylesheets aggressively, and every file here keeps its name
+# from one deploy to the next — so a CSS change ships and readers keep the old
+# one until someone thinks to hard-reload. Seen for real: the filter menu and
+# the two-line headings rendered unstyled on the box while the markup was
+# current. Stamping the build onto each asset URL in the *published* copy makes
+# the URL change whenever the file does, which is the whole fix. The working
+# tree is untouched.
+stamp_assets() {
+    local root="$1"
+    "${PYTHON:-python3}" - "$root" <<'PYSTAMP'
+import hashlib
+import pathlib
+import re
+import sys
+
+root = pathlib.Path(sys.argv[1])
+
+
+def digest(path):
+    return hashlib.sha1(path.read_bytes()).hexdigest()[:8]
+
+
+ASSET = re.compile(r'(href|src)="([A-Za-z0-9_./-]+\.(?:css|js))"')
+
+for page in sorted(root.glob("*.html")):
+    text = page.read_text(encoding="utf-8")
+
+    def stamp(match):
+        target = root / match.group(2)
+        if not target.exists():
+            return match.group(0)
+        return '{}="{}?b={}"'.format(match.group(1), match.group(2),
+                                     digest(target))
+
+    stamped = ASSET.sub(stamp, text)
+    if stamped != text:
+        page.write_text(stamped, encoding="utf-8")
+PYSTAMP
+}
+
 if [ -n "${FACTORY_WEB_ROOT:-}" ]; then
     if [ ! -d "$FACTORY_WEB_ROOT" ]; then
         echo "publish: FACTORY_WEB_ROOT=$FACTORY_WEB_ROOT is not a directory" >&2
@@ -67,12 +108,14 @@ if [ -n "${FACTORY_WEB_ROOT:-}" ]; then
         exit 1
     fi
 
+    stamp_assets "$FACTORY_WEB_ROOT"
     echo "Published $(du -sh "$FACTORY_WEB_ROOT" | cut -f1) to $FACTORY_WEB_ROOT"
     exit 0
 fi
 
 # ------------------------------------------------------ target 2: gh-pages
 cp -R "$REPO/dashboard/." "$STAGE/"
+stamp_assets "$STAGE"
 touch "$STAGE/.nojekyll"          # serve files verbatim, no Jekyll processing
 
 # A published page should say where it came from and that it is not public.

@@ -84,7 +84,49 @@
   /* The sheet's own tallies, counted from its own colouring — deliberately not
    * recomputed from EOS. If these disagree with the station page, that is a
    * finding about the two sources, and flattening it here would hide it. */
-  function renderSummary(tab) {
+  /* The verdicts of the rows that are showing.
+   *
+   * These used to come straight from the bundle, so filtering the table to one
+   * build left the tile saying 61.5% over all 39 units — a number describing a
+   * table nobody was looking at. Recomputed here from the same rows the body
+   * renders, which is the only way the two can be guaranteed to agree.
+   */
+  function countsFor(tab, rows) {
+    var out = {};
+    Object.keys(tab.counts || {}).forEach(function (key) {
+      var at = columnIndex(tab, key);
+      var tally = { pass: 0, fail: 0, blank: 0,
+                    title: (tab.counts[key] || {}).title,
+                    sub: subFor(tab, key, rows) };
+      rows.forEach(function (row) {
+        var tone = (row[at] || {}).t;
+        if (tone === 'pass' || tone === 'fail') tally[tone] += 1;
+        else tally.blank += 1;
+      });
+      out[key] = tally;
+    });
+    return out;
+  }
+
+  /* The build line under a heading, over whichever rows are showing: filter to
+   * one version and it names that version instead of counting several. */
+  function subFor(tab, resultKey, rows) {
+    var at = columnIndex(tab, resultKey);
+    var columns = tab.columns || [];
+    if (at < 0 || !columns[at + 1] || columns[at + 1].kind !== 'version') {
+      return (tab.counts[resultKey] || {}).sub;
+    }
+    var seen = [];
+    rows.forEach(function (row) {
+      var value = textOf(row[at + 1]);
+      if (value && seen.indexOf(value) === -1) seen.push(value);
+    });
+    if (!seen.length) return null;
+    if (seen.length === 1) return seen[0];
+    return seen.length + ' versions in this column';
+  }
+
+  function renderSummary(tab, rows) {
     el.summary.innerHTML = '';
 
     /* A derived tab must never be mistaken for the line's own record. It says
@@ -108,7 +150,25 @@
             'per-chip test names in EOS. That gives verdicts but not serials.' })
       ]));
     }
-    var counts = tab.counts || {};
+    /* The tiles below now describe the filtered set, so the filter has to be
+     * visible beside them. A 100% tile with no note is the screenshot that
+     * gets quoted as the day's yield. */
+    if (filtered()) {
+      var names = Object.keys(view.filters).map(function (key) {
+        var at = columnIndex(tab, key);
+        return (tab.columns[at] || {}).title || key;
+      });
+      el.summary.appendChild(h('div', { class: 'sheet-tile filtered' }, [
+        h('span', { class: 'tile-title', text: 'Filtered view' }),
+        h('strong', { class: 'tile-value',
+                      text: rows.length + ' of ' + tab.rows.length }),
+        h('span', { class: 'tile-sub',
+                    text: 'by ' + names.join(', ') +
+                          ' — every figure here counts only these rows' })
+      ]));
+    }
+
+    var counts = countsFor(tab, rows);
     Object.keys(counts).forEach(function (key) {
       var entry = counts[key];
       var graded = entry.pass + entry.fail;
@@ -135,7 +195,8 @@
 
     /* The tab name carries the line's own unit count. If it disagrees with the
      * rows present, the export is mid-edit or a row was dropped — say so. */
-    if (tab.claimedUnits && tab.claimedUnits !== tab.rows.length) {
+    if (tab.claimedUnits && tab.claimedUnits !== tab.rows.length &&
+        rows.length === tab.rows.length) {
       el.summary.appendChild(h('div', { class: 'sheet-tile warn' }, [
         h('span', { class: 'tile-title', text: 'Row count' }),
         h('strong', { class: 'tile-value', text: tab.rows.length }),
@@ -375,6 +436,7 @@
     columns.forEach(function (column) {
       var on = !!view.filters[column.key];
       var sorted = view.sort && view.sort.key === column.key;
+      var sub = column.sub == null ? null : subFor(tab, column.key, rows);
       var button = h('button', {
         type: 'button', class: 'col-filter',
         'aria-label': 'Filter and sort ' + column.title,
@@ -391,7 +453,7 @@
           h('span', { class: 'col-name', text: column.title }),
           button
         ]),
-        column.sub ? h('span', { class: 'col-build', text: column.sub }) : null
+        sub ? h('span', { class: 'col-build', text: sub }) : null
       ]);
       cell.className = (column.kind ? 'col-' + column.kind + ' ' : '') +
         (on ? 'is-filtered ' : '') + (sorted ? 'is-sorted' : '');
@@ -431,6 +493,7 @@
     el.body.innerHTML = '';
     el.body.appendChild(body);
 
+    renderSummary(tab, rows);
     renderCaption(tab, rows.length);
   }
 
@@ -621,8 +684,7 @@
       closeMenu();
     }
     renderTabs();
-    renderSummary(current);
-    renderTable(current);
+    renderTable(current);          /* renders the summary from the same rows */
     document.title = 'Daily tracker — ' + (current.day || current.label);
   }
 
