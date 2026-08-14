@@ -156,6 +156,8 @@ def build_bundle(
         tab = _reformat_sheet_columns(tab)
         tabs.append(tab)
 
+    _drop_always_empty(tabs)
+
     if not tabs:
         warnings.append(
             "no tab in {} is named like 'MM-DD Nx' — nothing to publish".format(
@@ -550,6 +552,63 @@ def _widen_for_versions(tab: Dict[str, Any]) -> Dict[str, Any]:
     tab["columns"] = columns
     tab["rows"] = rows
     return tab
+
+
+#: Columns that stay even when every cell is blank, because blank is the
+#: answer: a unit that never reached HTT has an empty HTT result, and dropping
+#: the column would turn "did not run" into "not tracked".
+KEEP_WHEN_EMPTY = frozenset(
+    [result for _s, result, _v, _t in VERSION_COLUMNS] +
+    [version for _s, _r, version, _t in VERSION_COLUMNS] +
+    # Date, DUT SN, the two failure columns and the two link columns. An empty
+    # failure column says the day had no failures, which is the best news the
+    # tracker can carry and must not be deleted for being blank.
+    ["A", "B", "F", "G", "I", "J"])
+
+
+def _drop_always_empty(tabs: List[Dict[str, Any]]) -> None:
+    """Drop a column no tab has ever filled.
+
+    ASIC SN is the case in hand: the sheet carries the column and the line has
+    never typed in it, so it is 158 empty cells of horizontal space between the
+    serial and the part number. Judged across every published tab rather than
+    per tab, so the tabs keep one shape and the column reappears by itself if
+    the line starts filling it.
+    """
+    keys = [column["key"] for column in (tabs[0]["columns"] if tabs else [])]
+    empty = []
+    for key in keys:
+        if key in KEEP_WHEN_EMPTY:
+            continue
+        used = False
+        for tab in tabs:
+            index = {column["key"]: position
+                     for position, column in enumerate(tab["columns"])}
+            position = index.get(key)
+            if position is None:
+                continue
+            for row in tab["rows"]:
+                cell = row[position] if position < len(row) else {}
+                if cell.get("v") or cell.get("h") or cell.get("j"):
+                    used = True
+                    break
+            if used:
+                break
+        if not used:
+            empty.append(key)
+
+    for key in empty:
+        for tab in tabs:
+            index = {column["key"]: position
+                     for position, column in enumerate(tab["columns"])}
+            position = index.get(key)
+            if position is None:
+                continue
+            tab["columns"] = [column for column in tab["columns"]
+                              if column["key"] != key]
+            tab["rows"] = [row[:position] + row[position + 1:]
+                           for row in tab["rows"]]
+            tab["counts"] = _counts(tab["rows"], tab["columns"])
 
 
 def _reformat_sheet_columns(tab: Dict[str, Any]) -> Dict[str, Any]:

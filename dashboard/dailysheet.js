@@ -149,16 +149,252 @@
 
   /* ----------------------------------------------------------------- table */
 
+  /* Which rows are showing, and why.
+   *
+   * Excel's Data/Filter, because that is what the line already knows: click a
+   * heading, tick the values you want, sort from the same menu. The values
+   * offered in one column are computed with the *other* columns' filters
+   * already applied, so a menu never offers a value that would leave the table
+   * empty — Excel does the same, and the alternative reads as a broken filter.
+   */
+  var view = { filters: {}, sort: null };
+
+  function textOf(cell) {
+    return cell && cell.v != null ? String(cell.v) : '';
+  }
+
+  function label(value) { return value === '' ? '(blank)' : value; }
+
+  /* Serials, dates and run ids all sort wrongly as plain strings — 10 before
+   * 9 — so digits inside the text are compared as numbers. */
+  function compare(left, right) {
+    if (left === right) return 0;
+    if (left === '') return 1;          /* blanks last, filtered or not */
+    if (right === '') return -1;
+    return left.localeCompare(right, undefined, { numeric: true });
+  }
+
+  function keep(tab, row, skipKey) {
+    var columns = tab.columns || [];
+    for (var i = 0; i < columns.length; i++) {
+      var allowed = view.filters[columns[i].key];
+      if (!allowed || columns[i].key === skipKey) continue;
+      if (allowed.indexOf(textOf(row[i])) === -1) return false;
+    }
+    return true;
+  }
+
+  function shownRows(tab) {
+    var rows = (tab.rows || []).filter(function (row) {
+      return keep(tab, row, null);
+    });
+    if (view.sort) {
+      var index = columnIndex(tab, view.sort.key);
+      if (index >= 0) {
+        var direction = view.sort.dir === 'desc' ? -1 : 1;
+        /* Decorate with the original position so equal values keep the
+         * builder's order — passes before failures — instead of whatever the
+         * engine's sort happens to do with ties. */
+        rows = rows.map(function (row, at) { return [row, at]; });
+        rows.sort(function (a, b) {
+          var by = compare(textOf(a[0][index]), textOf(b[0][index]));
+          return by ? by * direction : a[1] - b[1];
+        });
+        rows = rows.map(function (pair) { return pair[0]; });
+      }
+    }
+    return rows;
+  }
+
+  function columnIndex(tab, key) {
+    var columns = tab.columns || [];
+    for (var i = 0; i < columns.length; i++) {
+      if (columns[i].key === key) return i;
+    }
+    return -1;
+  }
+
+  function valuesFor(tab, key) {
+    var index = columnIndex(tab, key);
+    var counts = {};
+    (tab.rows || []).forEach(function (row) {
+      if (!keep(tab, row, key)) return;
+      var value = textOf(row[index]);
+      counts[value] = (counts[value] || 0) + 1;
+    });
+    return Object.keys(counts).sort(compare).map(function (value) {
+      return { value: value, count: counts[value] };
+    });
+  }
+
+  function filtered() {
+    return Object.keys(view.filters).length > 0;
+  }
+
+  /* ----------------------------------------------------------- filter menu */
+
+  var menu = null;
+
+  function closeMenu() {
+    if (menu && menu.parentNode) menu.parentNode.removeChild(menu);
+    menu = null;
+  }
+
+  function openMenu(tab, column, anchor) {
+    closeMenu();
+    var values = valuesFor(tab, column.key);
+    var chosen = view.filters[column.key];
+    var picked = {};
+    values.forEach(function (entry) {
+      picked[entry.value] = !chosen || chosen.indexOf(entry.value) !== -1;
+    });
+
+    menu = h('div', { class: 'filter-menu', role: 'dialog',
+                      'aria-label': 'Filter ' + column.title });
+
+    function sortButton(text, dir) {
+      var button = h('button', { type: 'button', class: 'fm-sort', text: text });
+      if (view.sort && view.sort.key === column.key && view.sort.dir === dir) {
+        button.className += ' on';
+      }
+      button.addEventListener('click', function () {
+        view.sort = { key: column.key, dir: dir };
+        closeMenu();
+        renderTable(tab);
+      });
+      return button;
+    }
+    menu.appendChild(h('div', { class: 'fm-sorts' }, [
+      sortButton('Sort A \u2192 Z', 'asc'),
+      sortButton('Sort Z \u2192 A', 'desc')
+    ]));
+
+    var search = h('input', { class: 'fm-search', type: 'search',
+                              placeholder: 'Search values' });
+    menu.appendChild(search);
+
+    var list = h('div', { class: 'fm-list' });
+    var boxes = [];
+    values.forEach(function (entry) {
+      var box = h('input', { type: 'checkbox' });
+      box.checked = picked[entry.value];
+      box.addEventListener('change', function () {
+        picked[entry.value] = box.checked;
+      });
+      var row = h('label', { class: 'fm-row' }, [
+        box,
+        h('span', { class: 'fm-value', text: label(entry.value) }),
+        h('span', { class: 'fm-count', text: String(entry.count) })
+      ]);
+      if (entry.value === '') row.className += ' blank';
+      boxes.push({ entry: entry, box: box, row: row });
+      list.appendChild(row);
+    });
+    menu.appendChild(list);
+
+    search.addEventListener('input', function () {
+      var needle = search.value.toLowerCase();
+      boxes.forEach(function (item) {
+        item.row.hidden = needle &&
+          label(item.entry.value).toLowerCase().indexOf(needle) === -1;
+      });
+    });
+
+    function setAll(state) {
+      boxes.forEach(function (item) {
+        if (item.row.hidden) return;      /* only what the search is showing */
+        item.box.checked = state;
+        picked[item.entry.value] = state;
+      });
+    }
+
+    var apply = h('button', { type: 'button', class: 'fm-apply', text: 'Apply' });
+    apply.addEventListener('click', function () {
+      var allowed = values.filter(function (entry) { return picked[entry.value]; })
+                          .map(function (entry) { return entry.value; });
+      if (allowed.length === values.length) delete view.filters[column.key];
+      else view.filters[column.key] = allowed;
+      closeMenu();
+      renderTable(tab);
+    });
+
+    var clear = h('button', { type: 'button', class: 'fm-clear',
+                              text: 'Clear' });
+    clear.addEventListener('click', function () {
+      delete view.filters[column.key];
+      closeMenu();
+      renderTable(tab);
+    });
+
+    menu.appendChild(h('div', { class: 'fm-actions' }, [
+      h('button', { type: 'button', class: 'fm-all', text: 'All' }),
+      h('button', { type: 'button', class: 'fm-none', text: 'None' }),
+      h('span', { class: 'fm-gap' }),
+      clear, apply
+    ]));
+    menu.querySelector('.fm-all').addEventListener('click', function () {
+      setAll(true);
+    });
+    menu.querySelector('.fm-none').addEventListener('click', function () {
+      setAll(false);
+    });
+
+    document.body.appendChild(menu);
+    var box = anchor.getBoundingClientRect();
+    var width = menu.offsetWidth;
+    /* Anchored to the heading, nudged back inside the viewport rather than
+     * hanging off the right edge on the last column. */
+    var left = Math.min(box.left, window.innerWidth - width - 12);
+    menu.style.left = Math.max(8, left) + 'px';
+    menu.style.top = (box.bottom + 4) + 'px';
+    search.focus();
+  }
+
+  document.addEventListener('click', function (event) {
+    if (!menu) return;
+    if (menu.contains(event.target)) return;
+    if (event.target.closest && event.target.closest('.col-filter')) return;
+    closeMenu();
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') closeMenu();
+  });
+  window.addEventListener('resize', closeMenu);
+
+  /* ---------------------------------------------------------------- table */
+
   function renderTable(tab) {
     var columns = tab.columns || [];
+    var rows = shownRows(tab);
 
     var head = h('tr', {});
+    /* A row number, not a data column: it counts what is showing, so after a
+     * filter the last number is the answer to "how many". */
+    head.appendChild(h('th', { scope: 'col', class: 'col-index', text: '#' }));
+
     columns.forEach(function (column) {
+      var on = !!view.filters[column.key];
+      var sorted = view.sort && view.sort.key === column.key;
+      var button = h('button', {
+        type: 'button', class: 'col-filter',
+        'aria-label': 'Filter and sort ' + column.title,
+        text: on ? '\u25BC\u2022' : '\u25BC'
+      });
+      button.addEventListener('click', function (event) {
+        event.stopPropagation();
+        if (menu) { closeMenu(); return; }
+        openMenu(tab, column, button);
+      });
+
       var cell = h('th', { scope: 'col' }, [
-        document.createTextNode(column.title),
+        h('span', { class: 'col-head' }, [
+          h('span', { class: 'col-name', text: column.title }),
+          button
+        ]),
         column.sub ? h('span', { class: 'col-build', text: column.sub }) : null
       ]);
-      if (column.kind) { cell.className = 'col-' + column.kind; }
+      cell.className = (column.kind ? 'col-' + column.kind + ' ' : '') +
+        (on ? 'is-filtered ' : '') + (sorted ? 'is-sorted' : '');
       if (column.width) {
         /* Excel widths are in characters; ~7px each plus the cell padding
          * keeps the proportions of the original without pinning it to a
@@ -177,8 +413,9 @@
     });
 
     var body = document.createDocumentFragment();
-    tab.rows.forEach(function (row, index) {
+    rows.forEach(function (row, index) {
       var tr = h('tr', { class: index % 2 ? 'odd' : 'even' });
+      tr.appendChild(h('td', { class: 'col-index', text: String(index + 1) }));
       row.forEach(function (cell, position) {
         var td = renderCell(cell, columns[position], wraps[position]);
         /* The per-unit build. It is the column that answers "which release was
@@ -194,12 +431,35 @@
     el.body.innerHTML = '';
     el.body.appendChild(body);
 
-    el.caption.textContent = tab.derived
-      ? tab.rows.length + ' units across ' + (tab.derivedFrom || {}).runs +
-        ' suite runs — ' + (tab.day || tab.label) + ', rebuilt from ' +
+    renderCaption(tab, rows.length);
+  }
+
+  function renderCaption(tab, showing) {
+    var total = (tab.rows || []).length;
+    var source = tab.derived
+      ? (tab.day || tab.label) + ', rebuilt from ' +
         (((tab.derivedFrom || {}).source === 'pega3') ? 'pega3' : 'EOS')
-      : tab.rows.length + ' units — ' + (tab.day || tab.label) +
-        ', as recorded by the line';
+      : (tab.day || tab.label) + ', as recorded by the line';
+
+    el.caption.innerHTML = '';
+    if (showing === total) {
+      el.caption.appendChild(document.createTextNode(
+        total + ' units — ' + source));
+      return;
+    }
+
+    /* A filtered table that does not say so is a table someone will screenshot
+     * and quote as the day's total. */
+    el.caption.appendChild(h('strong', { class: 'cap-filtered',
+      text: showing + ' of ' + total + ' units' }));
+    el.caption.appendChild(document.createTextNode(' — ' + source + ' · '));
+    var reset = h('button', { type: 'button', class: 'cap-reset',
+                              text: 'clear filters' });
+    reset.addEventListener('click', function () {
+      view.filters = {};
+      renderTable(tab);
+    });
+    el.caption.appendChild(reset);
   }
 
   function renderCell(cell, column, wrap) {
@@ -350,8 +610,16 @@
   /* ------------------------------------------------------------------ wire */
 
   function show() {
+    var previous = current;
     current = pick(hashDay());
     if (!current) return;
+    if (!previous || previous.day !== current.day) {
+      /* Filters belong to the table they were set on. Carrying them across a
+       * tab switch hides rows for a reason that is no longer on the screen. */
+      view.filters = {};
+      view.sort = null;
+      closeMenu();
+    }
     renderTabs();
     renderSummary(current);
     renderTable(current);

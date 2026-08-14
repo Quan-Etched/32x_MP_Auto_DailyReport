@@ -17,11 +17,12 @@ from pathlib import Path
 from factory import build_dailyexcel, xlsx
 
 # Column positions by name. The tab gained a per-unit version column after each
-# Results column, and hand-numbered indices are how that becomes a morning of
-# fixing tests that were never about numbering.
-(DATE, DUT, ASIC, PN,
+# Results column and lost the always-empty ASIC SN, and hand-numbered indices
+# are how that becomes a morning of fixing tests that were never about
+# numbering.
+(DATE, DUT, PN,
  MLT, MLT_VERSION, MLT_FAIL, MLT_LINK,
- HTT, HTT_VERSION, HTT_FAIL, HTT_LINK, JIRA) = range(13)
+ HTT, HTT_VERSION, HTT_FAIL, HTT_LINK, JIRA) = range(12)
 
 # --------------------------------------------------------------------- fixture
 
@@ -233,7 +234,7 @@ class DailyExcelBundleTest(NoPega, unittest.TestCase):
 
     def test_table_is_as_wide_as_its_titled_columns(self):
         tab = self.build()["tabs"][0]
-        self.assertEqual(len(tab["columns"]), 13)
+        self.assertEqual(len(tab["columns"]), 12)
         self.assertEqual(tab["columns"][-1]["title"], "Jira")
         for row in tab["rows"]:
             self.assertEqual(len(row), len(tab["columns"]))
@@ -243,9 +244,9 @@ class DailyExcelBundleTest(NoPega, unittest.TestCase):
 
     def test_result_fills_become_roles_not_hex(self):
         rows = self.build()["tabs"][0]["rows"]
-        self.assertEqual(rows[0][4]["t"], "pass")
-        self.assertEqual(rows[1][4]["t"], "fail")
-        self.assertNotIn("t", rows[0][1])            # DUT SN is not a verdict
+        self.assertEqual(rows[0][MLT]["t"], "pass")
+        self.assertEqual(rows[1][MLT]["t"], "fail")
+        self.assertNotIn("t", rows[0][DUT])          # DUT SN is not a verdict
 
     def test_pega_links_survive_onto_the_cell(self):
         row = self.build()["tabs"][0]["rows"][0]
@@ -306,6 +307,48 @@ class DailyExcelBundleTest(NoPega, unittest.TestCase):
         with self.assertRaises(FileNotFoundError) as caught:
             build_dailyexcel.build_bundle({}, path="/nonexistent/tracker.xlsx")
         self.assertIn("tracker.xlsx", str(caught.exception))
+
+
+class EmptyColumnTest(unittest.TestCase):
+    """A column no tab has ever filled is horizontal space, not information.
+
+    ASIC SN is the case in hand: the sheet carries it and the line has never
+    typed in it, so it sat empty between the serial and the part number on
+    every published day.
+    """
+
+    def tab(self, values, keys=("A", "B", "C")):
+        columns = [{"key": key, "title": key, "width": None} for key in keys]
+        return {"columns": columns,
+                "rows": [[{"v": value} if value else {} for value in row]
+                         for row in values]}
+
+    def test_a_column_empty_everywhere_is_dropped(self):
+        tabs = [self.tab([["1", "A", ""]]), self.tab([["2", "B", ""]])]
+        build_dailyexcel._drop_always_empty(tabs)
+        for tab in tabs:
+            self.assertEqual([c["key"] for c in tab["columns"]], ["A", "B"])
+            self.assertEqual(len(tab["rows"][0]), 2)
+
+    def test_one_filled_cell_anywhere_keeps_it_on_every_tab(self):
+        """Judged across the published set, so the tabs keep one shape — a
+        table whose columns move when you switch days is a table you re-read."""
+        tabs = [self.tab([["1", "A", ""]]), self.tab([["2", "B", "26849410"]])]
+        build_dailyexcel._drop_always_empty(tabs)
+        for tab in tabs:
+            self.assertEqual([c["key"] for c in tab["columns"]], ["A", "B", "C"])
+
+    def test_an_empty_failure_column_stays(self):
+        """No failures is the best news the tracker carries; deleting the
+        column for being blank would report it as "not tracked"."""
+        tabs = [self.tab([["1", "268", "", ""]], keys=("A", "B", "F", "C"))]
+        build_dailyexcel._drop_always_empty(tabs)
+        self.assertEqual([c["key"] for c in tabs[0]["columns"]], ["A", "B", "F"])
+
+    def test_the_version_column_stays_when_a_station_did_not_run(self):
+        tabs = [self.tab([["1", "268", ""]], keys=("A", "B", "Ev"))]
+        build_dailyexcel._drop_always_empty(tabs)
+        self.assertEqual([c["key"] for c in tabs[0]["columns"]], ["A", "B", "Ev"])
 
 
 if __name__ == "__main__":
@@ -410,7 +453,7 @@ class DerivedTabTest(NoPega, unittest.TestCase):
         # instead of inheriting one that never ran.
         self.assertEqual(columns[HTT]["title"], "HTT Results")
         self.assertIsNone(columns[HTT]["sub"])
-        self.assertEqual(len(columns), 13)
+        self.assertEqual(len(columns), 12)
 
     def test_a_mixed_day_counts_the_builds_rather_than_naming_one(self):
         """08-14 ran four MLT builds under one heading, and the heading named
@@ -504,6 +547,14 @@ class PegaTabTest(unittest.TestCase):
     def build(self):
         return build_dailyexcel._pega_tab("2026-08-13", None)
 
+    def at(self, key):
+        """Column position by key. build_bundle drops the always-empty ASIC SN
+        column across every tab; the raw builder still has it, and hard-coded
+        positions turn that into failures about numbering."""
+        columns = self.build()["columns"]
+        return {column["key"]: position
+                for position, column in enumerate(columns)}[key]
+
     def test_every_slot_becomes_a_named_unit(self):
         rows = self.build()["rows"]
         self.assertEqual(sorted(row[1]["v"] for row in rows),
@@ -513,25 +564,25 @@ class PegaTabTest(unittest.TestCase):
         # The whole point of having the serial: the sheet's shape is one row
         # per unit with both stations, which per-chip rows cannot express.
         row = next(r for r in self.build()["rows"] if r[1]["v"] == "268494130000045")
-        self.assertEqual(row[MLT], {"v": "Failed", "t": "fail"})     # MLT
-        self.assertEqual(row[HTT], {"v": "Passed", "t": "pass"})     # HTT
+        self.assertEqual(row[self.at("E")], {"v": "Failed", "t": "fail"})     # MLT
+        self.assertEqual(row[self.at("H")], {"v": "Passed", "t": "pass"})     # HTT
 
     def test_every_failure_on_the_slot_is_named(self):
         # A unit that fails eight tests has eight things wrong with it. The
         # first one to run is rarely the interesting one.
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        self.assertEqual(rows["268494130000045"][MLT_FAIL]["v"].split("\n"),
+        self.assertEqual(rows["268494130000045"][self.at("F")]["v"].split("\n"),
                          ["BootloaderResultTestCase", "SohuDmaTestCase"])
 
     def test_another_slot_s_failure_never_leaks_onto_this_unit(self):
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        self.assertNotIn("SohuVrmTestCase", rows["268494130000045"][MLT_FAIL]["v"])
+        self.assertNotIn("SohuVrmTestCase", rows["268494130000045"][self.at("F")]["v"])
 
     def test_containers_are_left_out_of_the_list(self):
         # chip0's nest failed only because a leaf under it did, and
         # ServerNestedTestCase would appear twice in one cell.
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        self.assertNotIn("SltModuleNestedTestCase", rows["268494130000045"][MLT_FAIL]["v"])
+        self.assertNotIn("SltModuleNestedTestCase", rows["268494130000045"][self.at("F")]["v"])
 
     def test_a_unit_failing_only_nests_still_gets_a_name(self):
         # An empty cell beside "Failed" is the one thing this column must not say.
@@ -546,17 +597,17 @@ class PegaTabTest(unittest.TestCase):
         pega.day_suite_runs = lambda day: listing
         pega.suite_run = lambda run_id: detail[run_id]
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        self.assertEqual(rows["268494130000045"][MLT_FAIL]["v"], "SltModuleNestedTestCase")
+        self.assertEqual(rows["268494130000045"][self.at("F")]["v"], "SltModuleNestedTestCase")
 
     def test_a_passing_unit_gets_no_failure_even_when_its_slot_failed_a_test(self):
         # chip1 has a failing test case but pega3 graded the unit Passed; the
         # verdict is pega3's, and a failure name without a failure is noise.
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        self.assertEqual(rows["268494130000044"][MLT_FAIL], {})
+        self.assertEqual(rows["268494130000044"][self.at("F")], {})
 
     def test_failures_are_listed_oldest_first(self):
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        names = rows["268494130000045"][MLT_FAIL]["v"].split("\n")
+        names = rows["268494130000045"][self.at("F")]["v"].split("\n")
         self.assertEqual(names[0], "BootloaderResultTestCase")   # 01:05
         self.assertEqual(names[-1], "SohuDmaTestCase")           # 01:09
 
@@ -574,19 +625,19 @@ class PegaTabTest(unittest.TestCase):
         pega.day_suite_runs = lambda day: listing
         pega.suite_run = lambda run_id: detail[run_id]
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        self.assertEqual(rows["268494130000045"][MLT]["v"], "Passed")
-        self.assertTrue(rows["268494130000045"][MLT_LINK]["h"].endswith(
+        self.assertEqual(rows["268494130000045"][self.at("E")]["v"], "Passed")
+        self.assertTrue(rows["268494130000045"][self.at("G")]["h"].endswith(
             "run_99999999?slot_number=0"))
 
     def test_the_link_is_the_sheets_own_slot_url(self):
         row = next(r for r in self.build()["rows"] if r[1]["v"] == "268494130000044")
-        self.assertTrue(row[MLT_LINK]["h"].endswith(
+        self.assertTrue(row[self.at("G")]["h"].endswith(
             "/suite_run/mlt_2026.220.0-gitabc_run_4cb95b11?slot_number=1"),
-            row[MLT_LINK]["h"])
-        self.assertEqual(row[MLT_LINK]["v"], "4cb95b11")
+            row[self.at("G")]["h"])
+        self.assertEqual(row[self.at("G")]["v"], "4cb95b11")
 
     def test_part_number_comes_through(self):
-        self.assertEqual(self.build()["rows"][0][PN]["v"], "1500027-B")
+        self.assertEqual(self.build()["rows"][0][self.at("D")]["v"], "1500027-B")
 
     def test_engineering_runs_are_excluded(self):
         # Same policy as stations.py's _krish exclusions.
@@ -595,9 +646,9 @@ class PegaTabTest(unittest.TestCase):
 
     def test_headings_name_the_release_that_ran(self):
         columns = self.build()["columns"]
-        self.assertEqual(columns[MLT]["title"], "MLT Results")
-        self.assertEqual(columns[MLT]["sub"], "mlt_2026.220.0-gitabc")
-        self.assertEqual(columns[HTT]["sub"], "htt_2026.224.0-gitdef")
+        self.assertEqual(columns[self.at("E")]["title"], "MLT Results")
+        self.assertEqual(columns[self.at("E")]["sub"], "mlt_2026.220.0-gitabc")
+        self.assertEqual(columns[self.at("H")]["sub"], "htt_2026.224.0-gitdef")
 
     def test_passes_sort_before_failures(self):
         rows = self.build()["rows"]
