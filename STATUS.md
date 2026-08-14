@@ -154,6 +154,10 @@ unclassified: debug builds, `_krish` variants, repros, smoke tests, suites named
 after a ticket. Both are kept out of line-wide yield, but only one of them is an
 open question for somebody.
 
+**The dashboard host reaches the controllers directly as of 2026-08-14.**
+Tailscale was already installed and only needed authenticating. The carried
+cache is no longer load-bearing, and the pipeline has no manual step left.
+
 **pega5 may be a way round the L11 block.** It returns 40 L11 runs over 30 days
 for the two stations EOS 502s on. Recorded on the feature-request page rather
 than built: it means a second source for one station's data.

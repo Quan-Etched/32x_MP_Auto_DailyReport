@@ -176,8 +176,13 @@ REQUESTS: List[Dict[str, Any]] = [
         ],
         "doneWhen": "`curl http://pega3:3000/api/history/data-analysis/"
                     "suite-runs?per_page=1` returns 200 from the dashboard host.",
-        "workaround": "The pega3 cache is warmed on a laptop and rsynced to the "
-                      "box, which is why the tracker has serials at all today.",
+        "note": "Resolved 2026-08-14: Tailscale was already installed on the "
+                "dashboard host and only needed authenticating — `tailscale up "
+                "--shields-up`, once, no sudo. MagicDNS then resolves pega2 "
+                "through pega5 by name, so nothing in this repo changed. The "
+                "login expires after about 180 days (~2027-02-10); when it does "
+                "the tracker falls back to EOS chip rows and this entry goes red "
+                "again rather than failing loudly.",
         "check": "pega3",
         "raised": "2026-08-13",
     },

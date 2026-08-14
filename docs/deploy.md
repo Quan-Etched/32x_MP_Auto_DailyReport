@@ -114,37 +114,45 @@ off rather than collecting twice. Exit codes: **2** the fetch failed, **3** the
 fetch worked but publishing did not — in which case the local bundles are
 current and `make publish` alone will retry.
 
-### The pega3 cache is carried, not fetched
+### Reaching the controllers (pega2 - pega5)
 
-The dashboard host cannot resolve `pega3` (`Name or service not known`), and
-`pega3.core.etched.com` hits the `*.core.etched.com` wildcard at
-`10.48.145.214`, which is not pega3. The real address is `100.102.15.102`, a
-Tailscale one a laptop on the VPN has and the box does not.
+The pega hosts live on the `etched.com` Tailscale tailnet, not on the corporate
+network: `pega3` is `100.102.15.102`, and `pega3.core.etched.com` resolves to
+the `*.core.etched.com` wildcard, which is a different machine entirely. Do not
+chase the FQDN.
 
-pega3 is the only source of the slot -> DUT serial map, so without it the daily
-tracker names units `chip 3` instead of `268494130000045`. The data does not
-have to be fetched *by the box*: `data/raw/pega/` is a cache on disk, and it
-copies across like the CA bundle. Warm it where there is a route, then send it:
+Tailscale is installed on the dashboard host and needs authenticating **once**,
+with no sudo:
 
 ```sh
-# laptop, on the VPN
-make dailyexcel                       # fetches pega3 and fills data/raw/pega/
-rsync -av data/raw/pega/ \
-  chuck@chuck-dashboard.usw2.i.etched.com:factory_data_analysis/data/raw/pega/
+tailscale up --shields-up      # prints a URL; sign in as chuck@etched.com
 ```
 
-The box then builds real serials from the cache. It still tries the network
-first for the day listing — a day's runs grow while the day is running — and
-falls back to the cached copy, so a carried cache is a floor rather than a
-ceiling. Re-send it whenever you want the box's view of today to catch up;
-finished runs are immutable, so the transfer is small and mostly additive.
+Pick the **etched.com** tailnet, not `etchedexternal` — the latter is a separate
+tailnet that does not contain the pega hosts. `--shields-up` blocks inbound
+connections and leaves outbound intact, which is all the collector needs.
 
-Fixing the route removes the whole step, which is the better answer:
+MagicDNS then resolves the short names, so nothing in this repo is configured
+for it:
 
-> #infra-help: `chuck-dashboard.usw2.i.etched.com` needs to reach pega3 (ESVM)
-> on port 3000. `pega3` does not resolve there, and `pega3.core.etched.com`
-> resolves to the `*.core.etched.com` wildcard rather than to pega3. From a
-> laptop it is `100.102.15.102` (Tailscale).
+```sh
+for h in pega2 pega3 pega4 pega5; do
+  printf '%-7s ' "$h"
+  curl -sS -m 6 -o /dev/null -w 'api %{http_code}\n' \
+    "http://$h:3000/api/history/data-analysis/suite-runs?per_page=1"
+done
+```
+
+**The login expires after about 180 days — around 2027-02-10.** When it does,
+the daily tracker falls back to grading EOS's per-chip test names: it keeps
+working and keeps saying which source it used, but names units `chip 3` instead
+of by serial, and the feature-request page's first entry turns red again.
+Re-running the same command fixes it.
+
+Until 2026-08-14 the box had no route at all, and the workaround was to warm
+`data/raw/pega/` on a laptop and rsync the directory across. That is no longer
+needed. The cache still works and is still a valid transport for a host that
+cannot reach the controllers, which is why the code path remains.
 
 ### Updating the code
 
