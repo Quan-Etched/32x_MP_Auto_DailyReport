@@ -48,7 +48,7 @@ make status            # last fetch vs last update, per station
 
 | Check | Result |
 |---|---|
-| Unit tests | 311 passing (`make test`) |
+| Unit tests | 321 passing (`make test`) |
 | `/levels` | `l6, l10, l11, slt, module, bringup` |
 | Live collect | 1062 runs over 30 days across l6 + l10 + slt + module |
 | Status / duration resolved | all runs |
@@ -189,6 +189,23 @@ saying which it is in a **Data source** cell beside Last fetch:
 `daily.py` and `build_stations.py` are reused untouched — the second page is a
 different collector, not a second dashboard. A module fixture run becomes eight
 records, one per slot, each carrying that chip's tests and that chip's verdict.
+
+The landing page carries the reconciliation at its very bottom, computed from
+both bundles on every build. It is there to be pointed at: a paragraph
+explaining the difference is only as good as the day someone wrote it, and the
+first question anyone asks about a yield number is whether it is right.
+
+It also admits what each page is missing rather than only what they disagree
+about. L11 is empty on the EOS side (HTTP 502); Chip Screening and SLT are empty
+on the direct side, because no controller we read reports them under those
+names. Those rows are marked.
+
+The strongest line in it is the cross-check: rebuilding 2026-08-12 from the
+controllers reproduced the line's hand-kept tracker exactly — 51 of 51 units, 92
+verdicts, no disagreement, from the same 14 suite runs the sheet cites. The
+derived unit-yield figure on the EOS page (57.2%) also agrees with the direct
+page rather than with the run-level number above it, which is two independent
+routes to the same answer.
 
 The direct page is the one to make default once it has been read against the
 line's numbers for a few days; `index.html` stays reachable from it either way.

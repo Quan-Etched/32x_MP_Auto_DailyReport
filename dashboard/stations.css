@@ -197,3 +197,85 @@
   border: 1px solid var(--accent-solid);
   color: var(--accent-solid);
 }
+
+/* --------------------------------------------------- reconciliation footer */
+/* Evidence, not a headline: it sits under everything else, reads as prose, and
+   only the numbers are emphasised. */
+
+.reconcile {
+  margin-top: 42px;
+  padding-top: 26px;
+  border-top: 2px solid var(--border);
+}
+
+.reconcile[hidden] { display: none; }
+
+.rec-title {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.rec-lede {
+  margin: 0 0 18px;
+  max-width: 78ch;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.rec-lede strong { color: var(--text-primary); }
+
+.rec-table {
+  border-collapse: collapse;
+  font-size: 13.5px;
+  min-width: 620px;
+}
+
+.rec-table th,
+.rec-table td {
+  padding: 7px 14px 7px 0;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.rec-table th {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rec-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A station only one source has. These rows are the point of the table as much
+   as the differing rates are — each page is missing something. */
+.rec-table tr.gap td { color: var(--status-warning); }
+
+.rec-notes {
+  margin: 20px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  max-width: 82ch;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  font-size: 13.5px;
+}
+
+.rec-notes strong { color: var(--text-primary); }
+.rec-notes li::marker { color: var(--text-muted); }
+
+.rec-foot {
+  margin: 18px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.rec-foot a { color: var(--accent-solid); }

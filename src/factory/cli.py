@@ -251,7 +251,32 @@ def cmd_build(args: argparse.Namespace) -> int:
     )
 
     state = fetchstate.load()
+    # Station yield from the controllers, alongside the EOS-sourced one. Its
+    # own page, because the two disagree and the difference is the point.
+    from . import pega_collect
+    pega_bundle = None
+    try:
+        pega_payload = pega_collect.collect(days=30)
+    except Exception as exc:                              # noqa: BLE001
+        print("Pega stations skipped ({})".format(exc))
+    else:
+        if pega_payload["runs"]:
+            pega_bundle = build_stations.build_bundle(
+                pega_payload, pega_collect.fetch_state(pega_payload))
+            pega_path = build_stations.write_bundle(
+                pega_bundle, config.DASHBOARD_DATA_DIR / "pega_stations.js")
+            print("Pega stations ({:.0f} KB, {} unit runs) -> {}".format(
+                pega_path.stat().st_size / 1024, pega_payload["runCount"], pega_path))
+        else:
+            print("Pega stations skipped (controllers returned nothing)")
+
     stations_bundle = build_stations.build_bundle(payload, state)
+    # Both pages now exist, so the difference between them can be measured
+    # rather than described. It goes on the EOS page, which is the one a reader
+    # lands on and the one whose numbers get challenged.
+    if pega_bundle is not None:
+        from . import compare
+        stations_bundle["comparison"] = compare.build(stations_bundle, pega_bundle)
     stations_path = build_stations.write_bundle(stations_bundle)
     print("Stations bundle ({:.0f} KB) -> {}".format(
         stations_path.stat().st_size / 1024, stations_path))
@@ -272,24 +297,6 @@ def cmd_build(args: argparse.Namespace) -> int:
     print("Requests ({} open with other teams, {} blocking) -> {}".format(
         len(requests_bundle["requests"]), requests_bundle["openBlocking"],
         requests_path))
-
-    # Station yield from the controllers, alongside the EOS-sourced one. Its
-    # own page, because the two disagree and the difference is the point.
-    from . import pega_collect
-    try:
-        pega_payload = pega_collect.collect(days=30)
-    except Exception as exc:                              # noqa: BLE001
-        print("Pega stations skipped ({})".format(exc))
-    else:
-        if pega_payload["runs"]:
-            pega_bundle = build_stations.build_bundle(
-                pega_payload, pega_collect.fetch_state(pega_payload))
-            pega_path = build_stations.write_bundle(
-                pega_bundle, config.DASHBOARD_DATA_DIR / "pega_stations.js")
-            print("Pega stations ({:.0f} KB, {} unit runs) -> {}".format(
-                pega_path.stat().st_size / 1024, pega_payload["runCount"], pega_path))
-        else:
-            print("Pega stations skipped (controllers returned nothing)")
 
     # The L10 tracker, straight from pega4. No workbook behind it, so an
     # unreachable controller means no page rather than a failed build.

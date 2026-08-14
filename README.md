@@ -163,6 +163,13 @@ Each page says which it is, in a **Data source** cell beside Last fetch.
 make pega-stations     # also runs inside `make build`
 ```
 
+**The landing page carries the proof at its very bottom.** A section called
+*Why this page and the direct page disagree* gives a station-by-station table of
+what each source says, computed from both bundles on every build rather than
+written down once — so it is still true tomorrow and can be pointed at when a
+number is challenged. Rows where one source has nothing are marked, because each
+page is missing something.
+
 They disagree, and the disagreement is the reason both exist. EOS records **one
 run per fixture**; a controller records **one result per unit**. So MLT reads
 about 28% on the OCP-sourced page and about 55% here, and the second is the
@@ -346,6 +353,7 @@ src/factory/
   pega.py             read-only client for the ESVM controllers (pega2..pega5)
   build_l10.py        the L10 tracker: FAT/SFT/RIN/2U from pega4
   pega_collect.py     the run table built from the controllers, not from EOS
+  compare.py          measures the gap between the two, at build time
   version.py          which build made a page: release, commit, repo
   chips.py            per-chip verdicts inside a fixture run
   requests.py         what we need from other systems, and probes for it

@@ -739,6 +739,102 @@
     paretoSub: document.getElementById('pareto-sub')
   };
 
+
+  /* ------------------------------------------------------- reconciliation */
+
+  /* The two station pages disagree, and the first question anyone asks about a
+   * yield number is whether it is right. This is the answer, computed from both
+   * bundles on every build rather than written down once: what each source says
+   * per station, and why they differ. It sits at the very bottom because it is
+   * evidence to point at when challenged, not something to read first. */
+  function renderReconcile() {
+    var c = DATA.comparison;
+    var host = document.getElementById('reconcile');
+    if (!host || !c || !c.rows || !c.rows.length) return;
+    host.hidden = false;
+    clear(host);
+
+    host.appendChild(h('h2', { class: 'rec-title',
+      text: 'Why this page and the direct page disagree' }));
+
+    var t = c.totals || {};
+    host.appendChild(h('p', { class: 'rec-lede' }, [
+      document.createTextNode(
+        'This page reads OCP/EOS, which records one run per fixture. ' +
+        'The direct page reads the station controllers, which record one ' +
+        'result per unit — a fixture drives eight modules. So the same work ' +
+        'is '),
+      h('strong', { text: fmtInt(t.eosRuns) + ' runs here and ' +
+                          fmtInt(t.pegaRuns) + ' there' }),
+      document.createTextNode(
+        ', and a fixture where one chip failed is one failure on this page ' +
+        'and seven passes plus one failure on that one. Neither is wrong; the ' +
+        'line asks the second question.')
+    ]));
+
+    var table = h('table', { class: 'rec-table' });
+    var head = h('tr', {}, [
+      h('th', { scope: 'col', text: 'Station' }),
+      h('th', { scope: 'col', class: 'num', text: 'Runs here' }),
+      h('th', { scope: 'col', class: 'num', text: 'Pass rate' }),
+      h('th', { scope: 'col', class: 'num', text: 'Units, direct' }),
+      h('th', { scope: 'col', class: 'num', text: 'Pass rate' }),
+      h('th', { scope: 'col', class: 'num', text: 'Ratio' })
+    ]);
+    table.appendChild(h('thead', {}, [head]));
+
+    var body = h('tbody', {});
+    c.rows.forEach(function (row) {
+      var missing = (!row.eosRuns && row.pegaRuns) || (row.eosRuns && !row.pegaRuns);
+      body.appendChild(h('tr', { class: missing ? 'gap' : '' }, [
+        h('td', { text: row.label }),
+        h('td', { class: 'num', text: fmtInt(row.eosRuns) }),
+        h('td', { class: 'num', text: row.eosRate === null || row.eosRate === undefined
+          ? '—' : fmtPct(row.eosRate) }),
+        h('td', { class: 'num', text: fmtInt(row.pegaRuns) }),
+        h('td', { class: 'num', text: row.pegaRate === null || row.pegaRate === undefined
+          ? '—' : fmtPct(row.pegaRate) }),
+        h('td', { class: 'num', text: row.expansion ? row.expansion + '\u00d7' : '—' })
+      ]));
+    });
+    table.appendChild(body);
+    host.appendChild(h('div', { class: 'table-wrap' }, [table]));
+
+    var notes = h('ul', { class: 'rec-notes' });
+    [
+      ['One run, eight units.', 'EOS gives a run one dutSerial and no slot ' +
+        'number, so seven of every eight modules in a fixture are anonymous ' +
+        'to it. The controllers return all eight. That is the whole of the ' +
+        'MLT and HTT difference.'],
+      ['A fixture verdict is not a unit verdict.', 'Run status describes the ' +
+        'whole fixture, so one bad chip fails it. This page already derives a ' +
+        'unit-level figure from the per-chip test names — ' +
+        (t.eosUnitYield ? fmtPct(t.eosUnitYield) : 'the Unit yield tile') +
+        ' line-wide — and it agrees with the direct page rather than with the ' +
+        'run-level number above it. Two independent routes to the same answer.'],
+      ['Neither page is complete.', 'L11 is empty here because EOS returns ' +
+        'HTTP 502 for that level; Chip Screening and SLT are empty on the ' +
+        'direct page because no controller we read reports them under those ' +
+        'names. Rows where one side has nothing are marked.'],
+      ['Checked against the line\u2019s own record.', 'Rebuilding 2026-08-12 ' +
+        'from the controllers reproduced the hand-kept tracker exactly: 51 of ' +
+        '51 units, 92 verdicts, no disagreement, from the same 14 suite runs ' +
+        'the sheet cites.']
+    ].forEach(function (pair) {
+      notes.appendChild(h('li', {}, [
+        h('strong', { text: pair[0] + ' ' }),
+        document.createTextNode(pair[1])
+      ]));
+    });
+    host.appendChild(notes);
+
+    host.appendChild(h('p', { class: 'rec-foot' }, [
+      document.createTextNode('Computed on every build from both bundles — '),
+      h('a', { href: 'direct.html', text: 'open the direct page' }),
+      document.createTextNode(' to check any figure above against its own charts.')
+    ]));
+  }
+
   /* ------------------------------------------------------------- freshness */
 
   function renderFreshness() {
@@ -872,6 +968,7 @@
 
     renderStationBar();
     renderFreshness();
+    renderReconcile();
     renderNote(station);
     renderTiles(view.summary, station, view.units);
 
