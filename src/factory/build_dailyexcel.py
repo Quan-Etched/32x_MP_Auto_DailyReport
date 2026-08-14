@@ -273,8 +273,14 @@ def derived_tab(payload: Dict[str, Any], day: str,
                         "v": "Passed" if status == "pass" else "Failed",
                         "t": status,
                     }
-                if entry["firstFail"]:
-                    row[index[fail_col]] = {"v": entry["firstFail"]}
+                # Every failure on the chip, one per line — the same thing the
+                # pega3 path says. This is the fallback for a host that cannot
+                # reach the controller, and a fallback that quietly answers a
+                # different question is worse than an obvious gap.
+                failures = entry.get("failures") or (
+                    [entry["firstFail"]] if entry["firstFail"] else [])
+                if failures:
+                    row[index[fail_col]] = {"v": "\n".join(failures)}
                 row[index[link_col]] = _derived_link(run, day)
                 rows.append(row)
 

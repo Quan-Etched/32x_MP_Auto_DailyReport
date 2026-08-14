@@ -63,6 +63,28 @@ class GradeTest(unittest.TestCase):
         self.assertEqual(self.chips[4]["status"], "fail")
         self.assertEqual(self.chips[0]["status"], "pass")
 
+    def test_every_failure_on_the_chip_is_recorded_not_just_the_first(self):
+        # This is the fallback the tracker uses when the controller cannot be
+        # reached. It has to answer the same question the controller does, or a
+        # day built without pega3 quietly loses failures — which is exactly what
+        # happened to 2026-08-14 on the dashboard host.
+        chip4 = self.chips[4]
+        self.assertEqual(chip4["failures"], ["BootloaderResultTestCase"])
+        chip1 = self.chips[1]
+        self.assertEqual(chip1["failures"], ["SohuMtcStressTestCase"])
+        # firstFail stays, and stays consistent with the list.
+        self.assertEqual(chip1["firstFail"], chip1["failures"][0])
+
+    def test_a_chip_failing_several_tests_lists_them_all(self):
+        run = {"status": "fail", "tests": [
+            test("chip2_alpha", "fail", "AlphaTestCase"),
+            test("chip2_beta", "error", "BetaTestCase"),
+            test("chip2_alpha_again", "fail", "AlphaTestCase"),   # duplicate name
+        ]}
+        entry = chips.grade(run)["chips"][2]
+        self.assertEqual(entry["failures"], ["AlphaTestCase", "BetaTestCase"])
+        self.assertEqual(entry["fail"], 3)
+
     def test_the_failure_reported_is_the_class_the_line_writes_down(self):
         # Not 'server_setup_bootloader_result_chip4' — the tracker's column
         # says BootloaderResultTestCase, and that is the shared signature.

@@ -366,6 +366,16 @@ class DerivedTabTest(NoPega, unittest.TestCase):
         self.assertEqual(len(tab["rows"]), 2)
         self.assertEqual([row[1]["v"] for row in tab["rows"]], ["chip 0", "chip 1"])
 
+    def test_every_failure_on_the_chip_reaches_the_cell(self):
+        # The fallback must say what the controller would; a day built without
+        # pega3 losing failures is how 2026-08-14 came out single-named.
+        run = self.run_at(self.LATER, tests=[
+            {"name": "chip0_alpha", "status": "fail", "displayName": "AlphaTestCase"},
+            {"name": "chip0_beta", "status": "fail", "displayName": "BetaTestCase"},
+        ])
+        tab = self.build([run])["tabs"][1]
+        self.assertEqual(tab["rows"][0][5]["v"], "AlphaTestCase\nBetaTestCase")
+
     def test_verdicts_are_per_chip_even_though_the_run_failed(self):
         tab = self.build([self.run_at(self.LATER, status="fail")])["tabs"][1]
         self.assertEqual(tab["rows"][0][4], {"v": "Passed", "t": "pass"})

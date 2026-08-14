@@ -62,8 +62,9 @@ def grade(run: Dict[str, Any]) -> Dict[str, Any]:
     """Split one fixture run into per-chip verdicts.
 
     Returns ``{"chips": {index: {...}}, "fixture": {...}, "slots": n}``. A chip
-    entry carries its own status and the first failing leaf test, which is what
-    the line writes in its "Failure Test Case" column.
+    entry carries its own status, every failing leaf test on it (``failures``)
+    and the first of them (``firstFail``), which together are what the line
+    writes in its "Failure Test Case" column.
     """
     chips: Dict[int, Dict[str, Any]] = {}
     fixture_fails: List[str] = []
@@ -85,11 +86,20 @@ def grade(run: Dict[str, Any]) -> Dict[str, Any]:
             continue
 
         entry = chips.setdefault(index, {"pass": 0, "fail": 0, "skip": 0,
-                                         "unknown": 0, "firstFail": None})
+                                         "unknown": 0, "firstFail": None,
+                                         "failures": []})
         if status in BAD:
             entry["fail"] += 1
+            # Every failure on the chip, in the order the suite ran them —
+            # not just the first. A chip that fails eight tests has eight
+            # things wrong with it, and this path is the fallback the tracker
+            # uses when the controller is unreachable, so it has to say the
+            # same thing the controller would.
+            signature = _display(test, name)
+            if signature not in entry["failures"]:
+                entry["failures"].append(signature)
             if entry["firstFail"] is None:
-                entry["firstFail"] = _display(test, name)
+                entry["firstFail"] = signature
         elif status == "pass":
             entry["pass"] += 1
         elif status == "skip":
