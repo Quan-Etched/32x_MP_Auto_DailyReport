@@ -155,6 +155,28 @@ same meanings `daily.py` gives them, so the row count always reconciles with the
 number that was clicked. `abort` means EOS's `error`; see
 `src/factory/build_runs.py`.
 
+**`dashboard/l10.html` — the L10 daily tracker.** The same format as the module
+tracker, for the chassis line: one row per chassis per day across **FAT, SFT,
+RIN and 2U**, built entirely from **pega4** (stations `pt2_l10_station6` and
+`7`).
+
+```sh
+make l10               # also runs inside `make build`
+```
+
+Three things differ from the module tracker, all forced by the subject rather
+than chosen. An L10 run tests **one chassis, not eight slots** — pega4 returns
+`participating: null` — so a unit's failures are every failing test in its run,
+and the slot filtering the module tracker must do would here drop everything.
+There is **no hand-kept sheet** for L10, so every tab is derived and none is the
+line's own record. And there is **no Jira column**, because those keys come from
+the module line's spreadsheet.
+
+pega4's suite names carry a release suffix — FAT has run as `L10_FAT`,
+`L10_6U_FAT` and `L10_6U_FAT_195` through `_207` — so the patterns accept every
+spelling. A pattern matching only today's name silently zeroes a station the
+next time the line renames one, which has already happened here once.
+
 **`dashboard/requests.html` — what we need from other systems.** A route, a
 certificate, an IAM grant, a field in someone else's API, a decision that is not
 ours. Only asks that need *someone else* — work we can do ourselves stays in
@@ -302,7 +324,8 @@ src/factory/
   items.py            flattens test cases to numeric test items (SQLite)
   releases.py         per-release item views and compatibility diffs
   xlsx.py             a minimal .xlsx reader (stdlib: zip + XML)
-  pega.py             read-only client for pega3 (the slot -> serial map)
+  pega.py             read-only client for the ESVM controllers (pega2..pega5)
+  build_l10.py        the L10 tracker: FAT/SFT/RIN/2U from pega4
   version.py          which build made a page: release, commit, repo
   chips.py            per-chip verdicts inside a fixture run
   requests.py         what we need from other systems, and probes for it
@@ -320,6 +343,7 @@ dashboard/
   runs.html + runtable.js + runs.css        raw run table (the drill-down)
   dailyexcel.html + dailysheet.js + dailyexcel.css   the line's daily tracker
   requests.html + requests.js + requests.css   asks against other systems
+  l10.html            the L10 tracker (same renderer as the module one)
   update.js           the Update button, shared by every page
   data/*.js           generated bundles (gitignored)
 

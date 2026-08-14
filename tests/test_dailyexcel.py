@@ -599,18 +599,20 @@ class PegaCacheTest(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         self.addCleanup(setattr, pega, "CACHE_DIR", pega.CACHE_DIR)
-        self.addCleanup(setattr, pega, "_UNREACHABLE", False)
+        self.addCleanup(setattr, pega, "_UNREACHABLE", set())
         pega.CACHE_DIR = Path(tmp.name)
-        pega._UNREACHABLE = False
+        pega._UNREACHABLE = set()
 
     def test_a_cached_answer_is_served_when_the_host_is_unreachable(self):
         self.pega._write_cache("/api/test_suite_run/x", {"dut_sn": "268494130000045"})
-        self.pega._UNREACHABLE = True
+        # Unreachable is tracked per host now: pega4 being down says nothing
+        # about pega3, and a shared flag would stop reading one that answers.
+        self.pega._UNREACHABLE = {"default"}
         self.assertEqual(self.pega._get("/api/test_suite_run/x", cache=True),
                          {"dut_sn": "268494130000045"})
 
     def test_an_uncached_path_still_fails_when_unreachable(self):
-        self.pega._UNREACHABLE = True
+        self.pega._UNREACHABLE = {"default"}
         with self.assertRaises(self.pega.PegaUnavailable):
             self.pega._get("/api/test_suite_run/missing", cache=True)
 
@@ -710,3 +712,57 @@ class EnrichmentTest(unittest.TestCase):
         self.assertNotIn("enriched", tab)
         self.assertEqual(tab["rows"][1][5]["v"],
                          "SohuVfioPingTestCase\nSohuVrmTestCase")
+
+
+class MultiHostTest(unittest.TestCase):
+    """One client, five controllers.
+
+    pega2 provisions VBB boards, pega3 the module stations, pega4 L10, pega5
+    L11. They answer the same paths with different data, so nothing keyed on
+    the path alone may be shared between them.
+    """
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        from factory import pega
+        self.pega = pega
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.addCleanup(setattr, pega, "CACHE_DIR", pega.CACHE_DIR)
+        self.addCleanup(setattr, pega, "_UNREACHABLE", set())
+        pega.CACHE_DIR = Path(tmp.name)
+        pega._UNREACHABLE = set()
+
+    def test_a_host_swaps_the_name_in_the_base_url(self):
+        self.assertEqual(self.pega.base_url("pega4"), "http://pega4:3000")
+        self.assertEqual(self.pega.base_url(), "http://pega3:3000")
+
+    def test_an_override_keeps_working_for_every_host(self):
+        import os
+        previous = os.environ.get("FACTORY_PEGA_URL")
+        os.environ["FACTORY_PEGA_URL"] = "http://10.0.0.5:3100"
+        self.addCleanup(lambda: os.environ.__setitem__("FACTORY_PEGA_URL", previous)
+                        if previous is not None
+                        else os.environ.pop("FACTORY_PEGA_URL", None))
+        # The port and scheme survive; only the name is swapped.
+        self.assertEqual(self.pega.base_url("pega4"), "http://pega4:3100")
+
+    def test_two_hosts_do_not_share_a_cache_entry(self):
+        # The decisive one: the same path on pega3 and pega4 is different data,
+        # and one line's runs must never be served to the other.
+        path = "/api/test_suite_run/shared_id"
+        self.pega._write_cache(path, {"dut_sn": "module"}, host="pega3")
+        self.pega._write_cache(path, {"dut_sn": "chassis"}, host="pega4")
+        self.assertEqual(self.pega._read_cache(path, "pega3")["dut_sn"], "module")
+        self.assertEqual(self.pega._read_cache(path, "pega4")["dut_sn"], "chassis")
+
+    def test_one_unreachable_host_does_not_mute_another(self):
+        self.pega._write_cache("/p", {"ok": True}, host="pega4")
+        self.pega._UNREACHABLE = {"pega3"}
+        # pega4 still answers from its cache rather than inheriting pega3's fate.
+        self.assertEqual(self.pega._get("/p", cache=True, host="pega4"), {"ok": True})
+
+    def test_run_url_points_at_the_right_controller(self):
+        url = self.pega.run_url("L10_FAT_run_00a5c0b4", 1, host="pega4")
+        self.assertTrue(url.startswith("http://pega4:3000/suite_run/"), url)

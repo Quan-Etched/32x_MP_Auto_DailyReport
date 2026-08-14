@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Daily MLT / HTT tracker</title>
+  <title>L10 daily tracker</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="stations.css">
   <link rel="stylesheet" href="dailyexcel.css">
@@ -12,14 +12,14 @@
 <div class="wrap">
 
   <header class="masthead">
-    <h1>Daily tracker</h1>
+    <h1>L10 tracker</h1>
     <span class="meta" id="meta"></span>
     <span class="build" id="build" title="Which build of the analysis produced this page"></span>
     <span class="spacer"></span>
     <a class="theme-toggle" href="index.html">← Station yield</a>
+    <a class="theme-toggle" href="dailyexcel.html">← Module tracker</a>
     <a class="theme-toggle" href="runs.html">Raw runs →</a>
     <a class="theme-toggle" href="requests.html">Feature requests →</a>
-    <a class="theme-toggle" href="l10.html">L10 tracker →</a>
     <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
   </header>
 
@@ -44,16 +44,17 @@
   <footer class="notes">
     <p id="footer-meta"></p>
     <p>
-      A faithful copy of the module line's own tracker tab — the line's
-      judgement of what passed, not a re-derivation from the API. Test links go
-      to <strong>pega3</strong>, which asks for an ESVM login first.
+      One row per <strong>chassis</strong> per day, across the four L10 stages.
+      Built entirely from <strong>pega4</strong>, which drives stations
+      <code>pt2_l10_station6</code> and <code>7</code> — there is no hand-kept
+      sheet for L10, so nothing here is the line's own record. pega4 asks for an
+      ESVM login before it will show a run.
     </p>
     <p>
-      There is no OCP Logs column because OCP has no per-run URL: its RUNS tab
-      keeps the filter and the selection in memory, so every run is the same
-      address. To find one there, filter by the DUT serial and the date — or
-      use <a href="runs.html">the run table</a>, which reads the same records
-      and does have a link per run.
+      No Jira column: the module tracker takes its ticket keys from the line's
+      spreadsheet, and L10 has none — an always-empty column would be worse than
+      an absent one. An L10 run tests one chassis rather than eight slots, so a
+      unit's failures are every failing test in its run.
     </p>
     <p id="crossref-note"></p>
     <p id="source-note"></p>
@@ -61,7 +62,7 @@
 
 </div>
 
-<script src="data/dailyexcel.js"></script>
+<script src="data/l10daily.js"></script>
 <script src="dailysheet.js"></script>
 <script src="update.js"></script>
 </body>

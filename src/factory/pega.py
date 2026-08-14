@@ -45,6 +45,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
@@ -69,14 +70,26 @@ class PegaUnavailable(RuntimeError):
     """pega3 could not be reached. Never fatal — the caller degrades."""
 
 
-#: Set once the first call fails, so a host with no route to pega3 pays one
-#: timeout per build rather than one per day rebuilt. Reset per process, so a
-#: restored route is picked up on the next tick without touching config.
-_UNREACHABLE = False
+#: Hosts whose first call failed, so a box with no route pays one timeout per
+#: build rather than one per day rebuilt. Per host, not global: pega4 being
+#: unreachable says nothing about pega3, and a shared flag would silently stop
+#: reading a controller that was answering perfectly well. Reset per process, so
+#: a restored route is picked up on the next tick without touching config.
+_UNREACHABLE: set = set()
 
 
-def base_url() -> str:
-    return os.environ.get("FACTORY_PEGA_URL", DEFAULT_BASE_URL).rstrip("/")
+def base_url(host: Optional[str] = None) -> str:
+    """The controller to talk to.
+
+    ``host`` names one of the ESVM boxes — pega2 provisions VBB boards, pega3
+    drives the module stations, pega4 L10, pega5 L11. FACTORY_PEGA_URL still
+    overrides the default, and a host swaps the name inside it so an override
+    pointing at an IP or a different port keeps working for all of them.
+    """
+    url = os.environ.get("FACTORY_PEGA_URL", DEFAULT_BASE_URL).rstrip("/")
+    if host:
+        url = re.sub(r"//[^/:]+", "//" + host, url, count=1)
+    return url
 
 
 def enabled() -> bool:
@@ -90,12 +103,15 @@ def enabled() -> bool:
 CACHE_DIR = config.RAW_DIR / "pega"
 
 
-def _cache_path(path: str) -> Path:
-    return CACHE_DIR / (hashlib.sha1(path.encode("utf-8")).hexdigest() + ".json")
+def _cache_path(path: str, host: Optional[str] = None) -> Path:
+    # The host is part of the key: pega3 and pega4 answer the same paths with
+    # different data, and a shared key would serve one line's runs to the other.
+    key = "{}|{}".format(host or "", path)
+    return CACHE_DIR / (hashlib.sha1(key.encode("utf-8")).hexdigest() + ".json")
 
 
-def _read_cache(path: str) -> Optional[Any]:
-    cached = _cache_path(path)
+def _read_cache(path: str, host: Optional[str] = None) -> Optional[Any]:
+    cached = _cache_path(path, host)
     if not cached.exists():
         return None
     try:
@@ -105,12 +121,13 @@ def _read_cache(path: str) -> Optional[Any]:
         return None
 
 
-def _write_cache(path: str, payload: Any) -> None:
+def _write_cache(path: str, payload: Any, host: Optional[str] = None) -> None:
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    _cache_path(path).write_text(json.dumps(payload), encoding="utf-8")
+    _cache_path(path, host).write_text(json.dumps(payload), encoding="utf-8")
 
 
-def _get(path: str, cache: bool = False, stale_ok: bool = False) -> Any:
+def _get(path: str, cache: bool = False, stale_ok: bool = False,
+         host: Optional[str] = None) -> Any:
     """Fetch, preferring the cache where the answer cannot change.
 
     ``stale_ok`` marks a request whose answer *does* change — a day's run list
@@ -125,21 +142,20 @@ def _get(path: str, cache: bool = False, stale_ok: bool = False) -> Any:
     being reachable, and why the unreachable short-circuit is checked *after*
     the cache rather than before it.
     """
-    global _UNREACHABLE
-
     if cache and not stale_ok:
-        hit = _read_cache(path)
+        hit = _read_cache(path, host)
         if hit is not None:
             return hit
 
-    if _UNREACHABLE:
+    who = host or "default"
+    if who in _UNREACHABLE:
         if cache:
-            hit = _read_cache(path)
+            hit = _read_cache(path, host)
             if hit is not None:
                 return hit
-        raise PegaUnavailable("pega3 was unreachable earlier in this run")
+        raise PegaUnavailable("{} was unreachable earlier in this run".format(who))
 
-    url = "{}{}".format(base_url(), path)
+    url = "{}{}".format(base_url(host), path)
     try:
         with urllib.request.urlopen(url, timeout=TIMEOUT) as response:
             payload = json.loads(response.read().decode("utf-8", "replace"))
@@ -147,15 +163,15 @@ def _get(path: str, cache: bool = False, stale_ok: bool = False) -> Any:
         # A name that does not resolve or a host with no route will not fix
         # itself between one day and the next; stop paying the timeout.
         if isinstance(exc, (urllib.error.URLError, OSError)):
-            _UNREACHABLE = True
+            _UNREACHABLE.add(who)
             # Only claim the cache when this call can actually use one. Saying
             # "using a cached copy instead" on a probe that reads no cache is a
             # log line asserting something it does not know.
-            log.info("pega3 unreachable (%s); %s", exc,
+            log.info("%s unreachable (%s); %s", who, exc,
                      "falling back to the cache" if cache
                      else "this call has no cache to fall back to")
         if cache:
-            hit = _read_cache(path)
+            hit = _read_cache(path, host)
             if hit is not None:
                 return hit
         raise PegaUnavailable("{}: {}".format(url, exc)) from exc
@@ -164,7 +180,7 @@ def _get(path: str, cache: bool = False, stale_ok: bool = False) -> Any:
         # Only a finished run is safe to keep: one still running would freeze
         # mid-flight and never update.
         if stale_ok or str(payload.get("status", "")).lower() not in ("running", "", "none"):
-            _write_cache(path, payload)
+            _write_cache(path, payload, host)
     return payload
 
 
@@ -182,7 +198,7 @@ def available() -> bool:
 
 # ------------------------------------------------------------------ endpoints
 
-def day_suite_runs(day: str) -> List[Dict[str, Any]]:
+def day_suite_runs(day: str, host: Optional[str] = None) -> List[Dict[str, Any]]:
     """Every suite run pega3 recorded on a calendar day.
 
     One entry per run, carrying the run's *filed* unit. The other slots come
@@ -202,7 +218,7 @@ def day_suite_runs(day: str) -> List[Dict[str, Any]]:
             "/api/history/data-analysis/suite-runs"
             "?start={start}&end={end}&page={page}&per_page={size}".format(
                 start=start, end=end, page=page, size=PAGE_SIZE),
-            cache=True, stale_ok=True)
+            cache=True, stale_ok=True, host=host)
         batch = payload.get("suite_runs") or []
         collected.extend(batch)
         total = payload.get("total")
@@ -216,9 +232,9 @@ def _next_day(day: str) -> str:
     return moment.strftime("%Y-%m-%d")
 
 
-def suite_run(run_id: str) -> Dict[str, Any]:
+def suite_run(run_id: str, host: Optional[str] = None) -> Dict[str, Any]:
     """One suite run, including the slot -> DUT serial map."""
-    return _get("/api/test_suite_run/{}".format(run_id), cache=True)
+    return _get("/api/test_suite_run/{}".format(run_id), cache=True, host=host)
 
 
 def participants(detail: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -247,9 +263,9 @@ def participants(detail: Dict[str, Any]) -> List[Dict[str, Any]]:
     }]
 
 
-def run_url(run_id: str, slot: Optional[int]) -> str:
+def run_url(run_id: str, slot: Optional[int], host: Optional[str] = None) -> str:
     """The link the tracker sheet itself uses, rebuilt exactly."""
-    url = "{}/suite_run/{}".format(base_url(), run_id)
+    url = "{}/suite_run/{}".format(base_url(host), run_id)
     if slot is not None:
         url += "?slot_number={}".format(slot)
     return url

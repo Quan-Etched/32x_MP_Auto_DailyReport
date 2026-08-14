@@ -91,18 +91,21 @@
      * so before the numbers, not in a footnote under them. */
     if (tab.derived) {
       var from = tab.derivedFrom || {};
-      var viaPega = from.source === 'pega3';
+      /* Name the controller that actually answered. Hard-coding pega3 here
+       * told the L10 page, which is built from pega4, that pega3 had been
+       * unreachable — a confident sentence about the wrong machine. */
+      var source = from.source || 'eos';
+      var viaPega = source.indexOf('pega') === 0;
       el.summary.appendChild(h('div', { class: 'sheet-tile derived' }, [
         h('span', { class: 'tile-title', text: viaPega
-          ? 'Rebuilt from pega3 — not the line\u2019s sheet'
-          : 'Rebuilt from EOS — not the line\u2019s sheet' }),
+          ? 'Rebuilt from ' + source + ' \u2014 not a hand-kept sheet'
+          : 'Rebuilt from EOS \u2014 not the line\u2019s sheet' }),
         h('strong', { class: 'tile-value', text: from.runs + ' suite runs' }),
         h('span', { class: 'tile-sub', text: viaPega
-          ? 'pega3 assigns the slots, so every unit is named. Rebuilding a day ' +
-            'the line has already tracked reproduces its tab exactly — 08-12 ' +
-            'came back 51 of 51 units with no verdict disagreeing.'
-          : 'pega3 was unreachable, so this is graded from the per-chip test ' +
-            'names in EOS. That gives verdicts but not serials.' })
+          ? source + ' drives these stations, so it knows every unit by name ' +
+            'and every test case that failed on it.'
+          : 'The controller was unreachable, so this is graded from the ' +
+            'per-chip test names in EOS. That gives verdicts but not serials.' })
       ]));
     }
     var counts = tab.counts || {};

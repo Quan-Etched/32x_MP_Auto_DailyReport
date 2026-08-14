@@ -48,7 +48,7 @@ make status            # last fetch vs last update, per station
 
 | Check | Result |
 |---|---|
-| Unit tests | 273 passing (`make test`) |
+| Unit tests | 292 passing (`make test`) |
 | `/levels` | `l6, l10, l11, slt, module, bringup` |
 | Live collect | 1062 runs over 30 days across l6 + l10 + slt + module |
 | Status / duration resolved | all runs |
@@ -163,6 +163,33 @@ run belongs to, and the registry snapshot the page renders, are both derived
 from code and re-derived when `runs.json` is read — before this, editing
 `stations.py` and running `make build` changed nothing until the next collect,
 which looked exactly like the edit not working.
+
+## The L10 tracker
+
+`dashboard/l10.html` gives the chassis line the same daily view the module line
+has: one row per chassis per day across FAT, SFT, RIN and 2U, from pega4.
+
+It reuses the module tracker's renderer unchanged — same columns-and-rows
+bundle, same page chrome — so the two read alike without a second
+implementation to keep in step. What differs is forced by the subject: an L10
+run tests one chassis rather than eight slots (`participating` is `null`), so a
+unit's failures are every failing test in its run; there is no hand-kept sheet,
+so every tab is derived; and there is no Jira column, because those keys come
+from the module line's spreadsheet.
+
+pega4's suite names needed accommodating. FAT has run as `L10_FAT`,
+`L10_6U_FAT` and `L10_6U_FAT_195` through `_207` — the trailing number is a
+release, not a stage — alongside `_out_dir`, `_SAM`, `DRY_RUN_` and `_krish`
+variants that are not stages at all. `L10_2U_tests` is treated as the 2U stage:
+EOS calls the same thing `L10_2U`, and pega4's runs carry the production part
+number `81S15V000050` and the same chassis serials FAT uses.
+
+The pega client is multi-host now, with the cache and the unreachable flag keyed
+by host — pega3 and pega4 answer the same paths with different data, and one
+line's runs must never be served to the other.
+
+**L11 is the same shape of work.** pega5 drives `pt2_l11_station1` and `2` and
+returns 40 runs over 30 days for the two stations EOS 502s on.
 
 ## Cross-check: the tracker sheet against what we fetch
 
