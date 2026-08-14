@@ -48,7 +48,7 @@ import os
 import re
 import urllib.error
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -212,13 +212,20 @@ def day_suite_runs(day: str, host: Optional[str] = None) -> List[Dict[str, Any]]
     start = "{}T00:00:00.000Z".format(day)
     end = "{}T00:00:00.000Z".format(_next_day(day))
 
+    # A finished day's run list cannot change, so only *today* is worth going
+    # to the network for. Without this a 30-day collect made 120 listing calls
+    # on every build — enough to push `make build` past two minutes on a warm
+    # cache, for answers that were already on disk.
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    still_running = day >= today
+
     collected: List[Dict[str, Any]] = []
     for page in range(1, MAX_PAGES + 1):
         payload = _get(
             "/api/history/data-analysis/suite-runs"
             "?start={start}&end={end}&page={page}&per_page={size}".format(
                 start=start, end=end, page=page, size=PAGE_SIZE),
-            cache=True, stale_ok=True, host=host)
+            cache=True, stale_ok=still_running, host=host)
         batch = payload.get("suite_runs") or []
         collected.extend(batch)
         total = payload.get("total")

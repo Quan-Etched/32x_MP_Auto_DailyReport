@@ -764,6 +764,22 @@
           (f.consecutiveNoChange === 1 ? '' : 'es')
         : 'data changed on the last fetch'));
 
+    /* Where these numbers come from. Two pages now render this same layout
+     * from different systems, and a reader landing on one of them has no way
+     * to tell which — so each says, with a link to the tool. */
+    var src = DATA.dataSource || {};
+    if (src.label) {
+      var value = src.url
+        ? h('a', { class: 'v src', href: src.url, target: '_blank',
+                   rel: 'noopener noreferrer', text: src.label })
+        : h('div', { class: 'v', text: src.label });
+      refs.freshness.appendChild(h('div', { class: 'cell' }, [
+        h('div', { class: 'k', text: 'Data source' }),
+        value,
+        h('div', { class: 'sub2', text: src.note || '' })
+      ]));
+    }
+
     var strip = h('div', { class: 'fetchstrip' });
     (f.history || []).slice(-48).forEach(function (entry) {
       strip.appendChild(h('i', {

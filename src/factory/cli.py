@@ -273,6 +273,24 @@ def cmd_build(args: argparse.Namespace) -> int:
         len(requests_bundle["requests"]), requests_bundle["openBlocking"],
         requests_path))
 
+    # Station yield from the controllers, alongside the EOS-sourced one. Its
+    # own page, because the two disagree and the difference is the point.
+    from . import pega_collect
+    try:
+        pega_payload = pega_collect.collect(days=30)
+    except Exception as exc:                              # noqa: BLE001
+        print("Pega stations skipped ({})".format(exc))
+    else:
+        if pega_payload["runs"]:
+            pega_bundle = build_stations.build_bundle(
+                pega_payload, pega_collect.fetch_state(pega_payload))
+            pega_path = build_stations.write_bundle(
+                pega_bundle, config.DASHBOARD_DATA_DIR / "pega_stations.js")
+            print("Pega stations ({:.0f} KB, {} unit runs) -> {}".format(
+                pega_path.stat().st_size / 1024, pega_payload["runCount"], pega_path))
+        else:
+            print("Pega stations skipped (controllers returned nothing)")
+
     # The L10 tracker, straight from pega4. No workbook behind it, so an
     # unreachable controller means no page rather than a failed build.
     from . import build_l10
@@ -507,6 +525,31 @@ def cmd_requests(args: argparse.Namespace) -> int:
     print("{} asks, {} blocking automation -> {}".format(
         len(bundle["requests"]), bundle["openBlocking"], path))
     print("Checked on {} — a probe is only true where it ran.".format(bundle["builtOn"]))
+    return 0
+
+
+def cmd_pega_stations(args: argparse.Namespace) -> int:
+    """Station yield computed from pega2-pega5 rather than from EOS.
+
+    Same metrics, same bundle, same page — the difference is that a controller
+    reports one result per unit where EOS reports one per fixture, which is the
+    discrepancy this page exists to make visible.
+    """
+    from . import build_stations, pega_collect
+
+    payload = pega_collect.collect(days=args.days)
+    if not payload["runs"]:
+        print("No runs from the controllers ({}).".format(
+            payload["levelErrors"] or "nothing in the window"), file=sys.stderr)
+        return 1
+
+    bundle = build_stations.build_bundle(payload, pega_collect.fetch_state(payload))
+    path = build_stations.write_bundle(
+        bundle, config.DASHBOARD_DATA_DIR / "pega_stations.js")
+    print("Pega stations ({:.0f} KB, {} unit runs) -> {}".format(
+        path.stat().st_size / 1024, payload["runCount"], path))
+    for host, error in (payload["levelErrors"] or {}).items():
+        print("  {} unavailable: {}".format(host, str(error)[:80]), file=sys.stderr)
     return 0
 
 
@@ -761,6 +804,12 @@ def _build_parser() -> argparse.ArgumentParser:
     requests_cmd.add_argument("--no-probe", action="store_true",
                               help="list the asks without checking them")
     requests_cmd.set_defaults(handler=cmd_requests)
+
+    pega_stations = subparsers.add_parser(
+        "pega-stations",
+        help="build the station page straight from the ESVM controllers")
+    pega_stations.add_argument("--days", type=int, default=30)
+    pega_stations.set_defaults(handler=cmd_pega_stations)
 
     l10 = subparsers.add_parser("l10", help="build the L10 daily tracker from pega4")
     l10.add_argument("--days", type=int, default=build_l10_default_days())

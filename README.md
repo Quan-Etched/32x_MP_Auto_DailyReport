@@ -155,6 +155,25 @@ same meanings `daily.py` gives them, so the row count always reconciles with the
 number that was clicked. `abort` means EOS's `error`; see
 `src/factory/build_runs.py`.
 
+**`dashboard/direct.html` — station yield, straight from the controllers.** The
+same page as the landing one, computed from pega2–pega5 instead of from EOS.
+Each page says which it is, in a **Data source** cell beside Last fetch.
+
+```sh
+make pega-stations     # also runs inside `make build`
+```
+
+They disagree, and the disagreement is the reason both exist. EOS records **one
+run per fixture**; a controller records **one result per unit**. So MLT reads
+about 28% on the OCP-sourced page and about 55% here, and the second is the
+number the line means. The direct page also has **L11 data** — the two stations
+EOS returns HTTP 502 for.
+
+Nothing downstream is duplicated: `pega_collect.py` emits the same payload shape
+`collect.read_runs()` does, so `daily.py` computes the same metrics and
+`build_stations.py` compiles the same bundle. The only difference is where a run
+came from.
+
 **`dashboard/l10.html` — the L10 daily tracker.** The same format as the module
 tracker, for the chassis line: one row per chassis per day across **FAT, SFT,
 RIN and 2U**, built entirely from **pega4** (stations `pt2_l10_station6` and
@@ -326,6 +345,7 @@ src/factory/
   xlsx.py             a minimal .xlsx reader (stdlib: zip + XML)
   pega.py             read-only client for the ESVM controllers (pega2..pega5)
   build_l10.py        the L10 tracker: FAT/SFT/RIN/2U from pega4
+  pega_collect.py     the run table built from the controllers, not from EOS
   version.py          which build made a page: release, commit, repo
   chips.py            per-chip verdicts inside a fixture run
   requests.py         what we need from other systems, and probes for it
@@ -344,6 +364,7 @@ dashboard/
   dailyexcel.html + dailysheet.js + dailyexcel.css   the line's daily tracker
   requests.html + requests.js + requests.css   asks against other systems
   l10.html            the L10 tracker (same renderer as the module one)
+  direct.html         station yield from the controllers (same renderer again)
   update.js           the Update button, shared by every page
   data/*.js           generated bundles (gitignored)
 

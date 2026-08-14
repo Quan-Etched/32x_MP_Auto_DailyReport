@@ -172,3 +172,28 @@
 .cum-marker { fill: var(--text-primary); }
 .ax-right { fill: var(--series-1); font-size: 11px; }
 .ref80 { stroke: var(--status-warning); stroke-width: 1; stroke-dasharray: 4 3; }
+
+/* The data-source cell in the freshness strip. Quiet, but a link — the reader
+   should be able to go to the system the numbers came from. */
+.freshness .v.src {
+  color: var(--accent-solid);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.freshness .v.src:hover { text-decoration-thickness: 2px; }
+
+/* Marks the page that reads the controllers directly, so the two station pages
+   are distinguishable at a glance and not only by their numbers. */
+.masthead h1 .src-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-solid);
+  color: var(--accent-solid);
+}

@@ -18,6 +18,14 @@ from typing import Any, Dict, List, Optional
 
 from . import chips, config, daily, fetchstate, stations
 
+#: The EOS API is what OCP Logs reads: the same records, the same run ids. A
+#: reader who wants to look one up goes to OCP, so that is what the page links.
+DEFAULT_SOURCE = {
+    "label": "OCP Logs",
+    "url": "https://ocplogs.core.etched.com",
+    "note": "via the EOS API — one run per fixture",
+}
+
 #: Units listed in the retest table. The counts above it always cover every
 #: unit; only the row list is capped.
 RETEST_DETAIL_LIMIT = 60
@@ -96,6 +104,11 @@ def build_bundle(
     return {
         "schemaVersion": 1,
         "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+        # Which system these numbers came from. Two pages render this same
+        # layout from different sources, and the daily yields differ between
+        # them; a reader who cannot tell which one they are looking at will
+        # eventually quote the wrong number.
+        "dataSource": payload.get("dataSource") or DEFAULT_SOURCE,
         "collectedAt": payload.get("generatedAt"),
         "timezone": tz_name,
         "window": payload.get("window", {}),

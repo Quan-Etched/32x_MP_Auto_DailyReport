@@ -106,7 +106,10 @@ STATIONS: List[Station] = [
     ),
     Station(
         key="htt", label="HTT", level="module", order=20,
-        patterns=[r"^(htt_)?rdqs_sweep_training$"],
+        # EOS reports the test class (rdqs_sweep_training); pega3 reports the
+        # suite it ran under, which is just "htt" once its version is stripped.
+        # Both spellings, for the same reason every other station takes both.
+        patterns=[r"^(htt_)?rdqs_sweep_training$", r"^htt$"],
         controller="pega3",
         note="Memory training sweep. The suite is named rdqs_sweep_training — "
              "nothing in it says HTT, which is why an earlier search for that "
@@ -158,7 +161,8 @@ STATIONS: List[Station] = [
     Station(
         key="vbb_provision", label="VBB Provisioning", level="l6", order=5,
         controller="pega2",
-        patterns=[r"^Vbb[A-Z]", r"^vbb_", r"^PROD_\d*_?vbb", r"^CHECK_vbb"],
+        patterns=[r"^Vbb[A-Z]", r"^vbb_", r"^PROD_\d*_?vbb", r"^CHECK_vbb",
+                  r"^PROD_flash_and_lock"],
         note="Provisioning of the VBB board, before module assembly — the first "
              "stage on the line and the largest single group of runs EOS "
              "returns. It sat unclassified for a week because nothing in the "

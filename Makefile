@@ -10,7 +10,7 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        dailyexcel requests l10 \
+        dailyexcel requests l10 pega-stations \
         schedule-install-macos schedule-uninstall-macos schedule-status-macos \
         schedule-install-systemd schedule-uninstall-systemd schedule-status-systemd \
         update clean distclean
@@ -94,6 +94,11 @@ dailyexcel:
 # The L10 daily tracker (FAT, SFT, RIN, 2U) from pega4. Also part of `make build`.
 l10:
 	$(PY) -m factory.cli l10
+
+# Station yield straight from the ESVM controllers, for comparison with the
+# OCP/EOS-sourced page. Also part of `make build`.
+pega-stations:
+	$(PY) -m factory.cli pega-stations
 
 # Re-check what we need from other systems (routes, certs, IAM, API fields) and
 # rebuild that page. Also runs as part of `make build`.
@@ -180,7 +185,7 @@ schedule-status-systemd:
 clean:
 	rm -rf data/processed/* dashboard/data/metrics.js dashboard/data/stations.js \
 	       dashboard/data/runs.js dashboard/data/dailyexcel.js \
-	       dashboard/data/requests.js dashboard/data/l10daily.js
+	       dashboard/data/requests.js dashboard/data/l10daily.js dashboard/data/pega_stations.js
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
 
 # Also drops the cached HTTP responses, forcing a full refetch next collect.

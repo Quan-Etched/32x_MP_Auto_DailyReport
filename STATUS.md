@@ -48,7 +48,7 @@ make status            # last fetch vs last update, per station
 
 | Check | Result |
 |---|---|
-| Unit tests | 292 passing (`make test`) |
+| Unit tests | 311 passing (`make test`) |
 | `/levels` | `l6, l10, l11, slt, module, bringup` |
 | Live collect | 1062 runs over 30 days across l6 + l10 + slt + module |
 | Status / duration resolved | all runs |
@@ -167,6 +167,31 @@ run belongs to, and the registry snapshot the page renders, are both derived
 from code and re-derived when `runs.json` is read — before this, editing
 `stations.py` and running `make build` changed nothing until the next collect,
 which looked exactly like the edit not working.
+
+## Two station pages, and why they disagree
+
+The daily yield on the station page has never quite matched the line's own
+numbers, and the cause is upstream of any chart: **EOS records one run per
+fixture, a controller records one result per unit.** Every metric built on the
+first answers a slightly different question.
+
+So there are now two pages with the same layout and different sources, each
+saying which it is in a **Data source** cell beside Last fetch:
+
+| | `index.html` | `direct.html` |
+|---|---|---|
+| Source | OCP Logs / EOS API | pega2 – pega5 |
+| A run is | one fixture | one unit |
+| MLT pass rate | ~28% | ~55% |
+| L11 | HTTP 502 | **has data** |
+
+`pega_collect.py` emits the same payload shape `collect.read_runs()` does, so
+`daily.py` and `build_stations.py` are reused untouched — the second page is a
+different collector, not a second dashboard. A module fixture run becomes eight
+records, one per slot, each carrying that chip's tests and that chip's verdict.
+
+The direct page is the one to make default once it has been read against the
+line's numbers for a few days; `index.html` stays reachable from it either way.
 
 ## The L10 tracker
 
