@@ -26,6 +26,35 @@
 
   var state = { station: null, prior: '', onlyRetest: false };
 
+  /* The filter lives in the URL, as it does on runs.html and the trackers.
+   * This page exists to be pasted into a thread — "the units that previously
+   * failed LlamaForwardIterated" is the useful thing to send someone, and it
+   * is not sendable if it only exists as typing in a text box. */
+  function readHash() {
+    var hash = (location.hash || '').replace(/^#/, '');
+    if (!hash) return;
+    hash.split('&').forEach(function (pair) {
+      var key = pair.split('=')[0];
+      var value = decodeURIComponent(pair.slice(key.length + 1) || '');
+      if (key === 'prior') state.prior = value;
+      else if (key === 'station') state.station = value || null;
+      else if (key === 'retest') state.onlyRetest = value === '1';
+    });
+  }
+
+  function writeHash() {
+    var parts = [];
+    if (state.station) parts.push('station=' + encodeURIComponent(state.station));
+    if (state.prior) parts.push('prior=' + encodeURIComponent(state.prior));
+    if (state.onlyRetest) parts.push('retest=1');
+    var next = parts.length ? '#' + parts.join('&') : '';
+    if (next !== (location.hash || '')) {
+      // replaceState so typing a filter does not fill the back button with a
+      // keystroke-by-keystroke history.
+      history.replaceState(null, '', location.pathname + location.search + next);
+    }
+  }
+
   function h(tag, attrs, kids) {
     var node = document.createElement(tag);
     Object.keys(attrs || {}).forEach(function (key) {
@@ -90,6 +119,7 @@
       }, [document.createTextNode(label), h('span', { class: 'n', text: String(count) })]);
       button.addEventListener('click', function () {
         state.station = active ? null : key;
+        writeHash();
         render();
       });
       return button;
@@ -179,6 +209,11 @@
     setTimeout(function () { button.textContent = 'Copy table'; }, 1800);
   }
 
+  function syncControls() {
+    byId('prior-filter').value = state.prior;
+    byId('only-retest').checked = state.onlyRetest;
+  }
+
   /* ----------------------------------------------------------------- init */
 
   function renderBuild() {
@@ -206,20 +241,39 @@
       return;
     }
     byId('meta').textContent = (DATA.source || {}).label || '';
+    readHash();
     renderBuild();
     renderTiles();
+    syncControls();
     render();
 
     var search = byId('prior-filter');
     search.addEventListener('input', function () {
       state.prior = search.value.trim();
+      writeHash();
       render();
     });
     byId('only-retest').addEventListener('change', function (event) {
       state.onlyRetest = event.target.checked;
+      writeHash();
+      render();
+    });
+
+    // A pasted link has to arrive with its controls already showing the filter
+    // it applied, or the reader cannot tell what they are looking at.
+    window.addEventListener('hashchange', function () {
+      state.station = null; state.prior = ''; state.onlyRetest = false;
+      readHash();
+      syncControls();
       render();
     });
     byId('copy-tsv').addEventListener('click', copyTsv);
+    byId('copy-link').addEventListener('click', function () {
+      if (navigator.clipboard) navigator.clipboard.writeText(location.href);
+      var button = byId('copy-link');
+      button.textContent = 'Link copied';
+      setTimeout(function () { button.textContent = 'Copy link'; }, 1800);
+    });
 
     var window_ = DATA.window || {};
     byId('footer-meta').textContent =
