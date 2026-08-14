@@ -69,12 +69,19 @@ CODES=("${PIPESTATUS[@]}")
 
 grep -v '^::step ' "$OUT" | sed 's/^/    /' >> "$LOG"
 
+# A failed fetch is not a reason to skip publishing. The refresh rebuilds the
+# controller-sourced pages anyway (see cmd_refresh), and the header on every
+# page carries the failed fetch — so publishing shows a live pipeline with one
+# dead source, where skipping it shows yesterday's site with no explanation.
+FETCH_FAILED=0
 if [ "${CODES[0]}" -ne 0 ]; then
     log "FAIL $(tail -3 "$OUT" | tr '\n' ' ')"
-    exit 2
+    FETCH_FAILED=1
 fi
 
-log "OK $(grep -E '^(Fetch|Update|Items)' "$OUT" | tr '\n' ' ')"
+if [ "$FETCH_FAILED" -eq 0 ]; then
+    log "OK $(grep -E '^(Fetch|Update|Items)' "$OUT" | tr '\n' ' ')"
+fi
 
 # Publish every successful tick, not only when the data changed: the page's
 # "last fetch" panel is itself information — it is how a reader knows the
@@ -90,6 +97,12 @@ if [ "${FACTORY_PUBLISH:-1}" = "1" ]; then
         echo "publish failed — the local dashboard is current, the Pages site is not" >&2
         exit 3
     fi
+fi
+
+# The fetch failure is still the tick's outcome, reported after the publish so
+# the site is current before the non-zero exit goes to the scheduler.
+if [ "$FETCH_FAILED" -eq 1 ]; then
+    exit 2
 fi
 
 # Trim the log so an hourly job cannot fill the disk over months.

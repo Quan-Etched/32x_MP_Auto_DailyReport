@@ -199,6 +199,20 @@ def cmd_refresh(args: argparse.Namespace) -> int:
     except (EOSError, RuntimeError) as exc:
         fetchstate.record_failure(str(exc))
         print("Fetch FAILED: {}".format(exc), file=sys.stderr)
+        # EOS being down must not freeze the pages that do not come from EOS.
+        # Half this dashboard is built from the controllers now, and stopping
+        # here left the station page, both trackers and the validation page
+        # sitting at whatever they said when EOS last answered — stale without
+        # looking stale. So rebuild from the last stored payload: the
+        # EOS-sourced pages repeat themselves, the pega-sourced ones move, and
+        # every page's header carries the failed fetch. Still exit 2, because
+        # the fetch really did fail and the log should say so.
+        try:
+            _step("build", "EOS unreachable - rebuilding what does not need it")
+            cmd_build(args)
+        except Exception as build_exc:                    # noqa: BLE001
+            print("Rebuild after failed fetch also failed: {}".format(build_exc),
+                  file=sys.stderr)
         return 2
 
     collect_mod.write_runs(payload)
@@ -333,6 +347,30 @@ def cmd_build(args: argparse.Namespace) -> int:
             daily_path.stat().st_size / 1024, len(daily_bundle["tabs"]), daily_path))
         for warning in daily_bundle["warnings"]:
             print("  WARNING {}".format(warning), file=sys.stderr)
+
+    # The current validation build, unit by unit. Which suite that is resolves
+    # at build time, so the page follows the line instead of freezing on the
+    # release it was written for. No validation running is a normal week, not
+    # an error.
+    from . import build_validation
+    try:
+        collected = build_validation.collect()
+        if collected["units"]:
+            # The history join needs the controllers' payload. Reuse the one
+            # already collected above; only pay for a second walk if that
+            # collection failed, and let the except below catch it if it fails
+            # again rather than taking the build down with it.
+            val_payload = (pega_payload if pega_bundle is not None
+                           else pega_collect.collect(days=30))
+            val_path = build_validation.write_bundle(
+                build_validation.build_bundle(val_payload, collected))
+            print("Validation ({:.0f} KB, {} units on {}) -> {}".format(
+                val_path.stat().st_size / 1024, len(collected["units"]),
+                collected["suite"], val_path))
+        else:
+            print("Validation page skipped (no validation suite in the window)")
+    except Exception as exc:                              # noqa: BLE001
+        print("Validation page skipped ({})".format(exc))
 
     # The releases page needs the item store; skip rather than fail when it has
     # not been built yet (`make items`).

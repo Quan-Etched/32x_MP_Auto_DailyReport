@@ -8,6 +8,7 @@ reported as the difference rather than folded into it.
 """
 
 import unittest
+from datetime import datetime, timezone
 
 from factory import build_validation
 
@@ -154,6 +155,61 @@ class BundleShapeTest(unittest.TestCase):
             text = path.read_text(encoding="utf-8")
         self.assertIn("window.__FACTORY_VALIDATION__ = {", text)
         self.assertIn(SUITE, text)
+
+
+class SuiteResolutionTest(unittest.TestCase):
+    """Which suite the page shows when nobody says.
+
+    A page pinned to one release stops being true the week after that release
+    ships, and an unattended dashboard going quietly stale is worse than one
+    that is obviously broken.
+    """
+
+    def setUp(self):
+        from factory import pega
+        self.addCleanup(setattr, pega, "day_suite_runs", pega.day_suite_runs)
+        self.addCleanup(setattr, build_validation, "collect", build_validation.collect)
+
+    def listing(self, days):
+        from factory import pega
+
+        def fake(day, host="pega3"):
+            return days.get(day, [])
+        pega.day_suite_runs = fake
+
+    def entry(self, suite, at, run=None):
+        return {"suite_run_id": (run or suite) + "_run_abc",
+                "suite_name": suite, "start_time": at}
+
+    def test_the_newest_validation_suite_wins(self):
+        today = datetime.now(timezone.utc).date().strftime("%Y-%m-%d")
+        self.listing({today: [
+            self.entry("mlt_2026.220.0-gitold", today + "T01:00:00Z"),
+            self.entry("mlt_validation_2026.226.0-gitnew", today + "T09:00:00Z"),
+            self.entry("mlt_validation_2026.225.0-gitb937ca2c", today + "T02:00:00Z"),
+        ]})
+        self.assertEqual(build_validation.latest_suite(),
+                         "mlt_validation_2026.226.0-gitnew")
+
+    def test_a_production_only_day_resolves_to_nothing(self):
+        today = datetime.now(timezone.utc).date().strftime("%Y-%m-%d")
+        self.listing({today: [self.entry("mlt_2026.220.0-gitold",
+                                         today + "T01:00:00Z")]})
+        self.assertIsNone(build_validation.latest_suite(days=1))
+
+    def test_nothing_found_falls_back_to_the_named_default(self):
+        """So the page still renders something rather than an empty table."""
+        self.listing({})
+        collected = build_validation.collect(days=1)
+        self.assertEqual(collected["suite"], build_validation.DEFAULT_SUITE)
+
+    def test_an_explicit_suite_is_never_overridden(self):
+        today = datetime.now(timezone.utc).date().strftime("%Y-%m-%d")
+        self.listing({today: [
+            self.entry("mlt_validation_2026.226.0-gitnew", today + "T09:00:00Z")]})
+        collected = build_validation.collect(suite="mlt_validation_2026.1-gitpin",
+                                             days=1)
+        self.assertEqual(collected["suite"], "mlt_validation_2026.1-gitpin")
 
 
 if __name__ == "__main__":

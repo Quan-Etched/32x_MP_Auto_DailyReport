@@ -559,7 +559,7 @@ class PegaTabTest(unittest.TestCase):
          "suite_name": "htt_2026.224.0-gitdef", "dut_part_number": "1500027-B",
          "asic_lot_code": None, "first_failed_test_case": "", "second_failed_test_case": None},
         # Engineering: must not reach the tab.
-        {"suite_run_id": "mlt_2026.218.0-gitxyz_validation_run_deadbeef",
+        {"suite_run_id": "mlt_2026.218.0-gitxyz_debug_run_deadbeef",
          "suite_name": "mlt_2026.218.0-gitxyz_validation", "dut_part_number": "1500027-B",
          "first_failed_test_case": "", "second_failed_test_case": None},
     ]
@@ -582,7 +582,7 @@ class PegaTabTest(unittest.TestCase):
               ]},
         "htt_2026.224.0-gitdef_run_1af8af3d": {"status": "passed", "participating": [
             {"dut_sn": "268494130000045", "slot_number": 0, "status": "Passed"}]},
-        "mlt_2026.218.0-gitxyz_validation_run_deadbeef": {"status": "passed",
+        "mlt_2026.218.0-gitxyz_debug_run_deadbeef": {"status": "passed",
             "participating": [{"dut_sn": "999", "slot_number": 0, "status": "Passed"}]},
     }
 
@@ -692,6 +692,26 @@ class PegaTabTest(unittest.TestCase):
         # Same policy as stations.py's _krish exclusions.
         self.assertNotIn("999", [row[1]["v"] for row in self.build()["rows"]])
         self.assertEqual(self.build()["derivedFrom"]["runs"], 2)
+
+    def test_a_validation_run_is_a_thing_the_line_tested(self):
+        """It used to be dropped, but only when the word sat at the end of the
+        name: 08-14 lost the two htt validation runs and kept the 24 units of
+        mlt_validation 225. The row names its own build now, so the reader
+        tells them apart instead of the page deciding."""
+        from factory import pega
+        run = "htt_2026.224.0-gitdef_validation_run_beef01"
+        listing = list(self.LISTING) + [dict(
+            self.LISTING[0], suite_run_id=run,
+            suite_name="htt_2026.224.0-gitdef_validation",
+            start_time="2026-08-13T22:00:00Z")]
+        detail = dict(self.DETAIL)
+        detail[run] = {"status": "passed", "participating": [
+            {"dut_sn": "268494130000044", "slot_number": 3, "status": "Passed"}]}
+        pega.day_suite_runs = lambda day: listing
+        pega.suite_run = lambda run_id: detail[run_id]
+        rows = {r[1]["v"]: r for r in self.build()["rows"]}
+        self.assertEqual(rows["268494130000044"][self.at("Hv")]["v"],
+                         "htt_2026.224.0-gitdef_validation")
 
     def test_headings_name_the_release_that_ran(self):
         columns = self.build()["columns"]

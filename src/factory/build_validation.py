@@ -27,22 +27,54 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from . import build_history, config, pega, version
 
-#: The suite this page is about unless told otherwise.
+#: The suite this page is about when nothing newer can be found. Kept as a
+#: name rather than a rule so `--suite` and the tests have something concrete,
+#: but the build resolves the *current* validation suite by itself — see
+#: ``latest_suite``. A page pinned to one release stops being true the week
+#: after that release ships, and nobody notices a dashboard going stale.
 DEFAULT_SUITE = "mlt_validation_2026.225.0-gitb937ca2c"
+
+#: What counts as a validation suite on the module line.
+VALIDATION = re.compile(r"validation", re.IGNORECASE)
 
 #: Which controller runs it. mlt/htt are pega3's.
 DEFAULT_HOST = "pega3"
 
 
-def collect(suite: str = DEFAULT_SUITE, host: str = DEFAULT_HOST,
+def latest_suite(host: str = DEFAULT_HOST, days: int = 30,
+                 station_prefix: str = "mlt") -> Optional[str]:
+    """The most recent validation suite the station ran, or None.
+
+    Walked newest day first and stopped at the first hit, so the usual case
+    costs one cached listing rather than a month of them.
+    """
+    today = datetime.now(timezone.utc).date()
+    for offset in range(days):
+        day = (today - timedelta(days=offset)).strftime("%Y-%m-%d")
+        try:
+            listing = pega.day_suite_runs(day, host=host)
+        except pega.PegaUnavailable:
+            continue
+        found = sorted(
+            (entry.get("start_time") or "", entry.get("suite_name") or "")
+            for entry in listing
+            if (entry.get("suite_run_id") or "").startswith(station_prefix)
+            and VALIDATION.search(entry.get("suite_name") or ""))
+        if found:
+            return found[-1][1]
+    return None
+
+
+def collect(suite: Optional[str] = None, host: str = DEFAULT_HOST,
             days: int = 30, history: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Every unit that went through ``suite``, plus the day's other suites."""
+    suite = suite or latest_suite(host=host, days=days) or DEFAULT_SUITE
     today = datetime.now(timezone.utc).date()
     window = [(today.toordinal() - offset) for offset in range(days - 1, -1, -1)]
     window = [datetime.fromordinal(day).strftime("%Y-%m-%d") for day in window]

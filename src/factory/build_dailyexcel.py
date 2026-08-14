@@ -82,9 +82,26 @@ DERIVE_LIMIT = 3
 #: The stations the tracker covers, and the column pair each one fills.
 DERIVED_STATIONS = (("mlt", "E", "F", "G"), ("htt", "H", "I", "J"))
 
-#: Validation and debug suites are engineering, not production. Same policy as
-#: the ``_krish`` exclusions in stations.py, applied to pega3's wider day.
-ENGINEERING = re.compile(r"_(validation|debug)\b", re.IGNORECASE)
+#: Debug and dev suites are not line units. Same policy as the ``_krish``
+#: exclusions in stations.py, applied to pega3's wider day.
+#:
+#: VALIDATION RUNS ARE KEPT, DELIBERATELY
+#: They used to be excluded — but only by accident of where the word sat in the
+#: name. ``\b`` matches after ``…_validation`` at the end of a name and not
+#: inside ``mlt_validation_2026.225…``, so on 08-14 the tracker dropped the two
+#: htt validation runs (7 units) and the mlt 220 validation run (8 units) while
+#: keeping the 24 units of mlt_validation 225. Nobody chose that; the regex
+#: did.
+#:
+#: The tracker answers "what did the line test today", and a validation build
+#: is something the line tested. Now that every row names its own build, the
+#: reader can tell them apart without the page deciding for them — which is
+#: what the version column was added for. The station yield page still excludes
+#: validation (see pega_collect.NOT_PRODUCTION), because "yield" is a claim
+#: about production and this is not.
+ENGINEERING = re.compile(
+    r"(_debug|_krish|_out_dir|_SAM|_SMOKE|_etch\d+|^DRY_?RUN|^test_)",
+    re.IGNORECASE)
 
 
 def workbook_path(explicit: Optional[str] = None) -> Path:
