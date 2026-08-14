@@ -312,6 +312,7 @@
 
     menu = h('div', { class: 'filter-menu', role: 'dialog',
                       'aria-label': 'Filter ' + column.title });
+    menu.appendChild(h('div', { class: 'fm-head', text: column.title }));
 
     function sortButton(text, dir) {
       var button = h('button', { type: 'button', class: 'fm-sort', text: text });

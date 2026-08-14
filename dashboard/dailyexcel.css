@@ -65,7 +65,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 12px 14px;
-  background: var(--card, transparent);
+  background: var(--surface-1);
 }
 
 .sheet-tile .tile-title {
@@ -345,17 +345,34 @@ span.jira-key { color: var(--text-secondary); }
 .filter-menu {
   position: fixed;
   z-index: 40;
-  min-width: 230px;
-  max-width: 340px;
-  padding: 8px;
+  /* Wide enough for a whole suite name. These are the strings the reader is
+     choosing between — mlt_validation_2026.225.0-gitb937ca2c against
+     mlt_2026.220.0-git2f1c2f23 — and they differ in the middle, so a truncated
+     list is a list you cannot choose from. */
+  min-width: 300px;
+  max-width: min(460px, calc(100vw - 24px));
+  padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  background: var(--card, var(--bg));
+  gap: 8px;
+  /* An explicit opaque surface, not var(--card, var(--bg)): neither token
+     exists on this page, so the whole declaration was invalid and the panel
+     rendered transparent with the table legible straight through it. */
+  background: var(--surface-1);
   color: var(--text-primary);
-  border: 1px solid var(--border);
+  border: 1px solid var(--text-muted);
   border-radius: var(--radius);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+/* Which column this menu belongs to. The panel floats over a dense table, and
+   without the name it is not obvious what is about to be filtered. */
+.fm-head {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text-primary);
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border);
 }
 
 .fm-sorts { display: flex; gap: 6px; }
@@ -378,15 +395,15 @@ span.jira-key { color: var(--text-secondary); }
 .fm-search {
   font: inherit;
   font-size: 12px;
-  padding: 5px 7px;
+  padding: 6px 8px;
   border-radius: 5px;
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--page);
   color: var(--text-primary);
 }
 
 .fm-list {
-  max-height: 260px;
+  max-height: 300px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -397,25 +414,36 @@ span.jira-key { color: var(--text-secondary); }
 
 .fm-row {
   display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 3px 4px;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 6px;
   font-size: 12px;
   cursor: pointer;
   border-radius: 4px;
 }
+
+.fm-row input { margin-top: 2px; flex: none; }
 
 .fm-row:hover { background: var(--hover-wash); }
 .fm-row.blank .fm-value { color: var(--text-muted); font-style: italic; }
 
 .fm-value {
   flex: 1;
+  /* Wrap rather than clip: the tail of a suite name is the part that names the
+     build. */
   overflow-wrap: anywhere;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-primary);
 }
 
-.fm-count { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.fm-count {
+  flex: none;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
 
 .fm-actions { display: flex; align-items: center; gap: 6px; }
 .fm-gap { flex: 1; }
