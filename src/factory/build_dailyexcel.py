@@ -41,7 +41,7 @@ import json
 import os
 import re
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -163,17 +163,15 @@ def build_bundle(
             "no tab in {} is named like 'MM-DD Nx' — nothing to publish".format(
                 source.name))
 
-    # Days EOS knows about that the workbook has not caught up with. Derived
-    # tabs are marked as such and never overwrite a real one — the line's own
-    # record wins wherever it exists.
+    # Days the line has tested that the workbook has not caught up with.
+    # Derived tabs are marked as such and never overwrite a real one — the
+    # line's own record wins wherever it exists.
     if derive:
         have = {tab["day"] for tab in tabs if tab["day"]}
         # Only days *after* the newest real tab. A day the sheet skipped is the
         # line's decision, not a gap to fill; a day it has not reached yet is.
         newest = max(have) if have else ""
-        candidates = sorted({_utc_day(run.get("startTs")) for run in (payload or {}).get("runs", [])
-                             if run.get("level") == "module"
-                             and run.get("stationKey") in ("mlt", "htt")} - {None} - have)
+        candidates = sorted(_candidate_days(payload or {}) - have)
         candidates = [day for day in candidates if day > newest]
         for day in candidates[-DERIVE_LIMIT:]:
             newest_real = next((tab for tab in reversed(tabs)
@@ -218,6 +216,33 @@ def build_bundle(
         },
         "warnings": warnings,
     }
+
+
+def _candidate_days(payload: Dict[str, Any]) -> set:
+    """Which days to try to rebuild.
+
+    WHY THIS IS NOT JUST "DAYS EOS HAS RUNS FOR"
+    It was, and 08-14 never appeared: pega3 had 49 units on it and EOS had
+    none, so a day the line had plainly worked was missing from a page whose
+    rows come from pega3 anyway. Asking the source that does not have the data
+    which days the data covers is how a gap in EOS becomes a gap in the
+    tracker — and EOS under-reporting the module line is the finding this
+    dashboard exists to show, not an assumption it should build on.
+
+    So the calendar supplies the candidates when pega3 is reachable, and each
+    one is tried: a day with nothing on it returns no tab and costs one cached
+    listing. EOS's own days are still unioned in, for the case where pega3 is
+    unreachable and EOS is all there is.
+    """
+    days = {_utc_day(run.get("startTs")) for run in payload.get("runs", [])
+            if run.get("level") == "module"
+            and run.get("stationKey") in ("mlt", "htt")} - {None}
+
+    if pega.enabled():
+        today = datetime.now(timezone.utc).date()
+        days |= {(today - timedelta(days=offset)).strftime("%Y-%m-%d")
+                 for offset in range(DERIVE_LIMIT + 1)}
+    return days
 
 
 def derived_tab(payload: Dict[str, Any], day: str,

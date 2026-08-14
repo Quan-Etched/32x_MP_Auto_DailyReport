@@ -351,6 +351,55 @@ class EmptyColumnTest(unittest.TestCase):
         self.assertEqual([c["key"] for c in tabs[0]["columns"]], ["A", "B", "Ev"])
 
 
+class CandidateDaysTest(unittest.TestCase):
+    """Which days the page tries to rebuild.
+
+    It used to be "days EOS has module runs for", and 08-14 never appeared:
+    pega3 had 49 units on it and EOS had none, so a day the line had plainly
+    worked was missing from a page whose rows come from pega3 anyway.
+    """
+
+    def setUp(self):
+        import os
+        self.previous = os.environ.get("FACTORY_PEGA")
+        self.addCleanup(self._restore)
+
+    def _restore(self):
+        import os
+        if self.previous is None:
+            os.environ.pop("FACTORY_PEGA", None)
+        else:
+            os.environ["FACTORY_PEGA"] = self.previous
+
+    def _set(self, value):
+        import os
+        os.environ["FACTORY_PEGA"] = value
+
+    def payload(self, days):
+        return {"runs": [{"level": "module", "stationKey": "mlt",
+                          "startTs": int(datetime(
+                              int(day[:4]), int(day[5:7]), int(day[8:]), 12,
+                              tzinfo=timezone.utc).timestamp())}
+                         for day in days]}
+
+    def test_today_is_a_candidate_even_when_eos_has_nothing(self):
+        self._set("1")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        self.assertIn(today, build_dailyexcel._candidate_days({"runs": []}))
+
+    def test_eos_days_still_count_when_pega_is_unreachable(self):
+        """The fallback path: if pega3 is off, EOS is all there is, and its
+        days must still produce tabs."""
+        self._set("0")
+        days = build_dailyexcel._candidate_days(self.payload(["2026-08-11"]))
+        self.assertEqual(days, {"2026-08-11"})
+
+    def test_a_day_only_eos_has_is_not_dropped_when_pega_is_on(self):
+        self._set("1")
+        days = build_dailyexcel._candidate_days(self.payload(["2026-01-02"]))
+        self.assertIn("2026-01-02", days)
+
+
 if __name__ == "__main__":
     unittest.main()
 
