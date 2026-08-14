@@ -16,6 +16,13 @@ from pathlib import Path
 
 from factory import build_dailyexcel, xlsx
 
+# Column positions by name. The tab gained a per-unit version column after each
+# Results column, and hand-numbered indices are how that becomes a morning of
+# fixing tests that were never about numbering.
+(DATE, DUT, ASIC, PN,
+ MLT, MLT_VERSION, MLT_FAIL, MLT_LINK,
+ HTT, HTT_VERSION, HTT_FAIL, HTT_LINK, JIRA) = range(13)
+
 # --------------------------------------------------------------------- fixture
 
 SHARED = [
@@ -226,10 +233,10 @@ class DailyExcelBundleTest(NoPega, unittest.TestCase):
 
     def test_table_is_as_wide_as_its_titled_columns(self):
         tab = self.build()["tabs"][0]
-        self.assertEqual(len(tab["columns"]), 11)
+        self.assertEqual(len(tab["columns"]), 13)
         self.assertEqual(tab["columns"][-1]["title"], "Jira")
         for row in tab["rows"]:
-            self.assertEqual(len(row), 11)
+            self.assertEqual(len(row), len(tab["columns"]))
 
     def test_trailing_blank_rows_are_dropped(self):
         self.assertEqual(len(self.build()["tabs"][0]["rows"]), 2)
@@ -242,8 +249,8 @@ class DailyExcelBundleTest(NoPega, unittest.TestCase):
 
     def test_pega_links_survive_onto_the_cell(self):
         row = self.build()["tabs"][0]["rows"][0]
-        self.assertIn("pega3:3000/suite_run/mlt_", row[6]["h"])
-        self.assertIn("pega3:3000/suite_run/htt_", row[9]["h"])
+        self.assertIn("pega3:3000/suite_run/mlt_", row[MLT_LINK]["h"])
+        self.assertIn("pega3:3000/suite_run/htt_", row[HTT_LINK]["h"])
 
     def test_counts_are_the_sheets_own_verdicts(self):
         counts = self.build()["tabs"][0]["counts"]
@@ -256,14 +263,14 @@ class DailyExcelBundleTest(NoPega, unittest.TestCase):
 
     def test_jira_keys_are_extracted(self):
         row = self.build()["tabs"][0]["rows"][1]
-        self.assertEqual(row[10]["j"], ["ETCH-38719"])
+        self.assertEqual(row[JIRA]["j"], ["ETCH-38719"])
 
     def test_an_unmapped_fill_is_a_warning_not_a_silent_drop(self):
         bundle = self.build()
         self.assertTrue(any("FFFACC15" in w for w in bundle["warnings"]),
                         bundle["warnings"])
         # ...and the cell's text is still published.
-        self.assertIn("SohuVfioPingTestCase", bundle["tabs"][0]["rows"][1][5]["v"])
+        self.assertIn("SohuVfioPingTestCase", bundle["tabs"][0]["rows"][1][MLT_FAIL]["v"])
 
     def test_dut_links_only_where_the_run_table_has_that_serial(self):
         payload = {"runs": [{"dutSerial": "268494130000006"}]}
@@ -327,11 +334,12 @@ class DerivedTabTest(NoPega, unittest.TestCase):
     LATER = int(datetime(2026, 8, 13, 1, 50, 38, tzinfo=timezone.utc).timestamp())
     EARLIER = int(datetime(2026, 8, 10, 1, 50, 38, tzinfo=timezone.utc).timestamp())
 
-    def run_at(self, ts, station="mlt", status="fail", tests=None):
+    def run_at(self, ts, station="mlt", status="fail", tests=None,
+               version="2026.220.0-gitabc"):
         return {
             "runId": "mlt_2026.220.0-gitabc_20260813_015038",
             "dutSerial": "268494130000061", "level": "module",
-            "stationKey": station, "version": "2026.220.0-gitabc",
+            "stationKey": station, "version": version,
             "startTs": ts, "status": status,
             "tests": tests if tests is not None else [
                 {"name": "chip0_boot", "status": "pass",
@@ -374,13 +382,13 @@ class DerivedTabTest(NoPega, unittest.TestCase):
             {"name": "chip0_beta", "status": "fail", "displayName": "BetaTestCase"},
         ])
         tab = self.build([run])["tabs"][1]
-        self.assertEqual(tab["rows"][0][5]["v"], "AlphaTestCase\nBetaTestCase")
+        self.assertEqual(tab["rows"][0][MLT_FAIL]["v"], "AlphaTestCase\nBetaTestCase")
 
     def test_verdicts_are_per_chip_even_though_the_run_failed(self):
         tab = self.build([self.run_at(self.LATER, status="fail")])["tabs"][1]
-        self.assertEqual(tab["rows"][0][4], {"v": "Passed", "t": "pass"})
-        self.assertEqual(tab["rows"][1][4], {"v": "Failed", "t": "fail"})
-        self.assertEqual(tab["rows"][1][5]["v"], "BootloaderResultTestCase")
+        self.assertEqual(tab["rows"][0][MLT], {"v": "Passed", "t": "pass"})
+        self.assertEqual(tab["rows"][1][MLT], {"v": "Failed", "t": "fail"})
+        self.assertEqual(tab["rows"][1][MLT_FAIL]["v"], "BootloaderResultTestCase")
 
     def test_the_other_station_columns_stay_blank(self):
         # MLT and HTT are separate fixture runs, so a derived row fills one
@@ -388,24 +396,36 @@ class DerivedTabTest(NoPega, unittest.TestCase):
         # HTT because it failed MLT.
         tab = self.build([self.run_at(self.LATER)])["tabs"][1]
         for row in tab["rows"]:
-            self.assertEqual(row[7], {})           # HTT Results
-            self.assertEqual(row[8], {})           # HTT Failure Test Case
+            self.assertEqual(row[HTT], {})           # HTT Results
+            self.assertEqual(row[HTT_FAIL], {})      # HTT Failure Test Case
 
     def test_headings_carry_the_versions_actually_seen(self):
         tab = self.build([self.run_at(self.LATER)])["tabs"][1]
-        titles = [c["title"] for c in tab["columns"]]
-        # The heading keeps the line's own prefix (mlt_2026.220, not
-        # 2026.220) because it is copied from the real tab and only the
-        # version token is swapped.
-        self.assertEqual(titles[4], "MLT Results mlt_2026.220")
+        columns = tab["columns"]
+        # The build sits on a second line under the heading, keeping the line's
+        # own prefix (mlt_2026.220, not 2026.220).
+        self.assertEqual(columns[MLT]["title"], "MLT Results")
+        self.assertEqual(columns[MLT]["sub"], "mlt_2026.220.0-gitabc")
         # Nothing ran for HTT that day, so the heading drops the version
         # instead of inheriting one that never ran.
-        self.assertEqual(titles[7], "HTT Results")
-        self.assertEqual(len(titles), 11)
+        self.assertEqual(columns[HTT]["title"], "HTT Results")
+        self.assertIsNone(columns[HTT]["sub"])
+        self.assertEqual(len(columns), 13)
+
+    def test_a_mixed_day_counts_the_builds_rather_than_naming_one(self):
+        """08-14 ran four MLT builds under one heading, and the heading named
+        whichever was most common — which is how one day was reported as both
+        24 units and 39."""
+        tab = self.build([self.run_at(self.LATER),
+                          self.run_at(self.LATER + 60, version="2026.225.0-gitxyz")
+                          ])["tabs"][1]
+        self.assertEqual(tab["columns"][MLT]["sub"], "2 versions in this column")
+        versions = {(row[MLT_VERSION] or {}).get("v") for row in tab["rows"]}
+        self.assertEqual(versions, {"mlt_2026.220.0-gitabc", "mlt_2026.225.0-gitxyz"})
 
     def test_the_link_keeps_the_serial_eos_did_record(self):
         tab = self.build([self.run_at(self.LATER)])["tabs"][1]
-        link = tab["rows"][0][6]
+        link = tab["rows"][0][MLT_LINK]
         self.assertEqual(link["d"], "268494130000061")
         self.assertIn("268494130000061", link["title"])
 
@@ -493,25 +513,25 @@ class PegaTabTest(unittest.TestCase):
         # The whole point of having the serial: the sheet's shape is one row
         # per unit with both stations, which per-chip rows cannot express.
         row = next(r for r in self.build()["rows"] if r[1]["v"] == "268494130000045")
-        self.assertEqual(row[4], {"v": "Failed", "t": "fail"})     # MLT
-        self.assertEqual(row[7], {"v": "Passed", "t": "pass"})     # HTT
+        self.assertEqual(row[MLT], {"v": "Failed", "t": "fail"})     # MLT
+        self.assertEqual(row[HTT], {"v": "Passed", "t": "pass"})     # HTT
 
     def test_every_failure_on_the_slot_is_named(self):
         # A unit that fails eight tests has eight things wrong with it. The
         # first one to run is rarely the interesting one.
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        self.assertEqual(rows["268494130000045"][5]["v"].split("\n"),
+        self.assertEqual(rows["268494130000045"][MLT_FAIL]["v"].split("\n"),
                          ["BootloaderResultTestCase", "SohuDmaTestCase"])
 
     def test_another_slot_s_failure_never_leaks_onto_this_unit(self):
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        self.assertNotIn("SohuVrmTestCase", rows["268494130000045"][5]["v"])
+        self.assertNotIn("SohuVrmTestCase", rows["268494130000045"][MLT_FAIL]["v"])
 
     def test_containers_are_left_out_of_the_list(self):
         # chip0's nest failed only because a leaf under it did, and
         # ServerNestedTestCase would appear twice in one cell.
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        self.assertNotIn("SltModuleNestedTestCase", rows["268494130000045"][5]["v"])
+        self.assertNotIn("SltModuleNestedTestCase", rows["268494130000045"][MLT_FAIL]["v"])
 
     def test_a_unit_failing_only_nests_still_gets_a_name(self):
         # An empty cell beside "Failed" is the one thing this column must not say.
@@ -526,17 +546,17 @@ class PegaTabTest(unittest.TestCase):
         pega.day_suite_runs = lambda day: listing
         pega.suite_run = lambda run_id: detail[run_id]
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        self.assertEqual(rows["268494130000045"][5]["v"], "SltModuleNestedTestCase")
+        self.assertEqual(rows["268494130000045"][MLT_FAIL]["v"], "SltModuleNestedTestCase")
 
     def test_a_passing_unit_gets_no_failure_even_when_its_slot_failed_a_test(self):
         # chip1 has a failing test case but pega3 graded the unit Passed; the
         # verdict is pega3's, and a failure name without a failure is noise.
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        self.assertEqual(rows["268494130000044"][5], {})
+        self.assertEqual(rows["268494130000044"][MLT_FAIL], {})
 
     def test_failures_are_listed_oldest_first(self):
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        names = rows["268494130000045"][5]["v"].split("\n")
+        names = rows["268494130000045"][MLT_FAIL]["v"].split("\n")
         self.assertEqual(names[0], "BootloaderResultTestCase")   # 01:05
         self.assertEqual(names[-1], "SohuDmaTestCase")           # 01:09
 
@@ -554,17 +574,19 @@ class PegaTabTest(unittest.TestCase):
         pega.day_suite_runs = lambda day: listing
         pega.suite_run = lambda run_id: detail[run_id]
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
-        self.assertEqual(rows["268494130000045"][4]["v"], "Passed")
-        self.assertTrue(rows["268494130000045"][6]["h"].endswith("run_99999999?slot_number=0"))
+        self.assertEqual(rows["268494130000045"][MLT]["v"], "Passed")
+        self.assertTrue(rows["268494130000045"][MLT_LINK]["h"].endswith(
+            "run_99999999?slot_number=0"))
 
     def test_the_link_is_the_sheets_own_slot_url(self):
         row = next(r for r in self.build()["rows"] if r[1]["v"] == "268494130000044")
-        self.assertTrue(row[6]["h"].endswith(
-            "/suite_run/mlt_2026.220.0-gitabc_run_4cb95b11?slot_number=1"), row[6]["h"])
-        self.assertEqual(row[6]["v"], "4cb95b11")
+        self.assertTrue(row[MLT_LINK]["h"].endswith(
+            "/suite_run/mlt_2026.220.0-gitabc_run_4cb95b11?slot_number=1"),
+            row[MLT_LINK]["h"])
+        self.assertEqual(row[MLT_LINK]["v"], "4cb95b11")
 
     def test_part_number_comes_through(self):
-        self.assertEqual(self.build()["rows"][0][3]["v"], "1500027-B")
+        self.assertEqual(self.build()["rows"][0][PN]["v"], "1500027-B")
 
     def test_engineering_runs_are_excluded(self):
         # Same policy as stations.py's _krish exclusions.
@@ -572,9 +594,10 @@ class PegaTabTest(unittest.TestCase):
         self.assertEqual(self.build()["derivedFrom"]["runs"], 2)
 
     def test_headings_name_the_release_that_ran(self):
-        titles = [c["title"] for c in self.build()["columns"]]
-        self.assertEqual(titles[4], "MLT Results mlt_2026.220")
-        self.assertEqual(titles[7], "HTT Results htt_2026.224")
+        columns = self.build()["columns"]
+        self.assertEqual(columns[MLT]["title"], "MLT Results")
+        self.assertEqual(columns[MLT]["sub"], "mlt_2026.220.0-gitabc")
+        self.assertEqual(columns[HTT]["sub"], "htt_2026.224.0-gitdef")
 
     def test_passes_sort_before_failures(self):
         rows = self.build()["rows"]
@@ -678,7 +701,7 @@ class EnrichmentTest(unittest.TestCase):
 
     def test_the_failure_column_gains_what_the_sheet_omitted(self):
         rows = self.tab()["rows"]
-        cell = rows[1][5]["v"].split("\n")
+        cell = rows[1][MLT_FAIL]["v"].split("\n")
         self.assertEqual(cell, ["SohuVfioPingTestCase", "SohuVrmTestCase",
                                 "SohuI2cTestCase"])
 
@@ -686,19 +709,19 @@ class EnrichmentTest(unittest.TestCase):
         # Jira is the one thing pega3 does not have; losing it would trade a
         # better failure column for a worse page.
         row = self.tab()["rows"][1]
-        self.assertEqual(row[10]["j"], ["ETCH-38719"])
-        self.assertEqual(row[4], {"v": "Failed", "t": "fail"})
-        self.assertEqual(row[1]["v"], "268494130000067")
+        self.assertEqual(row[JIRA]["j"], ["ETCH-38719"])
+        self.assertEqual(row[MLT], {"v": "Failed", "t": "fail"})
+        self.assertEqual(row[DUT]["v"], "268494130000067")
 
     def test_a_unit_pega3_does_not_have_keeps_the_sheet_s_text(self):
         row = self.tab()["rows"][0]           # 268494130000006, passed
-        self.assertEqual(row[5], {})
+        self.assertEqual(row[MLT_FAIL], {})
 
     def test_a_name_only_the_sheet_has_is_kept(self):
         from factory import build_dailyexcel as bd
         bd._pega_units = lambda day: ({
             "268494130000067": {"mlt": {"fail": "SohuI2cTestCase"}}}, {}, 1)
-        names = self.tab()["rows"][1][5]["v"].split("\n")
+        names = self.tab()["rows"][1][MLT_FAIL]["v"].split("\n")
         # pega3's first, then what the person typed that pega3 lacks — a name
         # written down deliberately is evidence even when it is not in the API.
         self.assertEqual(names[0], "SohuI2cTestCase")
@@ -712,7 +735,7 @@ class EnrichmentTest(unittest.TestCase):
     def test_enrichment_can_be_switched_off(self):
         tab = self.tab(enrich=False)
         self.assertNotIn("enriched", tab)
-        self.assertEqual(tab["rows"][1][5]["v"],
+        self.assertEqual(tab["rows"][1][MLT_FAIL]["v"],
                          "SohuVfioPingTestCase\nSohuVrmTestCase")
 
     def test_an_unreachable_pega_leaves_the_sheet_exactly_as_it_was(self):
@@ -720,7 +743,7 @@ class EnrichmentTest(unittest.TestCase):
         bd._pega_units = lambda day: None
         tab = self.tab()
         self.assertNotIn("enriched", tab)
-        self.assertEqual(tab["rows"][1][5]["v"],
+        self.assertEqual(tab["rows"][1][MLT_FAIL]["v"],
                          "SohuVfioPingTestCase\nSohuVrmTestCase")
 
 

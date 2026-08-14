@@ -114,7 +114,13 @@
       var graded = entry.pass + entry.fail;
       var rate = graded ? Math.round((entry.pass / graded) * 1000) / 10 : null;
       el.summary.appendChild(h('div', { class: 'sheet-tile' }, [
-        h('span', { class: 'tile-title', text: entry.title }),
+        h('span', { class: 'tile-title' }, [
+          document.createTextNode(entry.title),
+          /* The build on its own line. One line of "MLT Results
+           * mlt_validation_2026.225.0-gitb937ca2c" was wide enough to push the
+           * failure column off the screen, and it is two facts anyway. */
+          entry.sub ? h('span', { class: 'tile-build', text: entry.sub }) : null
+        ]),
         h('strong', { class: 'tile-value', text: rate === null ? '—' : rate + '%' }),
         h('span', { class: 'tile-sub' }, [
           h('span', { class: 'tone-pass', text: entry.pass + ' passed' }),
@@ -148,7 +154,11 @@
 
     var head = h('tr', {});
     columns.forEach(function (column) {
-      var cell = h('th', { scope: 'col', text: column.title });
+      var cell = h('th', { scope: 'col' }, [
+        document.createTextNode(column.title),
+        column.sub ? h('span', { class: 'col-build', text: column.sub }) : null
+      ]);
+      if (column.kind) { cell.className = 'col-' + column.kind; }
       if (column.width) {
         /* Excel widths are in characters; ~7px each plus the cell padding
          * keeps the proportions of the original without pinning it to a
@@ -170,7 +180,14 @@
     tab.rows.forEach(function (row, index) {
       var tr = h('tr', { class: index % 2 ? 'odd' : 'even' });
       row.forEach(function (cell, position) {
-        tr.appendChild(renderCell(cell, columns[position], wraps[position]));
+        var td = renderCell(cell, columns[position], wraps[position]);
+        /* The per-unit build. It is the column that answers "which release was
+         * this unit actually on", so it reads as data, not as prose. */
+        if ((columns[position] || {}).kind) {
+          td.className = ((td.className || '') + ' col-' +
+                          columns[position].kind).trim();
+        }
+        tr.appendChild(td);
       });
       body.appendChild(tr);
     });

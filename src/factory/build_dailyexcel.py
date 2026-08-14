@@ -150,6 +150,10 @@ def build_bundle(
         # which is the system the line was reading when it typed the one.
         if enrich:
             tab = _enrich_from_pega(tab)
+        # Whether or not pega3 answered, the sheet's own heading is split onto
+        # two lines, so every tab in the strip has the same shape and switching
+        # between them does not move the columns.
+        tab = _reformat_sheet_columns(tab)
         tabs.append(tab)
 
     if not tabs:
@@ -244,9 +248,13 @@ def derived_tab(payload: Dict[str, Any], day: str,
         return None
 
     versions = {}
+    names: Dict[str, List[Optional[str]]] = {}
     for station, _, _, _ in DERIVED_STATIONS:
         seen = [r.get("version") for r in runs if r.get("stationKey") == station]
-        versions[station] = _release_label(seen)
+        # EOS reports a bare version; the line writes it with the station
+        # prefix, so the heading and the column read the same either way.
+        names[station] = ["{}_{}".format(station, v) for v in seen if v]
+        versions[station] = _version_sub(names[station])
 
     # The newest real tab is the format. Titles and widths are copied from it
     # verbatim and only the version token is swapped, so a derived tab is
@@ -282,8 +290,12 @@ def derived_tab(payload: Dict[str, Any], day: str,
                 if failures:
                     row[index[fail_col]] = {"v": "\n".join(failures)}
                 row[index[link_col]] = _derived_link(run, day)
+                if run.get("version"):
+                    row[index[_version_column(station)]] = {
+                        "v": "{}_{}".format(station, run["version"])}
                 rows.append(row)
 
+    _resync_version_subs(columns, rows)
     header_counts = _counts(rows, columns)
     return {
         "name": "{} (derived)".format(day),
@@ -294,7 +306,9 @@ def derived_tab(payload: Dict[str, Any], day: str,
         "derivedFrom": {
             "runs": len(runs),
             "source": "eos",
-            "versions": versions,
+            "versions": {station: _release_label(
+                [r.get("version") for r in runs if r.get("stationKey") == station])
+                for station, _, _, _ in DERIVED_STATIONS},
             "note": "Rebuilt from EOS. One row per chip; DUT serials live in "
                     "pega3 and the line's sheet, not in the API.",
         },
@@ -315,10 +329,29 @@ FALLBACK_TITLES = ("Date", "DUT SN", "ASIC SN", "DUT PN",
                    "FI Test Link", "HTT Results htt_",
                    "HTT Failure Test Case htt_", "FI Test Link", "Jira")
 
+#: A per-unit version column, inserted after each Results column.
+#:
+#: WHY THE HEADING ALONE WAS NOT ENOUGH
+#: The heading names one build, and 08-14 ran four MLT builds — 220 production,
+#: 220 validation, and the 225 commit under two names. A single heading over a
+#: column of 39 units silently claims they all ran the build it names, which is
+#: how the same day got reported as both 24 units and 39. The row now carries
+#: its own build and the heading says how many there were.
+VERSION_COLUMNS = (("mlt", "E", "Ev", "MLT Version"),
+                   ("htt", "H", "Hv", "HTT Version"))
+
+VERSION_WIDTH = 30.0
+
 #: ``mlt_2026.220`` / ``htt_2026.217`` inside a column heading.
 #: The trailing digits are optional so the fallback headings — which carry a
 #: bare ``mlt_`` with no version to copy — are substituted too.
 VERSION_TOKEN = re.compile(r"(mlt|htt)_[0-9.]*", re.IGNORECASE)
+
+#: The same token including any suffix — ``mlt_2026.220.0-git2f1c2f23`` and
+#: ``mlt_validation_2026.225.0-gitb937ca2c``. Used when moving the build out of
+#: a heading, where leaving ``.0-git2f1c2f23`` behind would be worse than not
+#: splitting at all.
+VERSION_TOKEN_FULL = re.compile(r"\b(mlt|htt)_[\w.\-]*", re.IGNORECASE)
 
 
 def _derived_columns(template: Optional[Dict[str, Any]],
@@ -332,18 +365,84 @@ def _derived_columns(template: Optional[Dict[str, Any]],
 
     columns = []
     for column in source:
-        title = column.get("title") or ""
-        # Swap in the version this day actually ran, keeping the prefix the
-        # line writes (mlt_2026.220, not 2026.220).
-        def swap(match):
-            release = versions.get(match.group(1).lower())
-            return "{}_{}".format(match.group(1), release) if release else ""
-        columns.append({
-            "key": column.get("key"),
-            "title": VERSION_TOKEN.sub(swap, title).strip(),
-            "width": column.get("width"),
-        })
-    return columns
+        key = column.get("key")
+        title = VERSION_TOKEN_FULL.sub("", column.get("title") or "").strip()
+        entry = {"key": key, "title": title, "width": column.get("width")}
+        # The build goes on a second line under the Results heading rather than
+        # trailing it. One line of "MLT Results mlt_validation_2026.225.0-
+        # gitb937ca2c" was wide enough to push the failure column off the
+        # screen, and it is two facts anyway.
+        if key in RESULT_COLUMNS:
+            entry["sub"] = versions.get(_station_of_column(key))
+        columns.append(entry)
+
+    return _with_version_columns(columns)
+
+
+def _version_column(station: str) -> str:
+    """The version column belonging to a station."""
+    for name, _result_col, version_col, _title in VERSION_COLUMNS:
+        if name == station:
+            return version_col
+    raise KeyError(station)
+
+
+def _station_of_column(key: str) -> Optional[str]:
+    for station, result_col, _version_col, _title in VERSION_COLUMNS:
+        if result_col == key:
+            return station
+    return None
+
+
+def _with_version_columns(columns: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Put a version column immediately after each Results column.
+
+    Idempotent: a derived tab copies its format from a real tab that has
+    already been widened, so inserting unconditionally gives it two.
+    """
+    present = {column.get("key") for column in columns}
+    out: List[Dict[str, Any]] = []
+    for column in columns:
+        out.append(column)
+        for _station, result_col, version_col, title in VERSION_COLUMNS:
+            if column.get("key") == result_col and version_col not in present:
+                out.append({"key": version_col, "title": title,
+                            "width": VERSION_WIDTH, "kind": "version"})
+    return out
+
+
+def _resync_version_subs(columns: List[Dict[str, Any]],
+                         rows: List[List[Dict[str, Any]]]) -> None:
+    """Make the heading agree with the column under it.
+
+    The heading is computed from the day's runs, the column from the rows that
+    survived — and a unit retested drops its earlier build, so 08-14 ran three
+    MLT builds but only two reach the table. A heading that counts builds
+    nobody can find in the column is the same kind of unfounded claim the
+    column was added to remove.
+    """
+    index = {column["key"]: position for position, column in enumerate(columns)}
+    for _station, result_col, version_col, _title in VERSION_COLUMNS:
+        if result_col not in index or version_col not in index:
+            continue
+        position = index[version_col]
+        columns[index[result_col]]["sub"] = _version_sub(
+            [(row[position] or {}).get("v") for row in rows])
+
+
+def _version_sub(names: List[Optional[str]]) -> Optional[str]:
+    """The second line of a Results heading.
+
+    One build gets named. Several get counted, and the reader is sent to the
+    column that has the answer per unit — naming the most common one would be
+    the same overclaim that made 24 and 39 look like a contradiction.
+    """
+    distinct = sorted({name for name in names if name})
+    if not distinct:
+        return None
+    if len(distinct) == 1:
+        return distinct[0]
+    return "{} versions in this column".format(len(distinct))
 
 
 def _enrich_from_pega(tab: Dict[str, Any]) -> Dict[str, Any]:
@@ -402,7 +501,87 @@ def _enrich_from_pega(tab: Dict[str, Any]) -> Dict[str, Any]:
                 added += max(0, len(names) - len([n for n in was.split("\n") if n.strip()]))
     if filled:
         tab["enriched"] = {"rows": filled, "added": added, "source": "pega3"}
+    return _add_sheet_versions(tab, units)
+
+
+def _add_sheet_versions(tab: Dict[str, Any],
+                        units: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    """Give a hand-kept tab the per-unit version column too.
+
+    The sheet has no such column — it writes one build in the heading — so this
+    is the one place a derived value is added to the line's own record rather
+    than filling one it left blank. It is worth it for the same reason the
+    column exists at all: on a day that ran more than one build, the heading is
+    a claim about every row that is true of only some of them.
+    """
+    tab = _widen_for_versions(tab)
+    if "B" not in {column["key"] for column in tab["columns"]}:
+        return tab
+
+    at = {column["key"]: position for position, column in enumerate(tab["columns"])}
+    for row in tab["rows"]:
+        dut = (row[at["B"]].get("v") or "").strip()
+        unit = units.get(dut) or {}
+        for station, _result_col, version_col, _title in VERSION_COLUMNS:
+            suite = (unit.get(station) or {}).get("suite")
+            if suite:
+                row[at[version_col]] = {"v": suite}
+    tab["counts"] = _counts(tab["rows"], tab["columns"])
     return tab
+
+
+def _widen_for_versions(tab: Dict[str, Any]) -> Dict[str, Any]:
+    """Make room for the version columns, leaving the cells empty."""
+    keys = {column["key"] for column in tab.get("columns") or []}
+    if all(key in keys for _s, _r, key, _t in VERSION_COLUMNS):
+        return tab
+
+    index = {column["key"]: position
+             for position, column in enumerate(tab["columns"])}
+    columns = _with_version_columns(tab["columns"])
+    at = {column["key"]: position for position, column in enumerate(columns)}
+    rows = []
+    for row in tab.get("rows") or []:
+        wide = [{} for _ in columns]
+        for key, position in index.items():
+            if position < len(row):
+                wide[at[key]] = row[position]
+        rows.append(wide)
+    tab["columns"] = columns
+    tab["rows"] = rows
+    return tab
+
+
+def _reformat_sheet_columns(tab: Dict[str, Any]) -> Dict[str, Any]:
+    """Move the build out of a Results heading and onto a second line."""
+    tab = _widen_for_versions(tab)
+    columns = []
+    for column in tab.get("columns") or []:
+        title = column.get("title") or ""
+        entry = dict(column)
+        found = VERSION_TOKEN_FULL.search(title)
+        if found:
+            entry["title"] = VERSION_TOKEN_FULL.sub("", title).strip()
+        if column.get("key") in RESULT_COLUMNS:
+            versions = _sheet_versions(tab, column["key"])
+            entry["sub"] = _version_sub(versions) or (
+                found.group(0) if found else None)
+        columns.append(entry)
+    tab["columns"] = columns
+    if tab.get("rows"):
+        tab["counts"] = _counts(tab["rows"], columns)
+    return tab
+
+
+def _sheet_versions(tab: Dict[str, Any], result_key: str) -> List[Optional[str]]:
+    """What the version column of a real tab actually holds, row by row."""
+    station = _station_of_column(result_key)
+    index = {column["key"]: position for position, column in enumerate(tab["columns"])}
+    position = index.get(_version_column(station)) if station else None
+    if position is None:
+        return []
+    return [(row[position] or {}).get("v") for row in tab.get("rows") or []
+            if position < len(row)]
 
 
 def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]], Dict[str, List[str]], int]]:
@@ -463,6 +642,9 @@ def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]], Dict[str,
                 "url": pega.run_url(run_id, part["slot"]),
                 "short": run_id.rsplit("_run_", 1)[-1],
                 "started": started,
+                # The build *this unit* ran, which on a mixed day is not the
+                # build in the column heading.
+                "suite": suite,
             }
 
     if not units:
@@ -483,8 +665,11 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
         return None
     units, versions, runs_seen = gathered
 
+    # Line 2 of the heading names the build when the day ran one and counts
+    # them when it ran several; the per-unit column carries the truth either way.
+    subs = {station: _version_sub(list(seen)) for station, seen in versions.items()}
     labels = {station: _release_label(list(seen)) for station, seen in versions.items()}
-    columns = _derived_columns(template, labels)
+    columns = _derived_columns(template, subs)
     index = {column["key"]: position for position, column in enumerate(columns)}
 
     def sort_key(item):
@@ -514,7 +699,11 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
             if got["fail"]:
                 row[index[fail_col]] = {"v": got["fail"]}
             row[index[link_col]] = {"v": got["short"], "h": got["url"]}
+            if got.get("suite"):
+                row[index[_version_column(station)]] = {"v": got["suite"]}
         rows.append(row)
+
+    _resync_version_subs(columns, rows)
 
     return {
         "name": "{} (from pega3)".format(day),
@@ -761,7 +950,8 @@ def _counts(rows: List[List[Dict[str, Any]]], header: List[Dict[str, Any]]) -> D
                 tally[tone] += 1
             else:
                 tally["blank"] += 1
-        counts[column] = dict(tally, title=header[position]["title"])
+        counts[column] = dict(tally, title=header[position]["title"],
+                              sub=header[position].get("sub"))
     return counts
 
 

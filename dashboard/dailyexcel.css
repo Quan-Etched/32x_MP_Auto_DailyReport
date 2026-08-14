@@ -145,6 +145,32 @@
 
 .sheet-table thead th:last-child { border-right: 0; }
 
+/* The build a column ran, under its heading rather than trailing it. Lighter
+   and monospaced, because it is a machine name being quoted, not a title. */
+.col-build,
+.sheet-tile .tile-build {
+  display: block;
+  margin-top: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
+}
+
+.col-build { color: rgba(255, 255, 255, 0.72); }
+.sheet-tile .tile-build { color: var(--text-secondary); }
+
+/* The per-unit version column. Every row on a single-build day repeats the
+   same string, so it is set quiet: present when scanned for, never competing
+   with the verdict beside it. */
+.sheet-table td.col-version {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
 .sheet-table tbody td {
   padding: 6px 10px;
   border-bottom: 1px solid var(--sheet-rule);
