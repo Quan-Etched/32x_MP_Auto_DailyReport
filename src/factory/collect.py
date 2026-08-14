@@ -266,7 +266,23 @@ def read_runs(path: Optional[Path] = None) -> Dict[str, Any]:
             "{} not found — run `make collect` (live API) or `make demo` "
             "(synthetic data) first.".format(target)
         )
-    return json.loads(target.read_text(encoding="utf-8"))
+    payload = json.loads(target.read_text(encoding="utf-8"))
+
+    # The station a run belongs to is derived from the registry, which is code —
+    # so it is re-derived here rather than trusted from the file. Without this a
+    # registry change only takes effect after the next *collect*: someone edits
+    # stations.py, runs `make build`, sees no change, and concludes the edit did
+    # not work. Re-deriving costs one regex per run and makes the registry
+    # authoritative at the moment it is read.
+    for record in payload.get("runs", []):
+        record["stationKey"] = stations.classify(record.get("level"), record.get("suite"))
+
+    # And the registry snapshot itself, for the same reason: a station added
+    # since the last collect has runs matching it but no entry describing it,
+    # so the page counts them into line-wide yield while showing no chip to
+    # open. Refreshing both together keeps them from disagreeing.
+    payload["stations"] = stations.registry()
+    return payload
 
 
 def default_window(days: int = 1, tz_name: Optional[str] = None) -> Dict[str, str]:

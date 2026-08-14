@@ -59,10 +59,33 @@ def build_bundle(
         })
         views[stations.UNCLASSIFIED] = _view(unclassified, tz_name)
 
-    # "All stations" is the union of classified runs — the unclassified tail is
-    # excluded so it cannot quietly inflate line-wide yield.
-    classified = [r for r in runs if (r.get("stationKey") or stations.UNCLASSIFIED)
-                  != stations.UNCLASSIFIED]
+    # Debug builds, repros and smoke tests: a bucket of their own, so
+    # "unclassified" keeps meaning "nobody has worked out what this is".
+    engineering = by_station.get(stations.ENGINEERING, [])
+    if engineering:
+        suites = sorted({
+            "{}/{}".format(r.get("level"), r.get("suite")) for r in engineering
+        })
+        registry.append({
+            "key": stations.ENGINEERING,
+            "label": "Engineering",
+            "state": stations.ENGINEERING,
+            "order": 998,
+            "runs": len(engineering),
+            "blockedBy": None,
+            "note": "Not a line stage: debug builds, one-off repros, smoke tests "
+                    "and suites named after a ticket. Excluded from line-wide "
+                    "yield because they run on engineering DUTs. "
+                    + ", ".join(suites[:12]),
+        })
+        views[stations.ENGINEERING] = _view(engineering, tz_name)
+
+    # "All stations" is the union of production runs — the unclassified tail and
+    # the engineering runs are both excluded so neither can quietly move
+    # line-wide yield.
+    off_line = (stations.UNCLASSIFIED, stations.ENGINEERING)
+    classified = [r for r in runs
+                  if (r.get("stationKey") or stations.UNCLASSIFIED) not in off_line]
     views["__all__"] = _view(classified, tz_name)
     registry.insert(0, {
         "key": "__all__", "label": "All stations", "state": "active",

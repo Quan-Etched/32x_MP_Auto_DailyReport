@@ -269,6 +269,12 @@ REQUESTS: List[Dict[str, Any]] = [
             "arn:aws:s3:::etched-mfg-prod-l11-raw.",
         ],
         "doneWhen": "/runs?level=l11 returns rows instead of upstream_unavailable.",
+        "note": "There may be a way round this one. pega5 drives the L11 stations "
+                "(pt2_l11_station1 and 2) and returns 40 runs over 30 days — "
+                "L11_provisioning, L11_rack_power_cycle, L11_tests_ci — while EOS "
+                "502s for the same level. Reading L11 from pega5 would unblock "
+                "both stations without the IAM grant, at the cost of a second "
+                "source for one station's data.",
         "check": "l11",
         "raised": "2026-08-06",
     },

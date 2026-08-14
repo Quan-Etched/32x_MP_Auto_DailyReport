@@ -37,14 +37,48 @@ class ClassifyTest(unittest.TestCase):
 
     def test_debug_variants_are_excluded_from_production_yield(self):
         # L10_6U_FAT_krish is an engineering run; folding it into FAT would move
-        # the number the line reports.
+        # the number the line reports. They land in ENGINEERING rather than
+        # UNCLASSIFIED: both are kept out of line-wide yield, but only one of
+        # them is an open question for somebody.
         for suite in ("L10_6U_FAT_krish", "L10_6U_FAT_debug_krish",
                       "L10_6U_MEM_etch33931",
                       # 22 of 23 runs error out — a dev suite, not a stage.
                       "L10_tests",
                       # 2 test cases against L10_2U's 26.
                       "L10_2U_SMOKE"):
-            self.assertEqual(stations.classify("l10", suite), stations.UNCLASSIFIED, suite)
+            self.assertEqual(stations.classify("l10", suite), stations.ENGINEERING, suite)
+
+    def test_engineering_and_unclassified_are_different_answers(self):
+        # "we know what this is and it is not production" vs "nobody has worked
+        # out what this is". Collapsing them buried the second in the first.
+        self.assertEqual(stations.classify("module", "selfheal_repro_a"),
+                         stations.ENGINEERING)
+        self.assertEqual(stations.classify("l10", "something_nobody_named"),
+                         stations.UNCLASSIFIED)
+
+    def test_vbb_provisioning_is_a_station(self):
+        # 289 runs — the largest single group EOS returns — sat unclassified
+        # until pega2 showed a dedicated station (pt2_l6_vbb1) with its own part
+        # number driving them.
+        for suite in ("VbbCec173xProvisioningInternal", "VbbFlashAndLockBootloader",
+                      "VbbValidateProductionProvisioning",
+                      "VbbCec173xProvisioningExternalProd"):
+            self.assertEqual(stations.classify("l6", suite), "vbb_provision", suite)
+
+    def test_vbb_patterns_accept_pega2_s_own_spelling(self):
+        # EOS reports the test-class name, pega2 the suite it ran under; the
+        # same stage is spelled differently in the two systems.
+        for suite in ("PROD_01_vbb_provisioning",
+                      "PROD_02_vbb_validate_production_provisioning",
+                      "CHECK_vbb_setup_validate_token_PROD"):
+            self.assertEqual(stations.classify("l6", suite), "vbb_provision", suite)
+
+    def test_a_station_records_which_controller_drives_it(self):
+        by_key = {s.key: s for s in stations.STATIONS}
+        self.assertEqual(by_key["mlt"].controller, "pega3")
+        self.assertEqual(by_key["l10_fat"].controller, "pega4")
+        self.assertEqual(by_key["l11_provision"].controller, "pega5")
+        self.assertEqual(by_key["vbb_provision"].controller, "pega2")
 
     def test_level_is_part_of_the_match(self):
         self.assertEqual(stations.classify("module", "L10_6U_FAT"), stations.UNCLASSIFIED)

@@ -122,8 +122,12 @@ and none of the data.
 
 **`dashboard/index.html` — station yield (the landing page).** Per-station daily yield, yield by
 software release, failure Pareto by root-cause area, and retest. Stations are
-test stages (MLT, HTT, L10 FAT / SFT / RIN / 2U, SLT, chip screening), defined
-in `src/factory/stations.py`. Suite names do not always say which station they
+test stages (VBB provisioning, MLT, HTT, chip screening, SLT,
+L10 FAT / SFT / RIN / 2U, L11 x2), defined in `src/factory/stations.py`, each
+recording the ESVM controller that drives it — pega2 provisions VBB boards,
+pega3 runs the module stations, pega4 L10, pega5 L11. That is more than
+bookkeeping: the controller is the authority on what a station *is*, and pega2
+is what settled a 289-run group that had been unclassified for a week. Suite names do not always say which station they
 belong to — HTT runs under `rdqs_sweep_training` — so check the FAMILY column in
 OCP Logs before concluding a station has no data. Format follows the existing daily dashboard
 (`go/test-dashboard`) so the two read alike.

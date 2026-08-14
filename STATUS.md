@@ -48,11 +48,12 @@ make status            # last fetch vs last update, per station
 
 | Check | Result |
 |---|---|
-| Unit tests | 269 passing (`make test`) |
+| Unit tests | 273 passing (`make test`) |
 | `/levels` | `l6, l10, l11, slt, module, bringup` |
 | Live collect | 1062 runs over 30 days across l6 + l10 + slt + module |
 | Status / duration resolved | all runs |
-| Stations mapped | 8 of 10 producing data; L11 ×2 blocked (IAM) |
+| Stations mapped | 9 of 11 producing data; L11 ×2 blocked (IAM) |
+| Unclassified runs | **0** (was 328) |
 | Pareto coverage | "Other" 10.2% (was 71% before the container + separator fixes) |
 | Dashboards | both render on real data, light + dark, headless-Chrome verified |
 
@@ -125,6 +126,43 @@ line's decision; a day it has not reached yet is a gap. The DUT column says
 `chip 3` because the serials genuinely are not in the API — `bom_config` is a
 static BOM with every `serial_number` null, `suite_config` has none, and
 `resource_config` is never fetched because it holds credentials.
+
+## Every run is now classified
+
+The station page had 328 unclassified runs — a quarter of everything collected.
+It has none. The answer came from the ESVM controllers rather than from
+guessing:
+
+| host | drives | EOS level |
+|---|---|---|
+| `pega2` | VBB provisioning (`pt2_l6_vbb1`) | `l6` |
+| `pega3` | MLT, HTT, chip screening, SLT (`pt2_module_station1-5`) | `module`, `slt` |
+| `pega4` | L10 FAT / SFT / RIN / 2U (`pt2_l10_station6-7`) | `l10` |
+| `pega5` | L11 provisioning and test (`pt2_l11_station1-2`) | `l11` |
+| `pega6` | baking (`pt2_baking_station1-2`) | absent from EOS |
+
+**VBB Provisioning — 289 runs, the largest single group EOS returns.** It sat
+unclassified because nothing in `VbbCec173xProvisioningInternal` says which
+station runs them, and the standing note asked for the OCP FAMILY column to
+settle it. pega2 settles it instead: a dedicated station, a dedicated part
+number (`PN-VBB`) and production-prefixed suites (`PROD_01_vbb_provisioning`).
+Counting it as unclassified was hiding the busiest stage on the line. 74.7% pass
+rate over 83 units.
+
+**Engineering — 39 runs**, in a bucket of its own rather than mixed into
+unclassified: debug builds, `_krish` variants, repros, smoke tests, suites named
+after a ticket. Both are kept out of line-wide yield, but only one of them is an
+open question for somebody.
+
+**pega5 may be a way round the L11 block.** It returns 40 L11 runs over 30 days
+for the two stations EOS 502s on. Recorded on the feature-request page rather
+than built: it means a second source for one station's data.
+
+Registry changes now take effect at **build** time, not collect. The station a
+run belongs to, and the registry snapshot the page renders, are both derived
+from code and re-derived when `runs.json` is read — before this, editing
+`stations.py` and running `make build` changed nothing until the next collect,
+which looked exactly like the edit not working.
 
 ## Cross-check: the tracker sheet against what we fetch
 
