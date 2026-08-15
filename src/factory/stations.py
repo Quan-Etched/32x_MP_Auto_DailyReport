@@ -40,6 +40,13 @@ ACTIVE = "active"
 UNMAPPED = "unmapped"
 BLOCKED = "blocked"
 
+#: Measured, but by another team in another system. Distinct from BLOCKED,
+#: which means "ours, and we cannot reach it": nobody here is waiting on an IAM
+#: grant for wafer sort. Carries no level, so neither levels_to_collect() nor
+#: blocked_levels() ever asks EOS for it — an external station is on the map,
+#: not in the collector.
+EXTERNAL = "external"
+
 
 class Station:
     """One test stage on the line."""
@@ -180,6 +187,31 @@ STATIONS: List[Station] = [
              "The suite names differ between the two systems (EOS reports the "
              "test-class name, pega2 the suite it ran under), so the patterns "
              "here accept both spellings.",
+    ),
+    Station(
+        key="wst", label="WST", state=EXTERNAL, order=1,
+        note="Wafer sort, at Sigurd. The first electrical test a die sees, on "
+             "the wafer and before any package exists.\n\n"
+             "No level and no patterns: EOS does not carry it and neither does "
+             "any pega controller. It is here because a station registry that "
+             "starts at VBB provisioning implies the line starts there, and it "
+             "does not — the first three stages happen before a board exists, "
+             "and a chart drawn from this registry was missing them.\n\n"
+             "Where the data is: the STDF datalogs behind "
+             "strata6.sv9.i.etched.com:8235, and SPLM "
+             "(https://splm.i.etched.com/api/v1/query, read-only SQL, needs a "
+             "token). Joining it to this dashboard needs a chip serial on our "
+             "rows; pega3 returns asic_lot_code and it is empty on every run.",
+    ),
+    Station(
+        key="ft", label="FT", state=EXTERNAL, order=2,
+        note="Final test, at Sigurd. The earliest insertion that can see an "
+             "HBM lane, because the stacks are attached at CoWoS and there is "
+             "no HBM at wafer sort.\n\n"
+             "Same sources as [wst]: STDF on strata6 and SPLM. Someone has "
+             "already joined FT to SLT per physical die — hbm_ft_vs_slt.csv on "
+             "that host is one row per die carrying ft_sbin, repaired lanes, "
+             "and the SLT verdict beside them.",
     ),
     Station(
         key="l11_provision", label="L11 Provision", level="l11",

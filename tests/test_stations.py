@@ -160,3 +160,41 @@ class RootCauseTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExternalStationTest(unittest.TestCase):
+    """WST and FT are on the map but not in the collector.
+
+    A registry that starts at VBB provisioning implies the line starts there,
+    and it does not — wafer sort and final test happen at Sigurd before a board
+    exists. They are listed so a chart drawn from this registry is complete,
+    and given no level so nothing ever asks EOS for a level that is not ours.
+    """
+
+    def external(self):
+        return [s for s in stations.STATIONS if s.state == stations.EXTERNAL]
+
+    def test_wafer_sort_and_final_test_are_registered(self):
+        self.assertEqual([s.key for s in self.external()], ["wst", "ft"])
+
+    def test_they_come_before_everything_the_line_does(self):
+        first = min(s.order for s in stations.STATIONS
+                    if s.state != stations.EXTERNAL)
+        self.assertTrue(all(s.order < first for s in self.external()))
+
+    def test_no_level_is_ever_collected_for_them(self):
+        """The failure this prevents: a level of 'asic' would make every tick
+        ask EOS for a level it does not serve and log an error every hour."""
+        for station in self.external():
+            self.assertEqual(station.levels, ())
+        for level in stations.levels_to_collect() + stations.blocked_levels():
+            self.assertNotIn(level, ("asic", "wst", "ft"))
+
+    def test_they_never_claim_a_run(self):
+        for station in self.external():
+            self.assertFalse(station.matches("module", "wst"))
+            self.assertFalse(station.matches(None, "ft"))
+
+    def test_each_says_where_its_data_actually_lives(self):
+        for station in self.external():
+            self.assertIn("SPLM", station.note)

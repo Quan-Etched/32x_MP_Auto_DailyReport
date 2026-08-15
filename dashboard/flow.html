@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Production Test Flowchart</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="flow.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Production Test Flowchart</h1>
+    <span class="meta" id="meta"></span>
+    <span class="build" id="build"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" href="index.html">&larr; Station yield</a>
+    <a class="theme-toggle" href="dailyexcel.html">Daily tracker &rarr;</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <p class="flow-intro">
+    Every stage a unit passes through, from bare silicon to a packed rack.
+    A stage is <strong>green</strong> when it produces a yield; grey when it
+    builds or moves something without testing it. Where this dashboard has the
+    numbers they are printed in the box, so the chart doubles as a map of what
+    is and is not measured here.
+  </p>
+
+  <div class="flow-legend" id="legend"></div>
+
+  <div class="flow-canvas" id="canvas">
+    <svg class="flow-wires" id="wires" aria-hidden="true"></svg>
+    <div class="flow-lanes" id="lanes"></div>
+  </div>
+
+  <footer class="notes">
+    <p id="footer-meta"></p>
+    <p>
+      Redrawn from the line's own flowchart (updated 15 Aug 2026) with the
+      stages this dashboard measures joined to it. The yields are the last 30
+      days from the station controllers — pega2 for VBB, pega3 for the module
+      stations, pega4 for L10, pega5 for L11 — counted one row per unit, not
+      one per fixture. WST, FT and SLT sit with Sigurd and are not collected
+      here; their boxes say so rather than showing a blank.
+    </p>
+  </footer>
+
+</div>
+
+<script src="data/pega_stations.js"></script>
+<script src="flow.js"></script>
+<script src="theme.js"></script>
+<script src="update.js"></script>
+</body>
+</html>

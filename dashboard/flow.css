@@ -1,0 +1,218 @@
+/* The production test flowchart.
+ *
+ * The box fills are the line's own — the green, grey, pink and blue everyone
+ * already reads off the slide — so they are literal colours rather than theme
+ * tokens, and the text on them is forced dark in both themes. A diagram whose
+ * colours change with the reader's OS setting is a diagram two people cannot
+ * discuss. Everything around the boxes (page, rules, labels) is themed as
+ * usual.
+ */
+
+.flow-intro {
+  max-width: 78ch;
+  margin: 14px 0 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.flow-intro strong { color: var(--text-primary); }
+
+/* ---------------------------------------------------------------- legend */
+
+.flow-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 16px 0 6px;
+  font-size: 12px;
+}
+
+.legend-item { display: flex; align-items: center; gap: 7px; }
+
+.swatch {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.legend-label { color: var(--text-primary); }
+.legend-note { color: var(--text-muted); }
+
+/* ---------------------------------------------------------------- canvas */
+
+.flow-canvas {
+  position: relative;
+  margin: 14px 0 4px;
+  padding: 10px 4px 18px;
+  overflow-x: auto;
+}
+
+.flow-wires {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.wire {
+  stroke: var(--axis);
+  stroke-width: 1.6;
+}
+
+.wire-head { fill: var(--axis); }
+
+.wire-label {
+  fill: var(--text-secondary);
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.flow-lanes {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 54px;
+  min-width: max-content;
+}
+
+.lane { display: flex; flex-direction: column; }
+
+/* The dashed rules between lanes are the chart's own. */
+.lane + .lane {
+  padding-left: 54px;
+  margin-left: -54px;
+  border-left: 1px dashed var(--axis);
+}
+
+.lane-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 34px;
+  margin-bottom: 10px;
+}
+
+.lane-owner { font-size: 11px; color: var(--text-muted); }
+
+.lane-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.lane-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+/* ------------------------------------------------------------------ boxes */
+
+.box {
+  position: relative;
+  width: 168px;
+  min-height: 58px;
+  padding: 9px 11px;
+  border-radius: 4px;
+  border: 1px solid;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Dark text on every fill, in both themes: these are light fills taken from
+     the line's chart, and inheriting the page's white-on-dark would make them
+     unreadable exactly where the reader is looking. */
+  color: #101010;
+}
+
+.box-label { font-size: 15px; line-height: 1.2; }
+.box-sub { font-size: 10.5px; color: #3d3d3d; }
+
+/* Green and bold is the claim: this stage produces a yield. */
+.k-test {
+  background: #d5e8d4;
+  border-color: #82b366;
+}
+
+.k-test .box-label { font-weight: 700; }
+
+.k-build {
+  background: #d9d9d9;
+  border-color: #a5a5a5;
+}
+
+.k-pack {
+  background: #dae8fc;
+  border-color: #7ea6d9;
+}
+
+/* A measured stage carries its number; an unmeasured one carries the reason.
+   The ring is what separates "we know this is 51%" from "someone else knows". */
+.box.measured { box-shadow: 0 0 0 2px rgba(46, 106, 46, 0.45); }
+
+.box-yield {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 3px;
+}
+
+.box-yield strong {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  color: #16451a;
+}
+
+.box-runs { font-size: 10.5px; color: #3d3d3d; }
+
+.box-note {
+  font-size: 10px;
+  line-height: 1.3;
+  color: #4a4a4a;
+  font-style: italic;
+}
+
+.box-link {
+  position: absolute;
+  right: 8px;
+  bottom: 7px;
+  font-size: 10px;
+  color: #14532d;
+  text-decoration: underline;
+}
+
+.box-link:hover { color: #0b2f1a; }
+
+/* 4U / 2U / 6U, the chart's own configuration chips. */
+.box-tags {
+  position: absolute;
+  top: -11px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+}
+
+.tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  color: #101010;
+}
+
+.t-4U { background: #cfe2f3; }
+.t-2U { background: #fff2cc; }
+.t-6U { background: #e8912a; }
+
+/* Swatches reuse the box fills so the legend cannot drift from the chart. */
+.swatch.k-test { background: #d5e8d4; border: 1px solid #82b366; }
+.swatch.k-test.measured { box-shadow: 0 0 0 2px rgba(46, 106, 46, 0.45); }
+.swatch.k-build { background: #d9d9d9; border: 1px solid #a5a5a5; }
+.swatch.k-pack { background: #dae8fc; border: 1px solid #7ea6d9; }
+
+@media (max-width: 900px) {
+  .flow-lanes { gap: 34px; }
+  .lane + .lane { padding-left: 34px; margin-left: -34px; }
+  .box { width: 148px; }
+}
