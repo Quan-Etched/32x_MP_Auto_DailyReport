@@ -151,7 +151,8 @@
         /* "No HTT today" and "HTT ran five times and every one was a debug
          * bundle" are different facts, and an empty column says the first
          * while meaning the second. */
-        excludedNote(from)
+        excludedNote(from),
+        debugNote(from)
       ]));
     }
     /* The tiles below now describe the filtered set, so the filter has to be
@@ -210,6 +211,22 @@
         })
       ]));
     }
+  }
+
+  /* Counted, but a day whose only HTT was a debug bundle reads very
+   * differently from a normal day. The version column already names the build
+   * per row; this puts it where the yield tile is, which is where the number
+   * gets read from. */
+  function debugNote(from) {
+    var builds = from.debugBuilds || {};
+    var stations = Object.keys(builds);
+    if (!stations.length) return null;
+    var parts = stations.map(function (key) {
+      return key.toUpperCase() + ': ' + builds[key].join(', ');
+    });
+    return h('span', { class: 'tile-sub tile-debug',
+      text: 'Counted, and not a release build — ' + parts.join(' · ') +
+            '. Filter the version column to see release-only numbers.' });
   }
 
   function excludedNote(from) {

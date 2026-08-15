@@ -100,14 +100,26 @@ DERIVED_STATIONS = (("mlt", "E", "F", "G"), ("htt", "H", "I", "J"))
 #: validation (see pega_collect.NOT_PRODUCTION), because "yield" is a claim
 #: about production and this is not.
 ENGINEERING = re.compile(
-    # `(^|_)debug` and not `_debug`: on 08-15 the only HTT runs on the line were
-    # debug_only_htt_2026.223.0-git78e6956e2, Justin's bundle that Yi ran to
-    # reproduce a failure. The old pattern needed an underscore *before* the
-    # word, so a suite whose name starts with it was never recognised as
-    # engineering — and would have been counted into HTT's yield the moment
-    # the station matcher below started seeing it.
-    r"((^|_)debug|_krish|_out_dir|_SAM|_SMOKE|_etch\d+|^DRY_?RUN|^test_)",
+    r"(_krish|_out_dir|_SAM|_SMOKE|_etch\d+|^DRY_?RUN|^test_)",
     re.IGNORECASE)
+
+#: A build that is not a release: debug bundles, hand-built tarballs.
+#:
+#: THESE ARE COUNTED, AND THAT IS A DECISION
+#: On 08-15 every HTT run on the line was
+#: ``debug_only_htt_2026.223.0-git78e6956e2`` — Justin's bundle, run twice by
+#: Yi on production DUTs at a production station. Those units were tested; the
+#: tracker's job is to say what the line did.
+#:
+#: What makes counting them safe is the version column: every row names the
+#: build it ran, and the column filters, so a reader who wants release-only
+#: numbers can have them in two clicks. The page does not have to decide on
+#: their behalf — which is the same reasoning that brought the validation
+#: suites back in.
+#:
+#: Still excluded above: dry runs, smoke tests, an engineer's personal branch,
+#: output-directory artefacts. Those are not line units at all.
+DEBUG_BUILD = re.compile(r"((^|_)debug|_dbg)", re.IGNORECASE)
 
 #: Which module station a pega3 suite belongs to.
 #:
@@ -712,6 +724,7 @@ def _sheet_versions(tab: Dict[str, Any], result_key: str) -> List[Optional[str]]
 
 def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
                                             Dict[str, List[str]], int,
+                                            Dict[str, List[str]],
                                             Dict[str, List[str]]]]:
     """Every unit pega3 tested that day, keyed by DUT serial.
 
@@ -732,6 +745,7 @@ def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
     units: Dict[str, Dict[str, Any]] = {}
     versions: Dict[str, List[str]] = {"mlt": [], "htt": []}
     excluded: Dict[str, List[str]] = {"mlt": [], "htt": []}
+    debug_builds: Dict[str, List[str]] = {"mlt": [], "htt": []}
     runs_seen = 0
 
     for entry in listing:
@@ -750,6 +764,11 @@ def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
         if ENGINEERING.search(run_id) or ENGINEERING.search(suite):
             excluded[station].append(suite)
             continue
+        # Counted, but recorded: a day whose only HTT was a debug bundle reads
+        # very differently from a normal day, and the tile should say so
+        # without the reader having to notice it in the version column.
+        if DEBUG_BUILD.search(suite) or DEBUG_BUILD.search(run_id):
+            debug_builds[station].append(suite)
         try:
             detail = pega.suite_run(run_id)
         except pega.PegaUnavailable:
@@ -783,7 +802,7 @@ def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
 
     if not units:
         return None
-    return units, versions, runs_seen, excluded
+    return units, versions, runs_seen, excluded, debug_builds
 
 
 def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -797,7 +816,7 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
     gathered = _pega_units(day)
     if not gathered:
         return None
-    units, versions, runs_seen, excluded = gathered
+    units, versions, runs_seen, excluded, debug_builds = gathered
 
     # Line 2 of the heading names the build when the day ran one and counts
     # them when it ran several; the per-unit column carries the truth either way.
@@ -853,6 +872,8 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
                          for station, names in excluded.items() if names},
             "excludedRuns": {station: len(names)
                              for station, names in excluded.items() if names},
+            "debugBuilds": {station: sorted(set(names))
+                            for station, names in debug_builds.items() if names},
             "note": "Rebuilt from pega3, which assigns the slots and therefore "
                     "knows every unit's serial.",
         },

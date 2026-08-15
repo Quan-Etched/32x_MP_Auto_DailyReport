@@ -482,3 +482,12 @@ span.jira-key { color: var(--text-secondary); }
   color: var(--text-muted);
   font-style: italic;
 }
+
+/* A debug build that was counted. Marked, not hidden — the number includes it
+   and the reader should know before quoting it. */
+.sheet-tile .tile-debug {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--status-warning);
+  color: var(--status-warning);
+}

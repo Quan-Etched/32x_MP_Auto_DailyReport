@@ -559,7 +559,7 @@ class PegaTabTest(unittest.TestCase):
          "suite_name": "htt_2026.224.0-gitdef", "dut_part_number": "1500027-B",
          "asic_lot_code": None, "first_failed_test_case": "", "second_failed_test_case": None},
         # Engineering: must not reach the tab.
-        {"suite_run_id": "mlt_2026.218.0-gitxyz_debug_run_deadbeef",
+        {"suite_run_id": "mlt_2026.218.0-gitxyz_krish_run_deadbeef",
          "suite_name": "mlt_2026.218.0-gitxyz_validation", "dut_part_number": "1500027-B",
          "first_failed_test_case": "", "second_failed_test_case": None},
     ]
@@ -582,7 +582,7 @@ class PegaTabTest(unittest.TestCase):
               ]},
         "htt_2026.224.0-gitdef_run_1af8af3d": {"status": "passed", "participating": [
             {"dut_sn": "268494130000045", "slot_number": 0, "status": "Passed"}]},
-        "mlt_2026.218.0-gitxyz_debug_run_deadbeef": {"status": "passed",
+        "mlt_2026.218.0-gitxyz_krish_run_deadbeef": {"status": "passed",
             "participating": [{"dut_sn": "999", "slot_number": 0, "status": "Passed"}]},
     }
 
@@ -947,13 +947,25 @@ class StationOfTest(unittest.TestCase):
         self.assertIsNone(build_dailyexcel.station_of("L10_FAT_run_1", "L10_FAT"))
         self.assertIsNone(build_dailyexcel.station_of("", ""))
 
-    def test_a_leading_debug_counts_as_engineering(self):
-        """Recognising the station is only safe if the exclusion also fires —
-        otherwise a debug bundle lands in the station's yield."""
-        self.assertTrue(build_dailyexcel.ENGINEERING.search(
-            "debug_only_htt_2026.223.0-git78e6956e2"))
-        self.assertTrue(build_dailyexcel.ENGINEERING.search(
-            "mlt_2026.220.0-gitabc_debug"))
+    def test_a_debug_bundle_is_counted_and_flagged(self):
+        """08-15's only HTT was debug_only_htt_2026.223.0-git78e6956e2, run on
+        production DUTs at a production station. Those units were tested, so
+        they are on the tab — and the build is recorded, because a day whose
+        only HTT was a debug bundle reads differently from a normal one."""
+        for name in ("debug_only_htt_2026.223.0-git78e6956e2",
+                     "mlt_2026.220.0-gitabc_debug"):
+            self.assertIsNone(build_dailyexcel.ENGINEERING.search(name), name)
+            self.assertTrue(build_dailyexcel.DEBUG_BUILD.search(name), name)
+
+    def test_what_is_still_not_a_line_unit(self):
+        for name in ("L10_6U_FAT_krish", "DRY_RUN_mlt", "mlt_2026.220_SMOKE",
+                     "test_htt_thing"):
+            self.assertTrue(build_dailyexcel.ENGINEERING.search(name), name)
+
+    def test_a_release_build_is_not_flagged_as_debug(self):
+        for name in ("mlt_2026.220.0-git2f1c2f23",
+                     "htt_2026.217.0-git3940b759"):
+            self.assertIsNone(build_dailyexcel.DEBUG_BUILD.search(name), name)
 
     def test_a_production_suite_is_not_engineering(self):
         for name in ("mlt_2026.220.0-git2f1c2f23",
