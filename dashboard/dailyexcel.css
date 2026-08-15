@@ -472,3 +472,13 @@ span.jira-key { color: var(--text-secondary); }
 }
 
 .sheet-tile.filtered .tile-value { color: var(--accent-solid); }
+
+/* Engineering runs the tab deliberately left out. Stated, because an empty
+   column otherwise reads as "the station was idle". */
+.sheet-tile .tile-excluded {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-style: italic;
+}

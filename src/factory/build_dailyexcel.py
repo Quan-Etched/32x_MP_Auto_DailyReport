@@ -100,8 +100,33 @@ DERIVED_STATIONS = (("mlt", "E", "F", "G"), ("htt", "H", "I", "J"))
 #: validation (see pega_collect.NOT_PRODUCTION), because "yield" is a claim
 #: about production and this is not.
 ENGINEERING = re.compile(
-    r"(_debug|_krish|_out_dir|_SAM|_SMOKE|_etch\d+|^DRY_?RUN|^test_)",
+    # `(^|_)debug` and not `_debug`: on 08-15 the only HTT runs on the line were
+    # debug_only_htt_2026.223.0-git78e6956e2, Justin's bundle that Yi ran to
+    # reproduce a failure. The old pattern needed an underscore *before* the
+    # word, so a suite whose name starts with it was never recognised as
+    # engineering — and would have been counted into HTT's yield the moment
+    # the station matcher below started seeing it.
+    r"((^|_)debug|_krish|_out_dir|_SAM|_SMOKE|_etch\d+|^DRY_?RUN|^test_)",
     re.IGNORECASE)
+
+#: Which module station a pega3 suite belongs to.
+#:
+#: Matched on the name rather than on the run id's first characters. The old
+#: test was `run_id.startswith("mlt"/"htt")`, which is true of
+#: mlt_2026.220.0-… and false of debug_only_htt_2026.223.0-… — so that day's
+#: HTT runs were not classified as engineering and excluded, they were not
+#: recognised at all. The tab simply had no HTT column and said nothing about
+#: why, which is the failure mode this whole page exists to avoid.
+STATION_TOKEN = re.compile(r"(?:^|_)(mlt|htt)_", re.IGNORECASE)
+
+
+def station_of(run_id: str, suite: str) -> Optional[str]:
+    """``mlt`` / ``htt`` for a pega3 suite, or None if it is neither."""
+    for text in (suite or "", run_id or ""):
+        found = STATION_TOKEN.search(text)
+        if found:
+            return found.group(1).lower()
+    return None
 
 
 def workbook_path(explicit: Optional[str] = None) -> Path:
@@ -685,7 +710,9 @@ def _sheet_versions(tab: Dict[str, Any], result_key: str) -> List[Optional[str]]
             if position < len(row)]
 
 
-def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]], Dict[str, List[str]], int]]:
+def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
+                                            Dict[str, List[str]], int,
+                                            Dict[str, List[str]]]]:
     """Every unit pega3 tested that day, keyed by DUT serial.
 
     Shared by the two callers that need it: rebuilding a day the workbook has
@@ -704,18 +731,24 @@ def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]], Dict[str,
 
     units: Dict[str, Dict[str, Any]] = {}
     versions: Dict[str, List[str]] = {"mlt": [], "htt": []}
+    excluded: Dict[str, List[str]] = {"mlt": [], "htt": []}
     runs_seen = 0
 
     for entry in listing:
         run_id = entry.get("suite_run_id") or ""
         suite = entry.get("suite_name") or ""
-        station = "mlt" if run_id.startswith("mlt") else "htt" if run_id.startswith("htt") else None
+        station = station_of(run_id, suite)
         if not station:
             continue
         # Engineering runs, excluded for the same reason stations.py drops the
         # _krish debug suites: they are not line units and would distort the
         # day's yield. pega3's day includes them; the line's tracker does not.
+        #
+        # Counted on the way out, though. "No HTT today" and "HTT ran five
+        # times and every one was a debug bundle" are different facts, and the
+        # tab used to show the same empty column for both.
         if ENGINEERING.search(run_id) or ENGINEERING.search(suite):
+            excluded[station].append(suite)
             continue
         try:
             detail = pega.suite_run(run_id)
@@ -750,7 +783,7 @@ def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]], Dict[str,
 
     if not units:
         return None
-    return units, versions, runs_seen
+    return units, versions, runs_seen, excluded
 
 
 def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -764,7 +797,7 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
     gathered = _pega_units(day)
     if not gathered:
         return None
-    units, versions, runs_seen = gathered
+    units, versions, runs_seen, excluded = gathered
 
     # Line 2 of the heading names the build when the day ran one and counts
     # them when it ran several; the per-unit column carries the truth either way.
@@ -816,6 +849,10 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
             "runs": runs_seen,
             "source": "pega3",
             "versions": labels,
+            "excluded": {station: sorted(set(names))
+                         for station, names in excluded.items() if names},
+            "excludedRuns": {station: len(names)
+                             for station, names in excluded.items() if names},
             "note": "Rebuilt from pega3, which assigns the slots and therefore "
                     "knows every unit's serial.",
         },

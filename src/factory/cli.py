@@ -630,6 +630,21 @@ def cmd_requests(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_weekly(args: argparse.Namespace) -> int:
+    """Pack the week out, so a later week has something to compare against."""
+    from . import weekly as weekly_mod
+
+    try:
+        written = weekly_mod.archive(label=args.label)
+    except FileNotFoundError as exc:
+        print("Nothing to archive: {}".format(exc), file=sys.stderr)
+        return 1
+    for path in written:
+        print("  {:>7} KB  {}".format(int(path.stat().st_size / 1024) or "<1",
+                                      path))
+    return 0
+
+
 def cmd_fpy(args: argparse.Namespace) -> int:
     """First-pass yield across every measured stage, for the week."""
     from . import build_fpy, pega_collect
@@ -989,6 +1004,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="build the station page straight from the ESVM controllers")
     pega_stations.add_argument("--days", type=int, default=30)
     pega_stations.set_defaults(handler=cmd_pega_stations)
+
+    weekly = subparsers.add_parser(
+        "weekly", help="archive this week's FPY summary under weekly/")
+    weekly.add_argument("--label", default=None,
+                        help="folder name; defaults to the window's end date")
+    weekly.set_defaults(handler=cmd_weekly)
 
     fpy = subparsers.add_parser(
         "fpy", help="end-to-end first-pass yield, one row per test step")

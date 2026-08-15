@@ -1,0 +1,403 @@
+{
+ "build": {
+  "commit": "a1ce804",
+  "commitUrl": "https://github.com/etched-ai/factory_data_analysis/commit/a1ce804",
+  "commitsSinceRelease": 18,
+  "dirty": true,
+  "release": "v0.4",
+  "releaseUrl": "https://github.com/etched-ai/factory_data_analysis/releases/tag/v0.4",
+  "repo": "https://github.com/etched-ai/factory_data_analysis"
+ },
+ "external": [
+  {
+   "asOf": "2026-08-14",
+   "key": "wst",
+   "label": "WST",
+   "measured": false,
+   "note": "Wafer sort. Reported figure \u2014 not collected by this pipeline.",
+   "source": "Sigurd, reported in #production-test-eng",
+   "yield": 0.353
+  },
+  {
+   "asOf": "2026-08-14",
+   "key": "ft",
+   "label": "FT",
+   "measured": false,
+   "note": "Final test. Reported figure \u2014 not collected by this pipeline.",
+   "source": "Sigurd, reported in #production-test-eng",
+   "yield": 0.843
+  }
+ ],
+ "generatedAt": "2026-08-15T21:09:31+00:00",
+ "historyDays": 30,
+ "rows": [
+  {
+   "controller": "pega2",
+   "finalYield": 1.0,
+   "fpy": 0.7916666666666666,
+   "key": "vbb_provision",
+   "label": "VBB Provisioning",
+   "measured": true,
+   "newUnits": 24,
+   "retestNote": "repeat runs here are a provisioning sequence, not retests",
+   "retestRatio": null,
+   "retestUnits": null,
+   "runs": 68,
+   "topFailures": [
+    {
+     "area": "Other",
+     "name": "LcusDisable",
+     "runs": 14
+    },
+    {
+     "area": "Other",
+     "name": "McuPing",
+     "runs": 8
+    },
+    {
+     "area": "Other",
+     "name": "LcusEnable",
+     "runs": 7
+    },
+    {
+     "area": "Provisioning",
+     "name": "ProvisionExternalFlashMain",
+     "runs": 7
+    },
+    {
+     "area": "Bootloader / Secure Boot",
+     "name": "ProvisionExternalFlashRecovery",
+     "runs": 7
+    }
+   ],
+   "units": 25
+  },
+  {
+   "controller": "pega3",
+   "finalYield": 0.7456140350877193,
+   "fpy": 0.6551724137931034,
+   "key": "mlt",
+   "label": "MLT",
+   "measured": true,
+   "newUnits": 174,
+   "retestNote": null,
+   "retestRatio": 0.19736842105263158,
+   "retestUnits": 45,
+   "runs": 279,
+   "topFailures": [
+    {
+     "area": "Power Virus / Thermal",
+     "name": "SohuPowerVirusTestCase",
+     "runs": 140
+    },
+    {
+     "area": "C2C",
+     "name": "C2cLinkupTestCase",
+     "runs": 125
+    },
+    {
+     "area": "PMBIST",
+     "name": "SohuPmbistTestCase",
+     "runs": 100
+    },
+    {
+     "area": "Other",
+     "name": "SohuSaScreeningTestCase",
+     "runs": 93
+    },
+    {
+     "area": "Llama / SaSort",
+     "name": "SohuLlamaMttTestCase",
+     "runs": 90
+    }
+   ],
+   "units": 228
+  },
+  {
+   "controller": "pega3",
+   "finalYield": 0.6882352941176471,
+   "fpy": 0.5426356589147286,
+   "key": "htt",
+   "label": "HTT",
+   "measured": true,
+   "newUnits": 129,
+   "retestNote": null,
+   "retestRatio": 0.27647058823529413,
+   "retestUnits": 47,
+   "runs": 234,
+   "topFailures": [
+    {
+     "area": "RDQS Training",
+     "name": "SohuRdqsSweepTrainingTestCase",
+     "runs": 49
+    },
+    {
+     "area": "Llama / SaSort",
+     "name": "SohuLlamaForwardIteratedTestCase",
+     "runs": 46
+    },
+    {
+     "area": "Llama / SaSort",
+     "name": "SohuLlamaInferenceMaxTestCase",
+     "runs": 44
+    },
+    {
+     "area": "Other",
+     "name": "CheckFirmwareVersionTestCase",
+     "runs": 17
+    },
+    {
+     "area": "Other",
+     "name": "SetPllGlitchFreqTestCase",
+     "runs": 17
+    }
+   ],
+   "units": 170
+  },
+  {
+   "controller": "pega4",
+   "finalYield": 0.5,
+   "fpy": 0.0,
+   "key": "l10_fat",
+   "label": "L10 FAT",
+   "measured": true,
+   "newUnits": 1,
+   "retestNote": null,
+   "retestRatio": 1.0,
+   "retestUnits": 2,
+   "runs": 15,
+   "topFailures": [
+    {
+     "area": "Host / Reboot",
+     "name": "SohuHostRebootTestCase",
+     "runs": 14
+    },
+    {
+     "area": "Firmware / BIOS Update",
+     "name": "MultiChipSohuHotReloadFirmwareUpdateTestCase",
+     "runs": 7
+    },
+    {
+     "area": "Other",
+     "name": "BmcPowerCycle",
+     "runs": 6
+    },
+    {
+     "area": "System Log",
+     "name": "CheckSystemLogStates",
+     "runs": 6
+    },
+    {
+     "area": "Firmware / BIOS Update",
+     "name": "BroadcomUpdateFwAndConfigure",
+     "runs": 5
+    }
+   ],
+   "units": 2
+  },
+  {
+   "controller": "pega4",
+   "finalYield": 0.0,
+   "fpy": null,
+   "key": "l10_sft",
+   "label": "L10 SFT",
+   "measured": true,
+   "newUnits": 0,
+   "retestNote": null,
+   "retestRatio": 1.0,
+   "retestUnits": 1,
+   "runs": 6,
+   "topFailures": [
+    {
+     "area": "Llama / SaSort",
+     "name": "SohuLlama70bHp8ForwardIteratedTestCase",
+     "runs": 6
+    },
+    {
+     "area": "Power Virus / Thermal",
+     "name": "SohuPowerVirusMultiChipTestCase",
+     "runs": 2
+    },
+    {
+     "area": "C2C",
+     "name": "C2cIntegrityMultiChipTestCase",
+     "runs": 1
+    },
+    {
+     "area": "C2C",
+     "name": "C2cLinkupMultiChipTestCase",
+     "runs": 1
+    },
+    {
+     "area": "C2C",
+     "name": "C2cPrbsMultiChipTestCase",
+     "runs": 1
+    }
+   ],
+   "units": 1
+  },
+  {
+   "controller": "pega4",
+   "finalYield": 1.0,
+   "fpy": 1.0,
+   "key": "l10_rin",
+   "label": "L10 RIN",
+   "measured": true,
+   "newUnits": 1,
+   "retestNote": null,
+   "retestRatio": 1.0,
+   "retestUnits": 1,
+   "runs": 4,
+   "topFailures": [
+    {
+     "area": "Other",
+     "name": "RunInStress",
+     "runs": 2
+    },
+    {
+     "area": "Other",
+     "name": "FreeModelRegistryFromShmTestCase",
+     "runs": 1
+    },
+    {
+     "area": "Power Virus / Thermal",
+     "name": "SohuPowerVirusMultiChipTestCase",
+     "runs": 1
+    }
+   ],
+   "units": 1
+  },
+  {
+   "controller": "pega4",
+   "finalYield": 0.3333333333333333,
+   "fpy": 0.0,
+   "key": "l10_2u",
+   "label": "L10 2U",
+   "measured": true,
+   "newUnits": 1,
+   "retestNote": null,
+   "retestRatio": 0.6666666666666666,
+   "retestUnits": 2,
+   "runs": 19,
+   "topFailures": [
+    {
+     "area": "Other",
+     "name": "BmcCheck",
+     "runs": 8
+    },
+    {
+     "area": "Other",
+     "name": "CheckDisk",
+     "runs": 8
+    },
+    {
+     "area": "NIC / Link",
+     "name": "CheckNic",
+     "runs": 8
+    },
+    {
+     "area": "Other",
+     "name": "CheckPcieTopology",
+     "runs": 8
+    },
+    {
+     "area": "System Log",
+     "name": "CheckSystemLogStates",
+     "runs": 8
+    }
+   ],
+   "units": 3
+  },
+  {
+   "controller": "pega5",
+   "finalYield": 0.5,
+   "fpy": 0.0,
+   "key": "l11_test",
+   "label": "L11 Test",
+   "measured": true,
+   "newUnits": 1,
+   "retestNote": null,
+   "retestRatio": 1.0,
+   "retestUnits": 2,
+   "runs": 16,
+   "topFailures": [
+    {
+     "area": "Other",
+     "name": "CheckSohuServerNoErrorLogTestCase",
+     "runs": 12
+    },
+    {
+     "area": "Other",
+     "name": "CheckSohuServerOnlineTestCase",
+     "runs": 12
+    },
+    {
+     "area": "Other",
+     "name": "RackPowerCyclePowerOnSohuTestCase",
+     "runs": 10
+    },
+    {
+     "area": "Other",
+     "name": "PduHealthCheckTestCase",
+     "runs": 9
+    },
+    {
+     "area": "Other",
+     "name": "RackPowerCycleWaitInfraOnline",
+     "runs": 9
+    }
+   ],
+   "units": 2
+  }
+ ],
+ "schemaVersion": 1,
+ "source": {
+  "label": "pega2 \u2013 pega5 (ESVM)",
+  "note": "straight from the station controllers \u2014 one row per unit",
+  "url": "http://pega3:3000"
+ },
+ "totals": {
+  "excludedThin": [
+   {
+    "label": "L10 FAT",
+    "newUnits": 1,
+    "units": 2
+   },
+   {
+    "label": "L10 SFT",
+    "newUnits": 0,
+    "units": 1
+   },
+   {
+    "label": "L10 RIN",
+    "newUnits": 1,
+    "units": 1
+   },
+   {
+    "label": "L10 2U",
+    "newUnits": 1,
+    "units": 3
+   },
+   {
+    "label": "L11 Test",
+    "newUnits": 1,
+    "units": 2
+   }
+  ],
+  "minCohort": 20,
+  "rolledFpy": 0.28145326561525436,
+  "rolledOver": [
+   "VBB Provisioning",
+   "MLT",
+   "HTT"
+  ],
+  "runs": 641,
+  "stations": 8,
+  "units": 432
+ },
+ "window": {
+  "days": 7,
+  "from": "2026-08-09",
+  "to": "2026-08-15"
+ }
+}

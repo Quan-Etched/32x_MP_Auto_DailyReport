@@ -147,7 +147,11 @@
           ? source + ' drives these stations, so it knows every unit by name ' +
             'and every test case that failed on it.'
           : 'The controller was unreachable, so this is graded from the ' +
-            'per-chip test names in EOS. That gives verdicts but not serials.' })
+            'per-chip test names in EOS. That gives verdicts but not serials.' }),
+        /* "No HTT today" and "HTT ran five times and every one was a debug
+         * bundle" are different facts, and an empty column says the first
+         * while meaning the second. */
+        excludedNote(from)
       ]));
     }
     /* The tiles below now describe the filtered set, so the filter has to be
@@ -206,6 +210,18 @@
         })
       ]));
     }
+  }
+
+  function excludedNote(from) {
+    var excluded = from.excluded || {};
+    var stations = Object.keys(excluded);
+    if (!stations.length) return null;
+    var parts = stations.map(function (key) {
+      return key.toUpperCase() + ': ' + excluded[key].join(', ');
+    });
+    return h('span', { class: 'tile-sub tile-excluded',
+      text: 'Engineering runs left out of this tab — ' + parts.join(' · ') +
+            '. They ran on the line; they are not line units.' });
   }
 
   /* ----------------------------------------------------------------- table */

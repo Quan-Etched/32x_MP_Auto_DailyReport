@@ -10,7 +10,7 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        dailyexcel requests l10 pega-stations builds validation fpy \
+        dailyexcel requests l10 pega-stations builds validation fpy weekly \
         schedule-install-macos schedule-uninstall-macos schedule-status-macos \
         schedule-install-systemd schedule-uninstall-systemd schedule-status-systemd \
         update clean distclean
@@ -113,6 +113,12 @@ validation:
 # End-to-end first-pass yield, one row per test step — the weekly summary.
 fpy:
 	$(PY) -m factory.cli fpy
+
+# Pack the week out: the bundle as it stood, plus a readable summary, under a
+# dated folder in weekly/. The dashboard always shows the current seven days,
+# so without this the comparison a month from now has nothing to compare to.
+weekly: fpy
+	$(PY) -m factory.cli weekly
 
 # Re-check what we need from other systems (routes, certs, IAM, API fields) and
 # rebuild that page. Also runs as part of `make build`.

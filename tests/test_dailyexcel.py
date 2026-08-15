@@ -919,3 +919,44 @@ class MultiHostTest(unittest.TestCase):
     def test_run_url_points_at_the_right_controller(self):
         url = self.pega.run_url("L10_FAT_run_00a5c0b4", 1, host="pega4")
         self.assertTrue(url.startswith("http://pega4:3000/suite_run/"), url)
+
+
+class StationOfTest(unittest.TestCase):
+    """Which module station a pega3 suite belongs to.
+
+    The old test was `run_id.startswith("mlt"/"htt")`. On 2026-08-15 the only
+    HTT runs on the line were debug_only_htt_2026.223.0-git78e6956e2, so the
+    tab had no HTT column and said nothing about why — the run was not
+    classified as engineering and excluded, it was not recognised at all.
+    """
+
+    def test_a_plain_suite_resolves(self):
+        self.assertEqual(
+            build_dailyexcel.station_of("mlt_2026.220.0-gitabc_run_1",
+                                        "mlt_2026.220.0-gitabc"), "mlt")
+        self.assertEqual(
+            build_dailyexcel.station_of("htt_2026.217.0-gitdef_run_1",
+                                        "htt_2026.217.0-gitdef"), "htt")
+
+    def test_a_prefixed_suite_still_resolves(self):
+        self.assertEqual(
+            build_dailyexcel.station_of("debug_only_htt_2026.223.0-gitx_run_1",
+                                        "debug_only_htt_2026.223.0-gitx"), "htt")
+
+    def test_something_else_entirely_resolves_to_nothing(self):
+        self.assertIsNone(build_dailyexcel.station_of("L10_FAT_run_1", "L10_FAT"))
+        self.assertIsNone(build_dailyexcel.station_of("", ""))
+
+    def test_a_leading_debug_counts_as_engineering(self):
+        """Recognising the station is only safe if the exclusion also fires —
+        otherwise a debug bundle lands in the station's yield."""
+        self.assertTrue(build_dailyexcel.ENGINEERING.search(
+            "debug_only_htt_2026.223.0-git78e6956e2"))
+        self.assertTrue(build_dailyexcel.ENGINEERING.search(
+            "mlt_2026.220.0-gitabc_debug"))
+
+    def test_a_production_suite_is_not_engineering(self):
+        for name in ("mlt_2026.220.0-git2f1c2f23",
+                     "htt_2026.217.0-git3940b759",
+                     "mlt_validation_2026.225.0-gitb937ca2c"):
+            self.assertIsNone(build_dailyexcel.ENGINEERING.search(name), name)
