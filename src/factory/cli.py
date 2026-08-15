@@ -387,6 +387,17 @@ def cmd_build(args: argparse.Namespace) -> int:
         for warning in daily_bundle["warnings"]:
             print("  WARNING {}".format(warning), file=sys.stderr)
 
+    # The week's first-pass yield, one row per test step — the summary the
+    # Monday meeting reads. Cheap: it reuses the controller payload above.
+    if pega_bundle is not None:
+        from . import build_fpy
+        try:
+            fpy_path = build_fpy.write_bundle(build_fpy.build_bundle(pega_payload))
+            print("FPY summary ({:.0f} KB) -> {}".format(
+                fpy_path.stat().st_size / 1024, fpy_path))
+        except Exception as exc:                          # noqa: BLE001
+            print("FPY summary skipped ({})".format(exc))
+
     # The current validation build, unit by unit. Which suite that is resolves
     # at build time, so the page follows the line instead of freezing on the
     # release it was written for. No validation running is a normal week, not
@@ -616,6 +627,34 @@ def cmd_requests(args: argparse.Namespace) -> int:
     print("{} asks, {} blocking automation -> {}".format(
         len(bundle["requests"]), bundle["openBlocking"], path))
     print("Checked on {} — a probe is only true where it ran.".format(bundle["builtOn"]))
+    return 0
+
+
+def cmd_fpy(args: argparse.Namespace) -> int:
+    """First-pass yield across every measured stage, for the week."""
+    from . import build_fpy, pega_collect
+
+    payload = pega_collect.collect(days=build_fpy.HISTORY_DAYS)
+    if not payload["runs"]:
+        print("No runs from the controllers.", file=sys.stderr)
+        return 1
+    bundle = build_fpy.build_bundle(
+        payload, days=args.days or build_fpy.DEFAULT_DAYS)
+    path = build_fpy.write_bundle(bundle)
+    window = bundle["window"]
+    print("FPY {} .. {} ({} stations) -> {}".format(
+        window["from"], window["to"], len(bundle["rows"]), path))
+    for row in bundle["rows"]:
+        print("  {:<18}{:>5} units  FPY {:>6}  final {:>6}  retest {:>6}".format(
+            row["label"], row["units"],
+            "n/a" if row["fpy"] is None else "{:.1%}".format(row["fpy"]),
+            "{:.1%}".format(row["finalYield"]),
+            "n/a" if row["retestRatio"] is None
+            else "{:.1%}".format(row["retestRatio"])))
+    rolled = bundle["totals"]["rolledFpy"]
+    if rolled is not None:
+        print("  rolled first-pass across {} stages: {:.1%}".format(
+            len(bundle["totals"]["rolledOver"]), rolled))
     return 0
 
 
@@ -950,6 +989,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="build the station page straight from the ESVM controllers")
     pega_stations.add_argument("--days", type=int, default=30)
     pega_stations.set_defaults(handler=cmd_pega_stations)
+
+    fpy = subparsers.add_parser(
+        "fpy", help="end-to-end first-pass yield, one row per test step")
+    fpy.add_argument("--days", type=int, default=None)
+    fpy.set_defaults(handler=cmd_fpy)
 
     validation = subparsers.add_parser(
         "validation", help="one suite's validation run, unit by unit")

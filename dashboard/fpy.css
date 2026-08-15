@@ -1,0 +1,81 @@
+/* The weekly one-pager. Everything on it has to be readable from the back of
+   a room, so the type is a step larger than the rest of the site and the
+   numbers carry the emphasis rather than the labels. */
+
+.fpy-headline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin: 18px 0 8px;
+}
+
+.hl {
+  flex: 1 1 240px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  background: var(--surface-1);
+}
+
+.hl.lead { border-color: var(--accent-solid); }
+.hl .k { display: block; font-size: 12px; color: var(--text-muted); }
+
+.hl .v {
+  display: block;
+  font-size: 34px;
+  line-height: 1.1;
+  margin: 4px 0 2px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.hl.lead .v { color: var(--accent-solid); }
+.hl .s { display: block; font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+
+.fpy-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.fpy-table caption { text-align: left; padding: 10px 0; color: var(--text-secondary); }
+.fpy-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.fpy-table th.n, .fpy-table td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.fpy-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.fpy-table tr.thin td { color: var(--text-muted); }
+.fpy-table .step { font-weight: 600; color: var(--text-primary); }
+.fpy-table .ctrl { display: block; font-size: 11px; color: var(--text-muted); font-weight: 400; }
+
+/* The one number the meeting is about. */
+.fpy-table .fpy { font-size: 15px; font-weight: 650; color: var(--text-primary); }
+.fpy-table .good { color: var(--status-good); }
+.fpy-table .bad { color: var(--status-critical); }
+.fpy-table .warn { color: var(--status-warning); }
+
+.fpy-table .fails { font-size: 12px; color: var(--text-secondary); line-height: 1.45; }
+.fpy-table .fails b { font-weight: 600; color: var(--text-primary); }
+
+/* A reported figure and a measured one must not look alike. */
+.fpy-table tr.reported .step::after {
+  content: 'reported';
+  display: inline-block;
+  margin-left: 7px;
+  padding: 1px 6px;
+  border: 1px dashed var(--text-muted);
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  vertical-align: middle;
+}
+
+.fpy-readiness {
+  margin: 22px 0 0;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--status-warning);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+}
+
+.fpy-readiness h2 { margin: 0 0 8px; font-size: 15px; }
+.fpy-readiness ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.fpy-readiness li { color: var(--text-secondary); line-height: 1.5; }
+.fpy-readiness strong { color: var(--text-primary); }
+
+.notes .src { font-size: 12px; color: var(--text-muted); line-height: 1.6; }

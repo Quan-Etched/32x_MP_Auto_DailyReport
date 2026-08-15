@@ -10,7 +10,7 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        dailyexcel requests l10 pega-stations builds validation \
+        dailyexcel requests l10 pega-stations builds validation fpy \
         schedule-install-macos schedule-uninstall-macos schedule-status-macos \
         schedule-install-systemd schedule-uninstall-systemd schedule-status-systemd \
         update clean distclean
@@ -109,6 +109,10 @@ builds:
 # explains why other pages report a different count for the same day.
 validation:
 	$(PY) -m factory.cli validation
+
+# End-to-end first-pass yield, one row per test step — the weekly summary.
+fpy:
+	$(PY) -m factory.cli fpy
 
 # Re-check what we need from other systems (routes, certs, IAM, API fields) and
 # rebuild that page. Also runs as part of `make build`.
