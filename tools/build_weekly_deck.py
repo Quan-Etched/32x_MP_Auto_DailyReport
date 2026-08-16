@@ -31,6 +31,8 @@ import sys
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_CONNECTOR
+from pptx.enum.dml import MSO_LINE_DASH_STYLE
+from pptx.oxml.ns import qn
 from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.util import Emu, Inches, Pt
 
@@ -57,41 +59,108 @@ BLUE = RGBColor(0xDA, 0xE8, 0xFC)
 BLUE_EDGE = RGBColor(0x7E, 0xA6, 0xD9)
 THIN = RGBColor(0xF2, 0xEC, 0xD9)          # ran, but too few units to read
 THIN_EDGE = RGBColor(0xC9, 0xB4, 0x6B)
+PINK = RGBColor(0xE6, 0xD0, 0xDE)
+PINK_EDGE = RGBColor(0xC2, 0x9F, 0xB8)
 
 HEAD = "Arial"
 MONO = "Courier New"
 
-#: The flow, lane by lane. `station` is the weekly bundle's key; `external`
-#: names the team that measures a step we do not. VBB is deliberately absent.
+#: The line's own flowchart, box for box and position for position.
+#:
+#: The previous slide laid every lane out as one vertical stack, which was
+#: tidier and wrong: the L6 boards split and rejoin, the 2U and 4U paths
+#: diverge at one assembly and meet at another, and a single column cannot say
+#: either. This is the drawing the floor already reads, with the week's numbers
+#: put inside the boxes.
+#:
+#: Coordinates are inches on a 13.333 x 7.5 slide. ROW is the vertical grid the
+#: original draws on; a box names its row rather than its y, so the whole chart
+#: moves by changing two numbers.
+ROW0, ROW_PITCH, BOX_H = 1.62, 0.92, 0.70
+
+
+def row_y(row):
+    return Inches(ROW0 + ROW_PITCH * row)
+
+
+#: label, x, width, row, kind, and what the box is measuring.
+#:   station  — one of our station keys
+#:   stations — two, where the line runs them as one box (FAT/SFT)
+#:   external — reported by Sigurd
+#:   note     — fixed caption, for boxes that measure nothing
 LANES = [
-    ("ASIC", "@Sigurd", [
-        {"label": "WST", "kind": "test", "external": "wst"},
-        {"label": "FT", "kind": "test", "external": "ft"},
-        {"label": "SLT", "kind": "test", "owner": "Sigurd"},
-    ]),
-    ("PCBA L6", "@Pega", [
-        {"label": "SMT / ICT", "kind": "build"},
-        {"label": "ASSY", "kind": "build"},
-        {"label": "MLT", "kind": "test", "station": "mlt"},
-        {"label": "HTT", "kind": "test", "station": "htt"},
-    ]),
-    ("FATP L10 2U/4U", "", [
-        {"label": "ASSY", "kind": "build", "note": "4U / 2U"},
-    ]),
-    ("FATP L10 6U", "", [
-        {"label": "ASSY", "kind": "build"},
-        {"label": "2U", "kind": "test", "station": "l10_2u"},
-        {"label": "FAT", "kind": "test", "station": "l10_fat"},
-        {"label": "SFT", "kind": "test", "station": "l10_sft"},
-        {"label": "Runin", "kind": "test", "station": "l10_rin"},
-    ]),
-    ("Rack L11", "", [
-        {"label": "ASSY", "kind": "build"},
-        {"label": "Provisioning", "kind": "test", "station": "l11_provision"},
-        {"label": "SFT / Runin", "kind": "test", "station": "l11_test"},
-        {"label": "Pack", "kind": "pack"},
-    ]),
+    {"title": "ASIC", "owner": "@Sigurd", "divider": 2.42, "boxes": [
+        {"label": "ASIC",  "x": 0.72, "w": 1.42, "row": 0, "kind": "build"},
+        {"label": "WST",   "x": 0.72, "w": 1.42, "row": 1, "kind": "test",
+         "external": "wst"},
+        {"label": "FT",    "x": 0.72, "w": 1.42, "row": 2, "kind": "test",
+         "external": "ft"},
+        {"label": "SLT",   "x": 0.72, "w": 1.42, "row": 3, "kind": "test",
+         "note": "at Sigurd"},
+    ]},
+    {"title": "PCBA L6", "owner": "@Pega", "divider": 5.78, "boxes": [
+        {"label": "SMT / ICT", "x": 2.60, "w": 1.42, "row": 0, "kind": "build",
+         "note": "HPB & VBB & PV1 & PDB"},
+        {"label": "Flash / BFT", "x": 2.60, "w": 1.42, "row": 3, "kind": "flash",
+         "note": "VBB — not in the yield view"},
+        {"label": "HTT",  "x": 4.20, "w": 1.42, "row": 0, "kind": "test",
+         "station": "htt"},
+        {"label": "MLT",  "x": 4.20, "w": 1.42, "row": 1, "kind": "test",
+         "station": "mlt"},
+        {"label": "ASSY", "x": 4.20, "w": 1.42, "row": 2, "kind": "build"},
+    ]},
+    {"title": "FATP L10 2U/4U", "owner": "", "divider": 7.72, "boxes": [
+        {"label": "ASSY", "x": 5.86, "w": 1.18, "row": 0, "kind": "build",
+         "tags": ["4U", "2U"]},
+    ]},
+    {"title": "FATP L10 6U", "owner": "", "divider": 11.16, "boxes": [
+        {"label": "FAT / SFT", "x": 7.92, "w": 1.52, "row": 1, "kind": "test",
+         "stations": ["l10_fat", "l10_sft"]},
+        {"label": "2U",   "x": 7.92, "w": 1.52, "row": 2, "kind": "test",
+         "station": "l10_2u"},
+        {"label": "ASSY", "x": 7.92, "w": 1.52, "row": 3, "kind": "build"},
+        {"label": "Runin", "x": 9.56, "w": 1.42, "row": 1, "kind": "test",
+         "station": "l10_rin"},
+    ]},
+    {"title": "Rack L11", "owner": "", "divider": None, "boxes": [
+        {"label": "ASSY", "x": 11.34, "w": 1.52, "row": 1, "kind": "build"},
+        {"label": "FAT / SFT", "x": 11.34, "w": 1.52, "row": 2, "kind": "test",
+         "station": "l11_test"},
+        {"label": "Runin", "x": 11.34, "w": 1.52, "row": 3, "kind": "test",
+         "note": "counted with FAT / SFT"},
+        {"label": "Pack", "x": 11.34, "w": 1.52, "row": 4, "kind": "pack"},
+    ]},
 ]
+
+#: from, to, and how the wire runs. "v" drops straight down, "h" goes straight
+#: across, "vh"/"hv" turn once. The 2U path is the only one that needs two
+#: turns, and it is the one the old layout could not draw at all.
+WIRES = [
+    ("ASIC", "WST", "v"), ("WST", "FT", "v"), ("FT", "SLT", "v"),
+    ("FT", "SMT / ICT", "hv"),
+    ("SMT / ICT", "Flash / BFT", "v", "VBB"),
+    ("Flash / BFT", "ASSY@L6", "hv"),
+    ("ASSY@L6", "MLT", "v"), ("MLT", "HTT", "v"),
+    ("HTT", "ASSY@2U4U", "hv"),
+    ("ASSY@2U4U", "FAT / SFT@6U", "hv"),
+    ("ASSY@2U4U", "ASSY@6U", "vh"),
+    ("ASSY@6U", "2U", "v"), ("2U", "FAT / SFT@6U", "v"),
+    ("FAT / SFT@6U", "Runin@6U", "h"),
+    ("Runin@6U", "ASSY@L11", "h"),
+    ("ASSY@L11", "FAT / SFT@L11", "v"),
+    ("FAT / SFT@L11", "Runin@L11", "v"),
+    ("Runin@L11", "Pack", "v"),
+]
+
+#: Boxes whose label repeats across lanes need a lane suffix in the wire list.
+SUFFIX = {("PCBA L6", "ASSY"): "ASSY@L6",
+          ("FATP L10 2U/4U", "ASSY"): "ASSY@2U4U",
+          ("FATP L10 6U", "ASSY"): "ASSY@6U",
+          ("FATP L10 6U", "FAT / SFT"): "FAT / SFT@6U",
+          ("FATP L10 6U", "Runin"): "Runin@6U",
+          ("Rack L11", "ASSY"): "ASSY@L11",
+          ("Rack L11", "FAT / SFT"): "FAT / SFT@L11",
+          ("Rack L11", "Runin"): "Runin@L11"}
 
 
 def load(week_label=None):
@@ -162,55 +231,67 @@ def flow_slide(prs, data, week, by_station, external):
     slide = title_slide(
         prs,
         "Production test flow — yield and quantity",
-        "{} · {} to {}{} · UTC · first-pass yield, units in the box".format(
+        "{} · {} to {}{} · UTC · first-pass yield and units, in the box".format(
             week["week"], week["from"], week["endsOn"],
             ", week still running" if week["partial"] else ""))
 
-    lane_w = Inches(2.42)
-    left0 = Inches(0.42)
-    top0 = Inches(1.72)
-    box_w = Inches(2.02)
-    box_h = Inches(0.86)
-    gap = Inches(0.22)
+    placed = {}
+    for lane in LANES:
+        # Lane heading, then the dashed rule the original draws between lanes.
+        first_x = min(box["x"] for box in lane["boxes"])
+        # Clamped: the last lane starts at 11.34in and a fixed 3in heading
+        # would hang 1in off a 13.333in slide.
+        head_w = min(3.0, 13.15 - first_x)
+        textbox(slide, Inches(first_x), Inches(1.30), Inches(head_w), Inches(0.26),
+                [[(lane["owner"] + "   " if lane["owner"] else "",
+                   {"size": 10, "color": MUTE}),
+                  (lane["title"], {"size": 12.5, "bold": True})]], space=0)
+        if lane["divider"] is not None:
+            divider(slide, lane["divider"])
 
-    anchors = {}
-    for index, (lane, owner, nodes) in enumerate(LANES):
-        x = left0 + Emu(int(lane_w * index))
-        textbox(slide, x, Inches(1.4), lane_w, Inches(0.3),
-                [[(lane, {"size": 12, "bold": True}),
-                  ("  " + owner, {"size": 10, "color": MUTE})]], space=0)
+        for box in lane["boxes"]:
+            key = SUFFIX.get((lane["title"], box["label"]), box["label"])
+            placed[key] = draw_box(slide, box, by_station, external, data)
 
-        prev = None
-        for row, node in enumerate(nodes):
-            y = top0 + Emu(int((box_h + gap) * row))
-            shape = draw_box(slide, x, y, box_w, box_h, node,
-                             by_station, external, data)
-            anchors[(index, row)] = (x, y, shape)
-            if prev is not None:
-                arrow(slide, x + Emu(int(box_w / 2)), prev, x + Emu(int(box_w / 2)), y)
-            prev = y + box_h
-        # Hand-off to the next lane, from the last box of this one.
-        if index + 1 < len(LANES):
-            last_y = top0 + Emu(int((box_h + gap) * (len(nodes) - 1)))
-            arrow(slide,
-                  x + box_w, last_y + Emu(int(box_h / 2)),
-                  x + Emu(int(lane_w)), top0 + Emu(int(box_h / 2)))
+    for wire in WIRES:
+        src, dst, route = wire[0], wire[1], wire[2]
+        label = wire[3] if len(wire) > 3 else None
+        if src in placed and dst in placed:
+            connect(slide, placed[src], placed[dst], route, label)
 
     footnote(slide, data, week)
     return slide
 
 
-def draw_box(slide, x, y, w, h, node, by_station, external, data):
-    row = by_station.get(node.get("station"))
-    ext = external.get(node.get("external"))
+def divider(slide, x):
+    """The dashed rule between two lanes, as on the line's own chart."""
+    line = slide.shapes.add_connector(
+        MSO_CONNECTOR.STRAIGHT, Inches(x), Inches(1.24), Inches(x), Inches(6.35))
+    line.line.color.rgb = RGBColor(0xB5, 0xB3, 0xAC)
+    line.line.width = Pt(0.9)
+    line.line.dash_style = MSO_LINE_DASH_STYLE.DASH
+
+
+def draw_box(slide, box, by_station, external, data):
+    """One box, with whatever it is entitled to say about the week."""
+    x, y = Inches(box["x"]), row_y(box["row"])
+    w, h = Inches(box["w"]), Inches(BOX_H)
+
+    rows = [by_station[k] for k in box.get("stations",
+                                           [box.get("station")] if box.get("station") else [])
+            if k in by_station]
+    ext = external.get(box.get("external"))
+    readable = bool(rows) and all(r.get("readable") for r in rows)
 
     fill, edge = GREY, GREY_EDGE
-    if node["kind"] == "pack":
+    if box["kind"] == "pack":
         fill, edge = BLUE, BLUE_EDGE
-    elif node["kind"] == "test":
-        fill, edge = GREEN, GREEN_EDGE
-        if row is not None and not row.get("readable"):
-            fill, edge = THIN, THIN_EDGE
+    elif box["kind"] == "flash":
+        fill, edge = PINK, PINK_EDGE
+    elif box["kind"] == "test":
+        fill, edge = (GREEN, GREEN_EDGE) if (readable or ext) else (THIN, THIN_EDGE)
+        if not rows and not ext:
+            fill, edge = GREY, GREY_EDGE          # a test we do not measure
 
     shape = slide.shapes.add_shape(5, x, y, w, h)
     shape.fill.solid()
@@ -218,54 +299,147 @@ def draw_box(slide, x, y, w, h, node, by_station, external, data):
     shape.line.color.rgb = edge
     shape.line.width = Pt(1)
     shape.shadow.inherit = False
-    shape.text_frame.word_wrap = True
 
-    lines = [[(node["label"], {"size": 13, "bold": node["kind"] == "test"})]]
+    lines = [[(box["label"], {"size": 12.5, "bold": box["kind"] == "test"})]]
     if ext is not None:
         lines.append([(pct(ext["yield"]), {"size": 15, "bold": True,
                                            "color": tone(ext["yield"])}),
-                      ("  reported", {"size": 8.5, "color": MUTE})])
-    elif row is not None and row.get("readable"):
-        lines.append([(pct(row["fpy"]), {"size": 17, "bold": True,
-                                         "color": tone(row["fpy"])}),
-                      ("   {} units".format(row["units"]),
+                      ("  reported", {"size": 8, "color": MUTE})])
+    elif readable and len(rows) == 1:
+        lines.append([(pct(rows[0]["fpy"]), {"size": 16, "bold": True,
+                                             "color": tone(rows[0]["fpy"])}),
+                      ("  {}u".format(rows[0]["units"]),
                        {"size": 9, "color": MUTE})])
-    elif row is not None:
-        # Ran, but under the floor. The count is the honest answer.
-        lines.append([("{} units".format(row["units"]),
-                       {"size": 12, "bold": True}),
-                      ("  too few for a yield", {"size": 8.5, "color": MUTE})])
-    elif node.get("owner"):
-        lines.append([("at " + node["owner"], {"size": 9, "color": MUTE})])
-    elif node.get("note"):
-        lines.append([(node["note"], {"size": 9, "color": MUTE})])
+    elif rows:
+        # One box, one or two stations, none with enough units. Name each with
+        # its count — "2 units" over a box the line calls FAT/SFT hides which
+        # of the two actually ran.
+        if len(rows) == 1:
+            lines.append([("{} unit{}".format(
+                rows[0]["units"], "" if rows[0]["units"] == 1 else "s"),
+                {"size": 13, "bold": True})])
+        else:
+            # Two stations behind one box: "3 units" would hide which of them
+            # ran, and on this chart that is the whole question.
+            lines.append([(" · ".join(
+                "{} {}u".format(r["label"].split()[-1], r["units"])
+                for r in rows), {"size": 11, "bold": True})])
+        reason = ("quantity only" if all(r.get("countsOnly") for r in rows)
+                  else "too few for a yield")
+        lines.append([(reason, {"size": 8, "color": MUTE})])
+    elif box.get("note"):
+        lines.append([(box["note"], {"size": 8.5, "color": MUTE})])
 
-    textbox(slide, x + Inches(0.11), y + Inches(0.1),
-            w - Inches(0.22), h - Inches(0.16), lines, space=1)
-    return shape
+    textbox(slide, x + Inches(0.09), y + Inches(0.07),
+            w - Inches(0.18), h - Inches(0.12), lines, space=1)
+
+    if box.get("tags"):
+        for index, tag in enumerate(box["tags"]):
+            chip(slide, x + w + Inches(0.06),
+                 y + Inches(0.04 + 0.31 * index), tag)
+
+    return {"x": box["x"], "y": ROW0 + ROW_PITCH * box["row"],
+            "w": box["w"], "h": BOX_H}
 
 
-def arrow(slide, x1, y1, x2, y2):
-    line = slide.shapes.add_connector(MSO_CONNECTOR.STRAIGHT, x1, y1, x2, y2)
-    line.line.color.rgb = RGBColor(0x9A, 0x99, 0x92)
-    line.line.width = Pt(1.1)
+def chip(slide, x, y, text):
+    """The 4U / 2U configuration flags that hang off the L10 assembly."""
+    fill = {"4U": RGBColor(0xCF, 0xE2, 0xF3), "2U": RGBColor(0xFF, 0xF2, 0xCC),
+            "6U": RGBColor(0xE8, 0x91, 0x2A)}.get(text, GREY)
+    shape = slide.shapes.add_shape(1, x, y, Inches(0.42), Inches(0.25))
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = fill
+    shape.line.color.rgb = RGBColor(0x8A, 0x88, 0x82)
+    shape.line.width = Pt(0.6)
+    shape.shadow.inherit = False
+    textbox(slide, x, y + Inches(0.03), Inches(0.42), Inches(0.2),
+            [(text, {"size": 9, "bold": True})], align=PP_ALIGN.CENTER, space=0)
+
+
+def connect(slide, a, b, route, label=None):
+    """An orthogonal wire from box a to box b, arrow on the far end.
+
+    Drawn as explicit segments rather than as an elbow connector: PowerPoint
+    routes elbows by its own rules, and on a chart this dense they cross boxes.
+    """
+    ax, ay, aw, ah = a["x"], a["y"], a["w"], a["h"]
+    bx, by, bw, bh = b["x"], b["y"], b["w"], b["h"]
+    acx, acy = ax + aw / 2, ay + ah / 2
+    bcx, bcy = bx + bw / 2, by + bh / 2
+
+    # Same row: whatever the wire list says, the only sane route is straight
+    # across. "hv" here sent the wire out sideways *through* the target box
+    # and then up to its top edge — HTT into the L10 assembly, the most looked
+    # at hand-off on the chart.
+    if abs(ay - by) < 0.01 and route in ("hv", "vh"):
+        route = "h"
+
+    if route == "v":
+        down = by > ay
+        points = [(acx, ay + ah if down else ay), (bcx, by if down else by + bh)]
+    elif route == "h":
+        right = bx > ax
+        points = [(ax + aw if right else ax, acy), (bx if right else bx + bw, bcy)]
+    elif route == "hv":
+        # out sideways, then up or down into the far box's near edge
+        right = bx > ax
+        turn = (bcx if right else bcx)
+        points = [(ax + aw if right else ax, acy), (turn, acy),
+                  (turn, by + bh if by < ay else by)]
+    else:
+        # "vh": clear of the source vertically, then straight in at the
+        # target's own centre line. Turning early instead put the wire along
+        # the left edges of every box it passed, which reads as a box outline.
+        down = by > ay
+        points = [(acx, ay + ah if down else ay), (acx, bcy),
+                  (bx if bx > ax else bx + bw, bcy)]
+
+    for index in range(len(points) - 1):
+        x1, y1 = points[index]
+        x2, y2 = points[index + 1]
+        line = slide.shapes.add_connector(
+            MSO_CONNECTOR.STRAIGHT, Inches(x1), Inches(y1), Inches(x2), Inches(y2))
+        line.line.color.rgb = RGBColor(0x8A, 0x88, 0x82)
+        line.line.width = Pt(1.1)
+        if index == len(points) - 2:
+            arrowhead(line)
+
+    if label:
+        lx, ly = points[len(points) // 2]
+        textbox(slide, Inches(lx + 0.05), Inches(ly - 0.20), Inches(0.9),
+                Inches(0.2), [(label, {"size": 8.5, "color": MUTE})], space=0)
+
+
+def arrowhead(connector):
+    """python-pptx has no arrow API; the line's tail end is one XML element."""
+    line = connector.line._get_or_add_ln()
+    tail = line.makeelement(qn("a:tailEnd"), {"type": "triangle",
+                                              "w": "sm", "len": "sm"})
+    line.append(tail)
 
 
 def footnote(slide, data, week):
-    thin = (week["totals"] or {}).get("excludedThin") or []
-    textbox(slide, Inches(0.42), Inches(6.62), W - Inches(0.84), Inches(0.7), [
-        [("Green = the step yields and we measure it. ", {"size": 9.5, "color": MUTE}),
-         ("Amber = it ran, under {} units, so no yield is reported — the count is. "
-          .format(data["minCohort"]), {"size": 9.5, "color": MUTE}),
-         ("Grey = builds or moves, no verdict.", {"size": 9.5, "color": MUTE})],
-        [("Source: {}, one row per unit. WST and FT reported by Sigurd. "
-          "VBB provisioning omitted — not part of the product test flow. "
-          "Amber this week: {}."
-          .format((data.get("source") or {}).get("label", "pega2–pega5"),
-                  ", ".join("{} ({}u)".format(t["label"], t["units"])
-                            for t in thin) or "none"),
-          {"size": 9, "color": MUTE})],
-    ], space=2)
+    counts = [row["label"] for row in week["rows"] if row.get("countsOnly")]
+    thin = [t["label"] for t in (week["totals"] or {}).get("excludedThin") or []]
+    textbox(slide, Inches(0.72), Inches(6.55), W - Inches(1.4), Inches(0.8), [
+        [("Green", {"size": 9.5, "bold": True, "color": MUTE}),
+         (" = yields, and we measure it.   ", {"size": 9.5, "color": MUTE}),
+         ("Amber", {"size": 9.5, "bold": True, "color": MUTE}),
+         (" = quantity only, no yield reported.   ", {"size": 9.5, "color": MUTE}),
+         ("Grey", {"size": 9.5, "bold": True, "color": MUTE}),
+         (" = builds, moves, or measured elsewhere.", {"size": 9.5, "color": MUTE})],
+        [("Quantity only: {}. {}L10 and L11 are chassis and rack level and in "
+          "bring-up — a percentage over three chassis swings 33 points on one "
+          "unit, so the counts are published and the yields are not."
+          .format(", ".join(counts) or "none",
+                  "Too few units this week: {}. ".format(", ".join(thin))
+                  if thin else ""),
+          {"size": 8.5, "color": MUTE})],
+        [("Source: {}, one row per unit. WST and FT reported by Sigurd. VBB "
+          "provisioning drawn for the flow but left out of the yield view."
+          .format((data.get("source") or {}).get("label", "pega2–pega5")),
+          {"size": 8.5, "color": MUTE})],
+    ], space=1)
 
 
 def table_slide(prs, data, week, external):
@@ -309,8 +483,10 @@ def table_slide(prs, data, week, external):
                 [(str(row["units"]), {"size": 12.5, "color": colour})])
         textbox(slide, cols[2], y, widths[2], Inches(0.3),
                 [(str(row["runs"]), {"size": 12.5, "color": colour})])
+        reason = ("quantity only" if row.get("countsOnly")
+                  else "not enough units")
         textbox(slide, cols[3], y, widths[3], Inches(0.3),
-                [(pct(row["fpy"]) if readable else "not enough units",
+                [(pct(row["fpy"]) if readable else reason,
                   {"size": 14 if readable else 10, "bold": readable,
                    "color": tone(row["fpy"]) if readable else MUTE})])
         textbox(slide, cols[4], y, widths[4], Inches(0.3),

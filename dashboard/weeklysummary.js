@@ -75,9 +75,13 @@
         if (!row) {
           td.textContent = '—';
         } else if (row.fpy == null) {
-          /* Ran, but under the floor: the count is the honest answer. */
+          /* No yield published — either the stage reports quantity only, or
+             it ran too few units. The count is the honest answer to both. */
           td.appendChild(h('span', { class: 'countonly',
                                      text: row.units + ' u' }));
+          td.title = row.countsOnly
+            ? 'Quantity only — chassis and rack level, in bring-up'
+            : 'Fewer than ' + DATA.minCohort + ' first-time units';
         } else {
           td.className = 'n y ' + tone(row.fpy);
           td.appendChild(document.createTextNode(pct(row.fpy)));

@@ -10,13 +10,11 @@ Rolled first-pass across MLT x HTT: **35.6%**.
 | FT *(reported 2026-08-14)* | — | — | 84.3% | — | — | Sigurd, reported in #production-test-eng |
 | MLT | 228 | 279 | 65.5% | 74.6% | 19.7% | SohuPowerVirusTestCase |
 | HTT | 170 | 234 | 54.3% | 68.8% | 27.6% | SohuRdqsSweepTrainingTestCase |
-| L10 FAT | 2 | 15 | — | — | 100.0% | SohuHostRebootTestCase |
-| L10 SFT | 1 | 6 | — | — | 100.0% | SohuLlama70bHp8ForwardIteratedTestCase |
-| L10 RIN | 1 | 4 | — | — | 100.0% | RunInStress |
-| L10 2U | 3 | 19 | — | — | 66.7% | BmcCheck |
-| L11 Test | 2 | 16 | — | — | 100.0% | CheckSohuServerNoErrorLogTestCase |
-
-Excluded from the rolled figure — fewer than 20 first-time units, which is too few to read a yield from: L10 FAT (2 units), L10 SFT (1 unit), L10 RIN (1 unit), L10 2U (3 units), L11 Test (2 units).
+| L10 FAT | 2 | 15 | — | — | — | SohuHostRebootTestCase |
+| L10 SFT | 1 | 6 | — | — | — | SohuLlama70bHp8ForwardIteratedTestCase |
+| L10 RIN | 1 | 4 | — | — | — | RunInStress |
+| L10 2U | 3 | 19 | — | — | — | BmcCheck |
+| L11 Test | 2 | 16 | — | — | — | CheckSohuServerNoErrorLogTestCase |
 
 ## Sources
 
@@ -25,4 +23,4 @@ Excluded from the rolled figure — fewer than 20 first-time units, which is too
 - Reported rows are hand-entered; the source and date are on the row.
 - Excluded from this view: vbb_provision.
 - 573 unit-level rows kept with this week.
-- Built from commit 7e066e4.
+- Built from commit 1e2f671.

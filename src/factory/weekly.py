@@ -322,7 +322,9 @@ def render_html(week: Dict[str, Any]) -> str:
             "<td class='small'>{}</td></tr>".format(
                 "" if readable else "thin",
                 _esc(row.get("label")), _esc(row.get("controller") or ""),
-                "" if readable else " &middot; under {} units, no yield".format(floor),
+                "" if readable else
+                (" &middot; quantity only, in bring-up" if row.get("countsOnly")
+                 else " &middot; under {} units, no yield".format(floor)),
                 _esc(row.get("units")), _esc(row.get("runs")),
                 _tone(row.get("fpy")) if readable else "", _pct(row.get("fpy")),
                 row.get("newUnits"),

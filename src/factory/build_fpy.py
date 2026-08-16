@@ -84,6 +84,26 @@ EXTERNAL: Dict[str, Dict[str, Any]] = {
 #: 100% retest rate for a stage that retests almost nothing.
 MULTI_SUITE = ("vbb_provision",)
 
+#: Stages that report quantity only — units and runs, never a yield or a
+#: retest rate.
+#:
+#: L10 and L11 are chassis and rack level, in bring-up, and their volumes are
+#: single digits a week. A percentage over three chassis is arithmetic, not a
+#: yield: it swings 33 points on one unit, it gets quoted anyway, and no fix
+#: can be judged by it. The counts are real and are what the readiness question
+#: actually turns on at these stages, so those are what get published.
+#:
+#: This is a policy about the stage, not about this week's volume — unlike
+#: MIN_COHORT, it does not lift when the numbers grow. Remove the prefix when
+#: the line decides L10 yield means something.
+COUNTS_ONLY_PREFIXES = ("l10_", "l11_")
+
+COUNTS_ONLY_NOTE = "chassis and rack level, in bring-up — quantity only"
+
+
+def counts_only(key: str) -> bool:
+    return key.startswith(COUNTS_ONLY_PREFIXES)
+
 
 def _day(ts: int) -> str:
     return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d")
@@ -140,6 +160,8 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
         # yield is then perfectly readable while its first-pass yield is not.
         readable = len(fresh) >= floor
         yield_readable = len(window) >= floor
+        if counts_only(key):
+            readable = yield_readable = False
         first_pass = sum(1 for dut in fresh if units[dut][0]["status"] == "pass")
         passed = sum(1 for rs in window.values()
                      if any(r["status"] == "pass" for r in rs))
@@ -166,10 +188,14 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
             # out where repeat runs are a provisioning sequence rather than a
             # second attempt at the same test.
             # Plainly: the share of units that had to be run more than once.
-            "retestRatio": None if key in MULTI_SUITE else repeats / len(window),
-            "retestUnits": None if key in MULTI_SUITE else repeats,
-            "retestNote": ("repeat runs here are a provisioning sequence, not "
+            "retestRatio": None if (key in MULTI_SUITE or counts_only(key))
+                           else repeats / len(window),
+            "retestUnits": None if (key in MULTI_SUITE or counts_only(key))
+                           else repeats,
+            "retestNote": COUNTS_ONLY_NOTE if counts_only(key) else
+                          ("repeat runs here are a provisioning sequence, not "
                            "retests") if key in MULTI_SUITE else None,
+            "countsOnly": counts_only(key),
             "topFailures": _top_failures(
                 [r for rs in window.values() for r in rs]),
             "measured": True,
@@ -226,7 +252,8 @@ MIN_COHORT = 20
 def _totals(rows: List[Dict[str, Any]], floor: int = MIN_COHORT) -> Dict[str, Any]:
     graded = [row for row in rows if row["fpy"] is not None]
     counted = [row for row in graded if row["readable"]]
-    thin = [row for row in rows if not row["readable"]]
+    thin = [row for row in rows
+            if not row["readable"] and not row.get("countsOnly")]
     return {
         "stations": len(rows),
         "units": sum(row["units"] for row in rows),

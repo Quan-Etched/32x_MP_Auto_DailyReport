@@ -1,9 +1,9 @@
 {
  "context": {
   "build": {
-   "commit": "7e066e4",
-   "commitUrl": "https://github.com/etched-ai/factory_data_analysis/commit/7e066e4",
-   "commitsSinceRelease": 25,
+   "commit": "1e2f671",
+   "commitUrl": "https://github.com/etched-ai/factory_data_analysis/commit/1e2f671",
+   "commitsSinceRelease": 27,
    "dirty": true,
    "release": "v0.4",
    "releaseUrl": "https://github.com/etched-ai/factory_data_analysis/releases/tag/v0.4",
@@ -12,7 +12,7 @@
   "excluded": [
    "vbb_provision"
   ],
-  "generatedAt": "2026-08-16T01:55:25+00:00",
+  "generatedAt": "2026-08-16T04:41:31+00:00",
   "historyDays": 30,
   "minCohort": 20,
   "source": {
@@ -48,6 +48,7 @@
  "rows": [
   {
    "controller": "pega3",
+   "countsOnly": false,
    "finalYield": 0.7456140350877193,
    "firstPassUnits": 114,
    "fpy": 0.6551724137931034,
@@ -93,6 +94,7 @@
   },
   {
    "controller": "pega3",
+   "countsOnly": false,
    "finalYield": 0.6882352941176471,
    "firstPassUnits": 70,
    "fpy": 0.5426356589147286,
@@ -138,6 +140,7 @@
   },
   {
    "controller": "pega4",
+   "countsOnly": true,
    "finalYield": null,
    "firstPassUnits": null,
    "fpy": null,
@@ -147,9 +150,9 @@
    "newUnits": 1,
    "passedUnits": 1,
    "readable": false,
-   "retestNote": null,
-   "retestRatio": 1.0,
-   "retestUnits": 2,
+   "retestNote": "chassis and rack level, in bring-up \u2014 quantity only",
+   "retestRatio": null,
+   "retestUnits": null,
    "runs": 15,
    "topFailures": [
     {
@@ -183,6 +186,7 @@
   },
   {
    "controller": "pega4",
+   "countsOnly": true,
    "finalYield": null,
    "firstPassUnits": null,
    "fpy": null,
@@ -192,9 +196,9 @@
    "newUnits": 0,
    "passedUnits": 0,
    "readable": false,
-   "retestNote": null,
-   "retestRatio": 1.0,
-   "retestUnits": 1,
+   "retestNote": "chassis and rack level, in bring-up \u2014 quantity only",
+   "retestRatio": null,
+   "retestUnits": null,
    "runs": 6,
    "topFailures": [
     {
@@ -228,6 +232,7 @@
   },
   {
    "controller": "pega4",
+   "countsOnly": true,
    "finalYield": null,
    "firstPassUnits": null,
    "fpy": null,
@@ -237,9 +242,9 @@
    "newUnits": 1,
    "passedUnits": 1,
    "readable": false,
-   "retestNote": null,
-   "retestRatio": 1.0,
-   "retestUnits": 1,
+   "retestNote": "chassis and rack level, in bring-up \u2014 quantity only",
+   "retestRatio": null,
+   "retestUnits": null,
    "runs": 4,
    "topFailures": [
     {
@@ -263,6 +268,7 @@
   },
   {
    "controller": "pega4",
+   "countsOnly": true,
    "finalYield": null,
    "firstPassUnits": null,
    "fpy": null,
@@ -272,9 +278,9 @@
    "newUnits": 1,
    "passedUnits": 1,
    "readable": false,
-   "retestNote": null,
-   "retestRatio": 0.6666666666666666,
-   "retestUnits": 2,
+   "retestNote": "chassis and rack level, in bring-up \u2014 quantity only",
+   "retestRatio": null,
+   "retestUnits": null,
    "runs": 19,
    "topFailures": [
     {
@@ -308,6 +314,7 @@
   },
   {
    "controller": "pega5",
+   "countsOnly": true,
    "finalYield": null,
    "firstPassUnits": null,
    "fpy": null,
@@ -317,9 +324,9 @@
    "newUnits": 1,
    "passedUnits": 1,
    "readable": false,
-   "retestNote": null,
-   "retestRatio": 1.0,
-   "retestUnits": 2,
+   "retestNote": "chassis and rack level, in bring-up \u2014 quantity only",
+   "retestRatio": null,
+   "retestUnits": null,
    "runs": 16,
    "topFailures": [
     {
@@ -354,33 +361,7 @@
  ],
  "to": "2026-08-16",
  "totals": {
-  "excludedThin": [
-   {
-    "label": "L10 FAT",
-    "newUnits": 1,
-    "units": 2
-   },
-   {
-    "label": "L10 SFT",
-    "newUnits": 0,
-    "units": 1
-   },
-   {
-    "label": "L10 RIN",
-    "newUnits": 1,
-    "units": 1
-   },
-   {
-    "label": "L10 2U",
-    "newUnits": 1,
-    "units": 3
-   },
-   {
-    "label": "L11 Test",
-    "newUnits": 1,
-    "units": 2
-   }
-  ],
+  "excludedThin": [],
   "minCohort": 20,
   "rolledFpy": 0.35551991446137393,
   "rolledOver": [

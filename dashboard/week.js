@@ -130,19 +130,22 @@
       tr.appendChild(h('td', {}, [
         h('span', { class: 'step', text: row.label }),
         h('span', { class: 'sub', text: (row.controller || '') +
-          (row.readable ? '' : ' · under ' + DATA.minCohort +
-            ' units, no yield reported') })
+          (row.readable ? ''
+           : row.countsOnly ? ' · quantity only — chassis and rack level, in bring-up'
+           : ' · under ' + DATA.minCohort + ' units, no yield reported') })
       ]));
       tr.appendChild(h('td', { class: 'n', text: String(row.units) }));
       tr.appendChild(h('td', { class: 'n', text: String(row.runs) }));
       tr.appendChild(h('td', { class: 'n y ' + tone(row.fpy) }, [
         document.createTextNode(pct(row.fpy)),
         h('span', { class: 'sub', text: row.readable
-          ? 'of ' + row.newUnits + ' new' : row.newUnits + ' new' })
+          ? 'of ' + row.newUnits + ' new'
+          : row.countsOnly ? 'not reported' : row.newUnits + ' new' })
       ]));
       tr.appendChild(h('td', { class: 'n' }, [
         document.createTextNode(pct(row.finalYield)),
-        h('span', { class: 'sub', text: row.passedUnits + ' passed' })
+        h('span', { class: 'sub', text: row.passedUnits + ' of ' +
+                    row.units + ' passed' })
       ]));
       /* Named as a rate and spelled out underneath, because "retest load"
        * read as a count to more than one person. */
@@ -169,7 +172,9 @@
       (week.partial ? ', week still running' : '') +
       '. First-pass yield counts units on their first run at that step. ' +
       'Steps with fewer than ' + DATA.minCohort +
-      ' first-time units report counts only.';
+      ' first-time units report counts only, as do L10 and L11 — chassis and ' +
+      'rack level, in bring-up, where a percentage over three units swings 33 ' +
+      'points on one of them.';
   }
 
   /* --------------------------------------------------------------- source */

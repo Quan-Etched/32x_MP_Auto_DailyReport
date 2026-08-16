@@ -98,19 +98,22 @@ class RolledTest(unittest.TestCase):
         self.assertEqual(sorted(totals["rolledOver"]), ["HTT", "MLT"])
 
     def test_a_one_unit_stage_cannot_take_the_line_to_zero(self):
-        """L10 SFT ran one unit this week and it failed. Multiplying by its 0%
-        reports the whole line at 0% — arithmetically correct, entirely false."""
+        """One unit ran at a stage and it failed. Multiplying by its 0%
+        reports the whole line at 0% — arithmetically correct, entirely false.
+
+        Uses SLT rather than an L10 stage: L10 and L11 report quantity only by
+        policy now, so they can no longer demonstrate the volume floor."""
         bundle = self.bundle(self.many("mlt", 40, 20) +
-                             [run("X", "l10_sft", "fail", ts(1))])
+                             [run("X", "slt", "fail", ts(1))])
         self.assertAlmostEqual(bundle["totals"]["rolledFpy"], 0.5)
         self.assertEqual([e["label"] for e in bundle["totals"]["excludedThin"]],
-                         ["L10 SFT"])
+                         ["SLT"])
 
     def test_below_the_floor_no_yield_is_published_at_all(self):
         """A 0.0% over two units is not a yield. Printing one invites somebody
         to quote it; the counts beside it say all that can honestly be said."""
-        bundle = self.bundle([run("X", "l10_fat", "fail", ts(1)),
-                              run("Y", "l10_fat", "pass", ts(1))])
+        bundle = self.bundle([run("X", "slt", "fail", ts(1)),
+                              run("Y", "slt", "pass", ts(1))])
         row = bundle["rows"][0]
         self.assertIsNone(row["fpy"])
         self.assertIsNone(row["finalYield"])
@@ -121,7 +124,7 @@ class RolledTest(unittest.TestCase):
     def test_the_thin_stages_are_named_rather_than_dropped(self):
         """That they are too thin to read is the readiness finding; hiding
         them would make the headline look like whole-line coverage."""
-        bundle = self.bundle([run("X", "l10_fat", "fail", ts(1))])
+        bundle = self.bundle([run("X", "slt", "fail", ts(1))])
         thin = bundle["totals"]["excludedThin"]
         self.assertEqual(thin[0]["units"], 1)
         self.assertIsNone(bundle["totals"]["rolledFpy"])
@@ -160,6 +163,57 @@ class FailureTest(unittest.TestCase):
             run("A", "mlt", "pass", ts(1), ["SohuPowerVirusTestCase"])]),
             min_cohort=1)
         self.assertEqual(bundle["rows"][0]["topFailures"], [])
+
+
+class CountsOnlyTest(unittest.TestCase):
+    """L10 and L11 publish quantity, never a yield or a retest rate.
+
+    Chassis and rack level, in bring-up, single-digit volumes: a percentage
+    over three chassis swings 33 points on one unit, gets quoted anyway, and no
+    fix can be judged by it. This is a policy about the stage, not about this
+    week's volume — unlike the cohort floor it does not lift when the numbers
+    grow.
+    """
+
+    def bundle(self, runs):
+        return build_fpy.build_bundle(payload(runs), min_cohort=1)
+
+    def many(self, station, count, passing):
+        return [run("%s-%d" % (station, i), station,
+                    "pass" if i < passing else "fail", ts(2))
+                for i in range(count)]
+
+    def rows(self, runs):
+        return {row["key"]: row for row in self.bundle(runs)["rows"]}
+
+    def test_no_yield_however_many_units_ran(self):
+        rows = self.rows(self.many("l10_fat", 60, 40))
+        row = rows["l10_fat"]
+        self.assertIsNone(row["fpy"])
+        self.assertIsNone(row["finalYield"])
+        self.assertIsNone(row["retestRatio"])
+        self.assertTrue(row["countsOnly"])
+
+    def test_the_counts_are_still_published(self):
+        row = self.rows(self.many("l11_test", 5, 3))["l11_test"]
+        self.assertEqual(row["units"], 5)
+        self.assertEqual(row["runs"], 5)
+        self.assertEqual(row["passedUnits"], 3)
+
+    def test_the_reason_is_on_the_row(self):
+        row = self.rows(self.many("l10_2u", 3, 1))["l10_2u"]
+        self.assertIn("bring-up", row["retestNote"])
+
+    def test_module_stages_are_untouched(self):
+        row = self.rows(self.many("mlt", 40, 20))["mlt"]
+        self.assertAlmostEqual(row["fpy"], 0.5)
+        self.assertFalse(row["countsOnly"])
+
+    def test_they_are_not_listed_as_too_thin(self):
+        """Two different reasons for a blank yield. Reporting L10 as "too few
+        units" would suggest volume alone would fix it."""
+        totals = self.bundle(self.many("l10_fat", 60, 40))["totals"]
+        self.assertEqual(totals["excludedThin"], [])
 
 
 if __name__ == "__main__":
