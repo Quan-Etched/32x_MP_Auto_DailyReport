@@ -31,7 +31,7 @@ help:
 	@echo "make requests           re-check what we need from other systems"
 	@echo "make l10                build the L10 daily tracker (FAT/SFT/RIN/2U) from pega4"
 	@echo "make schedule-install   install the hourly job (launchd / systemd timer)"
-	@echo "make schedule-weekly-install  install the Saturday 18:00 snapshot job"
+	@echo "make schedule-weekly-install  install the Sunday 21:00 snapshot job"
 	@echo "make weekly-snapshot    run that snapshot now: collect, deck, archive, publish"
 	@echo "make demo               synthetic data + dashboard bundle (no API key needed)"
 	@echo "make collect [DAYS=2]   fetch real runs from the EOS API into data/processed/"
@@ -162,8 +162,13 @@ schedule-status:    schedule-status-$(SCHED)
 # WEEKLY_AT is a systemd calendar expression carrying its own timezone: the box
 # runs UTC and "Saturday 18:00" was asked for in Pacific, which is a different
 # day there and moves an hour at each DST boundary.
-WEEKLY_AT ?= Sat *-*-* 18:00:00 America/Los_Angeles
-WEEKLY_AT_FALLBACK ?= Sun *-*-* 01:00:00 UTC
+# Sunday night, so the week captured has actually finished. Note what that
+# means in UTC: 21:00 Pacific on Sunday is 04:00 Monday there, the ISO week has
+# already rolled over, and "the current week" is a fresh empty one — which is
+# why `factory.cli archive` defaults to the most recent *completed* week rather
+# than to weeks[0].
+WEEKLY_AT ?= Sun *-*-* 21:00:00 America/Los_Angeles
+WEEKLY_AT_FALLBACK ?= Mon *-*-* 04:00:00 UTC
 
 schedule-weekly-install:   schedule-weekly-install-$(SCHED)
 schedule-weekly-uninstall: schedule-weekly-uninstall-$(SCHED)
@@ -191,7 +196,7 @@ schedule-weekly-install-macos:
 	    > $(LAUNCHD_WEEKLY_DEST)
 	@launchctl unload $(LAUNCHD_WEEKLY_DEST) 2>/dev/null || true
 	@launchctl load $(LAUNCHD_WEEKLY_DEST)
-	@echo "Installed $(LAUNCHD_WEEKLY) — Saturdays at 18:00 local."
+	@echo "Installed $(LAUNCHD_WEEKLY) — Sundays at 21:00 local."
 	@echo "Logs: data/logs/weekly.log"
 
 schedule-weekly-uninstall-macos:

@@ -43,15 +43,17 @@ step() { [ "${FACTORY_PROGRESS:-0}" = "1" ] && printf '::step %s\n' "$*"; return
 # does: it takes the lock, then calls this script, and without this it would
 # collide with itself — this script would find the lock taken, log SKIP, exit 0,
 # and the snapshot would archive a week nobody collected.
+. "$REPO/tools/lock.sh"
+
 if [ "${FACTORY_LOCK_HELD:-0}" = "1" ]; then
     trap 'rm -f "$OUT"' EXIT
-elif ! mkdir "$LOCK" 2>/dev/null; then
+elif ! factory_lock_take "$LOCK" "hourly_refresh"; then
     log "SKIP another refresh is already running ($LOCK)"
     echo "SKIP another refresh is already running ($LOCK)"
     rm -f "$OUT"
     exit 0
 else
-    trap 'rmdir "$LOCK" 2>/dev/null; rm -f "$OUT"' EXIT
+    trap 'factory_lock_free "$LOCK"; rm -f "$OUT"' EXIT
 fi
 
 # launchd gives an almost-empty environment; load the key the same way the CLI

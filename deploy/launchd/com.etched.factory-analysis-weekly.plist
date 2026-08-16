@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  The weekly snapshot on a laptop. Saturday at 18:00 local — launchd's
+  The weekly snapshot on a laptop. Sunday at 21:00 local — launchd's
   StartCalendarInterval follows the machine's own clock, so unlike the systemd
   unit there is no timezone to name here.
+
+  Sunday night, so the week it captures has finished. In UTC that is Monday
+  morning and the ISO week has already rolled over, which is why the archive
+  step takes the most recent *completed* week rather than the current one.
 
   RunAtLoad is deliberately absent: installing the agent should not fire a
   30-day collect and overwrite this week's archive with a partial one.
@@ -23,8 +27,8 @@
 
   <key>StartCalendarInterval</key>
   <dict>
-    <key>Weekday</key><integer>6</integer>
-    <key>Hour</key><integer>18</integer>
+    <key>Weekday</key><integer>0</integer>
+    <key>Hour</key><integer>21</integer>
     <key>Minute</key><integer>0</integer>
   </dict>
 

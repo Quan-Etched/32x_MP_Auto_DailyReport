@@ -636,7 +636,8 @@ def cmd_archive(args: argparse.Namespace) -> int:
     from . import weekly as weekly_mod
 
     try:
-        written = weekly_mod.archive(label=args.label)
+        written = weekly_mod.archive(label=args.label,
+                                     current=args.current)
     except FileNotFoundError as exc:
         print("Nothing to archive: {}".format(exc), file=sys.stderr)
         return 1
@@ -965,7 +966,10 @@ def _build_parser() -> argparse.ArgumentParser:
     archive = subparsers.add_parser(
         "archive", help="pack a week out under weekly/ for later comparison")
     archive.add_argument("--label", default=None,
-                         help="folder name; defaults to the window's end date")
+                         help="ISO week to archive, e.g. 2026-W33")
+    archive.add_argument("--current", action="store_true",
+                         help="archive the week in progress rather than the "
+                              "most recent completed one")
     archive.set_defaults(handler=cmd_archive)
 
     fpy = subparsers.add_parser(

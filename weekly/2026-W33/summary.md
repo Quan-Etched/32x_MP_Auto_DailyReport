@@ -25,4 +25,4 @@ Excluded from the rolled figure — fewer than 20 first-time units, which is too
 - Reported rows are hand-entered; the source and date are on the row.
 - Excluded from this view: vbb_provision.
 - 573 unit-level rows kept with this week.
-- Built from commit f86f6eb.
+- Built from commit 7e066e4.

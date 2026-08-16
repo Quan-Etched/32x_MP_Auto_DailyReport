@@ -1,4 +1,7 @@
-# Saturday evening, so the week captured is the week Monday will discuss.
+# Sunday night, so the week captured has finished rather than being two thirds
+# of the way through. In UTC that is Monday morning and the ISO week has
+# already rolled over — which is why the archive step takes the most recent
+# *completed* week rather than the one in progress.
 #
 # The calendar carries its own timezone rather than following the host clock:
 # the box runs UTC and "Saturday 18:00" was asked for in Pacific, which is a

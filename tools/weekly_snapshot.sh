@@ -8,10 +8,11 @@
 # the week under weekly/<ISO week>/ that a later week gets compared against.
 # Those must happen once, at a known moment, not 168 times a week.
 #
-# It runs late on Saturday, so the week it captures is the week people are
-# about to discuss on Monday. The week is still technically running (it ends
-# Sunday midnight UTC) and the archive records that rather than pretending
-# otherwise.
+# It runs Sunday night, so the week it captures has finished and Monday's
+# meeting reads a whole week. In UTC that moment is Monday morning: the ISO
+# week has rolled over, "the current week" is a fresh empty one, and the
+# archive step therefore takes the most recent *completed* week. Pass
+# FACTORY_ARCHIVE_CURRENT=1 to snapshot the week in progress instead.
 #
 # Exit codes: 0 = archived, 2 = collect failed, 3 = publish failed,
 # 4 = could not get the lock (the hourly job never let go).
@@ -34,8 +35,10 @@ log() { printf '%s  %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" | tee -a "$LOG";
 # Wait for the hourly job rather than skipping. A skipped hourly tick costs an
 # hour of staleness; a skipped weekly snapshot costs the week — there is no
 # second chance at it, because the controllers age their detail out.
+. "$REPO/tools/lock.sh"
+
 WAITED=0
-until mkdir "$LOCK" 2>/dev/null; do
+until factory_lock_take "$LOCK" "weekly_snapshot"; do
     if [ "$WAITED" -ge 1200 ]; then
         log "FAIL could not take $LOCK after 20 minutes"
         exit 4
@@ -44,7 +47,7 @@ until mkdir "$LOCK" 2>/dev/null; do
     sleep 30
     WAITED=$((WAITED + 30))
 done
-trap 'rmdir "$LOCK" 2>/dev/null' EXIT
+trap 'factory_lock_free "$LOCK"' EXIT
 
 [ -f "$REPO/.env" ] && set -a && . "$REPO/.env" && set +a
 
@@ -52,7 +55,10 @@ PY="${PYTHON:-python3}"
 export PYTHONPATH="$REPO/src"
 export PYTHONUNBUFFERED=1
 
-log "START weekly snapshot"
+ARCHIVE_ARGS=""
+[ "${FACTORY_ARCHIVE_CURRENT:-0}" = "1" ] && ARCHIVE_ARGS="--current"
+
+log "START weekly snapshot${ARCHIVE_ARGS:+ (}${ARCHIVE_ARGS}${ARCHIVE_ARGS:+)}"
 
 # A fresh collect first, so the snapshot is the week as it actually ended and
 # not as the last hourly tick happened to leave it. FACTORY_PUBLISH=0: this
@@ -79,7 +85,7 @@ for step in weekly weekly-deck archive; do
     case "$step" in
         weekly)      "$PY" -m factory.cli weekly       >>"$LOG" 2>&1 ;;
         weekly-deck) "$PY" tools/build_weekly_deck.py  >>"$LOG" 2>&1 ;;
-        archive)     "$PY" -m factory.cli archive      >>"$LOG" 2>&1 ;;
+        archive)     "$PY" -m factory.cli archive $ARCHIVE_ARGS >>"$LOG" 2>&1 ;;
     esac
     if [ $? -ne 0 ]; then
         log "FAIL $step"
