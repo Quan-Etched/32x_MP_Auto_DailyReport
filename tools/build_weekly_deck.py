@@ -635,99 +635,79 @@ def footnote(slide, data, week):
 
 
 def metrics_slide(prs, data, week, by_station):
-    """Page 0: what the three numbers mean, before anyone reads any of them.
+    """Page 0: the three numbers, in the words the line uses for them.
 
-    Written because the room contains test engineers, who know, and everyone
-    else, who reasonably does not — and because "yield" and "retest rate" get
-    used loosely enough that two people can agree on a number while disagreeing
-    about what it counts. Each definition carries this week's own figure, so
-    the vocabulary and the data arrive together.
+    The definitions here are the ones written on the reviewed deck rather than
+    the ones this file used to generate. They are shorter and they are better:
+    "how stable is the test" is what a retest rate is for, and a paragraph
+    about denominators at the top of a deck loses the room before the data
+    arrives. The measured figure sits beside each so the vocabulary and this
+    week's number are read together.
     """
     slide = title_slide(
-        prs, "How to read this",
-        "three numbers, and why the table on the next pages is broken out by "
-        "test step")
+        prs, "Basic Level of Production Metrics",
+        "{} · the three numbers this deck reports, and what each one is for"
+        .format(week["week"]))
 
     mlt = by_station.get("mlt") or {}
     htt = by_station.get("htt") or {}
-    total_units = sum(row["units"] for row in week["rows"])
-    total_runs = sum(row["runs"] for row in week["rows"])
+    totals = week["totals"]
 
     blocks = [
-        ("1.  Capacity",
-         "How many units a step can put through in a week.",
-         # Both figures are summed per step, so a module that goes through MLT
-         # and HTT counts at each. Saying "units" flat would read as distinct
-         # modules and overstate the week by roughly half.
-         "Counted here as units and runs at each step: {} step-visits across "
-         "{} runs this week. Runs exceed visits because a unit can occupy a "
-         "station more than once — which is why capacity and retest are the "
-         "same conversation."
-         .format(total_units, total_runs),
-         "It sets the schedule. A station cannot ship what it cannot test, "
-         "and every re-run is a slot a new unit did not get."),
-        ("2.  Yield",
-         "The share of units that pass.",
-         "First-pass yield counts units that passed on their first attempt "
-         "({} at MLT). Yield after retest counts units that passed eventually "
-         "({}). The gap between them is work done twice."
-         .format(pct(mlt.get("fpy")), pct(mlt.get("finalYield"))),
-         "It sets how many units you must start to ship one. At a rolled "
-         "{} through MLT and HTT, roughly three modules are started for every "
-         "one that comes out clean first time."
-         .format(pct(week["totals"]["rolledFpy"]))),
-        ("3.  Retest",
-         "The share of units that had to be run again.",
-         "{} of units at MLT and {} at HTT came back for a second run — "
-         "{} and {} units. Not the same as failures: a unit can be re-run and "
-         "pass, and most are."
-         .format(pct(mlt.get("retestRatio")), pct(htt.get("retestRatio")),
-                 mlt.get("retestUnits"), htt.get("retestUnits")),
-         "It is where yield loss turns into capacity loss. Recovering a unit "
-         "on the second try protects the shipment and costs the station time "
-         "it will not get back."),
+        ("1.  Capacity", "How many units we are producing",
+         "{} units through {} steps this week, across {} runs."
+         .format(sum(r["units"] for r in week["rows"]), len(week["rows"]),
+                 sum(r["runs"] for r in week["rows"])),
+         "It sets the schedule: a station cannot ship what it cannot test."),
+        ("2.  Yield", "How many percentage we can ship vs total production",
+         "First pass {} at MLT and {} at HTT — {} rolled across the two."
+         .format(pct(mlt.get("fpy")), pct(htt.get("fpy")),
+                 pct(totals["rolledFpy"])),
+         "It sets how many units must be started to ship one."),
+        ("3.  Retest", "How stable is the test",
+         "{} of MLT units and {} of HTT units had to be run again — {} and {} "
+         "units.".format(pct(mlt.get("retestRatio")), pct(htt.get("retestRatio")),
+                         mlt.get("retestUnits"), htt.get("retestUnits")),
+         "It is where yield loss turns into lost capacity."),
     ]
 
-    y = Inches(1.62)
-    for head, what, detail, why in blocks:
-        textbox(slide, Inches(0.62), y, Inches(2.55), Inches(1.1),
-                [[(head, {"size": 17, "bold": True})],
-                 [(what, {"size": 11.5, "color": MUTE})]], space=2)
-        textbox(slide, Inches(3.35), y + Inches(0.04), Inches(4.6), Inches(1.3),
-                [(detail, {"size": 12})], space=0)
-        textbox(slide, Inches(8.25), y + Inches(0.04), Inches(4.5), Inches(1.3),
-                [[("Why it matters.  ", {"size": 12, "bold": True}),
-                  (why, {"size": 12})]], space=0)
-        y = y + Inches(1.58)
+    y = Inches(1.72)
+    for head, what, figure, why in blocks:
+        textbox(slide, Inches(0.75), y, Inches(2.2), Inches(0.5),
+                [(head, {"size": 18, "bold": True})], space=0)
+        textbox(slide, Inches(3.15), y, Inches(4.6), Inches(0.8),
+                [(what, {"size": 15})], space=0)
+        textbox(slide, Inches(8.05), y + Inches(0.02), Inches(4.6), Inches(1.0),
+                [[(figure, {"size": 11.5, "bold": True})],
+                 [(why, {"size": 11, "color": MUTE})]], space=3)
+        y = y + Inches(1.5)
 
-    rule = slide.shapes.add_shape(1, Inches(0.62), Inches(6.32),
-                                  W - Inches(1.24), Pt(1))
+    rule = slide.shapes.add_shape(1, Inches(0.75), Inches(6.35),
+                                  W - Inches(1.5), Pt(1))
     rule.fill.solid()
     rule.fill.fore_color.rgb = RULE
     rule.line.fill.background()
     rule.shadow.inherit = False
-
-    # The single sentence that justifies the next two slides.
-    textbox(slide, Inches(0.62), Inches(6.5), W - Inches(1.24), Inches(0.7),
-            [[("Why it is broken out by test step:  ", {"size": 13, "bold": True}),
+    textbox(slide, Inches(0.75), Inches(6.55), W - Inches(1.5), Inches(0.6),
+            [[("Why it is broken out by test step:  ", {"size": 12.5, "bold": True}),
               ("a line ships at the rate of its worst step, not its average — "
                "so the only useful version of these three numbers is one per "
-               "step, in the order a unit travels.", {"size": 13})]], space=0)
+               "step, in the order a unit travels.", {"size": 12.5})]], space=0)
     return slide
 
 
 def actions_slide(prs, data, week, by_station):
-    """What happens next, against the gates the test programme already uses.
+    """Page 3: the two actions, with the targets set on the reviewed deck.
 
-    Coverage -> Stability -> Efficiency is not invented here: it is the
-    milestone model in 32x_Manufacturing_Test_Deepdive, where a station clears
-    one gate before the next is worth measuring. Both actions are placed on it,
-    because "improve L10" means nothing until you say which gate it is failing.
+    Targets are quoted rather than invented — 85% yield and under 10% retest at
+    L6, three to ten units at L10 — and each is shown against where the week
+    actually landed. An action item with a number beside today's number is a
+    decision; one without is a sentiment.
     """
     slide = title_slide(
         prs, "What's next",
-        "against the programme's own gates — coverage, then stability, then "
-        "efficiency; a station clears one before the next is worth measuring")
+        "two actions, each against a target and where {} finished"
+        .format(week["week"]))
 
     mlt = by_station.get("mlt") or {}
     htt = by_station.get("htt") or {}
@@ -735,70 +715,71 @@ def actions_slide(prs, data, week, by_station):
     l10_units = sum(row["units"] for row in l10)
 
     actions = [
-        ("a", "Develop and maintain full coverage for L6",
-         "Coverage",
-         "MLT and HTT are the only steps with enough volume to read, and they "
-         "are where the line loses most of its units: first pass {} and {}, "
-         "recovered to {} and {} by re-running {} and {} units."
-         .format(pct(mlt.get("fpy")), pct(htt.get("fpy")),
-                 pct(mlt.get("finalYield")), pct(htt.get("finalYield")),
-                 mlt.get("retestUnits"), htt.get("retestUnits")),
-         "Full, maintained coverage at L6 — every board, every condition, and "
-         "the suite kept in step as releases land. Coverage is the first gate "
-         "and the only one L6 has the volume to be measured against today.",
-         "SW team leads define and execute the content; production involved."),
+        ("a", "Improve the yield / stability of L6 test", None,
+         [("Yield target", "85%",
+           "today {} at MLT, {} at HTT".format(pct(mlt.get("fpy")),
+                                               pct(htt.get("fpy")))),
+          ("Stability", "< 10% retest",
+           "today {} at MLT, {} at HTT".format(pct(mlt.get("retestRatio")),
+                                               pct(htt.get("retestRatio"))))],
+         "L6 is the only level with the volume to be measured against a "
+         "target at all, and it is where the line loses most of its units."),
         ("b", "Speed up development of multiple L10 test units",
-         "Volume, before any gate",
-         "L10 ran {} units across its four steps all week — 2 at FAT, 1 at "
-         "SFT, 1 at RIN, 3 at 2U. That is why every L10 box on this deck says "
-         "quantity only: there is no yield to read, and no gate can be "
-         "measured on single digits.".format(l10_units),
-         "More L10 units, sooner. Not to improve the yield — to make a yield "
-         "exist. Until L10 is running tens of chassis a week, its coverage "
-         "cannot be judged, its stability cannot be measured, and its "
-         "efficiency is not yet a question.",
-         "Production, with the L10 station owners."),
+         "only 1–2 units onsite",
+         [("Target", "3 to 10 units",
+           "assembled for test development"),
+          ("Coverage", "full coverage",
+           "today {} units across four steps".format(l10_units))],
+         "Not to improve the L10 yield — to make one exist. On single digits "
+         "there is nothing to read, which is why every L10 box on this deck "
+         "says quantity only."),
     ]
 
-    y = Inches(1.62)
-    for tag, title, gate, why_now, what, who in actions:
-        marker = slide.shapes.add_shape(9, Inches(0.62), y, Inches(0.4), Inches(0.4))
+    y = Inches(1.66)
+    for tag, title, gate, targets, why in actions:
+        marker = slide.shapes.add_shape(9, Inches(0.72), y, Inches(0.38),
+                                        Inches(0.38))
         marker.fill.solid()
         marker.fill.fore_color.rgb = ACC
         marker.line.fill.background()
         marker.shadow.inherit = False
-        textbox(slide, Inches(0.62), y + Inches(0.07), Inches(0.4), Inches(0.3),
-                [(tag, {"size": 14, "bold": True,
-                        "color": RGBColor(0xFF, 0xFF, 0xFF)})],
+        textbox(slide, Inches(0.72), y + Inches(0.06), Inches(0.38),
+                Inches(0.3), [(tag, {"size": 13, "bold": True,
+                                     "color": RGBColor(0xFF, 0xFF, 0xFF)})],
                 align=PP_ALIGN.CENTER, space=0)
 
-        textbox(slide, Inches(1.18), y, Inches(6.0), Inches(0.7),
-                [[(title, {"size": 18, "bold": True})],
-                 [("Gate: ", {"size": 11, "color": MUTE}),
-                  (gate, {"size": 11, "bold": True, "color": ACC})]], space=2)
-        textbox(slide, Inches(1.18), y + Inches(0.78), Inches(5.6), Inches(1.4),
-                [[("Why now.  ", {"size": 11.5, "bold": True}),
-                  (why_now, {"size": 11.5})]], space=0)
-        textbox(slide, Inches(7.1), y + Inches(0.02), Inches(5.6), Inches(1.5),
-                [[("What good looks like.  ", {"size": 11.5, "bold": True}),
-                  (what, {"size": 11.5})],
-                 [("Owner.  ", {"size": 10.5, "bold": True, "color": MUTE}),
-                  (who, {"size": 10.5, "color": MUTE})]], space=6)
-        y = y + Inches(2.35)
+        head = [[(title, {"size": 17, "bold": True})]]
+        if gate:
+            head.append([("Gate: ", {"size": 11, "color": MUTE}),
+                         (gate, {"size": 11, "bold": True, "color": BAD})])
+        textbox(slide, Inches(1.26), y, Inches(6.4), Inches(0.7), head, space=2)
 
-    rule = slide.shapes.add_shape(1, Inches(0.62), Inches(6.42),
-                                  W - Inches(1.24), Pt(1))
+        ty = y + Inches(0.80)
+        for label, target, today in targets:
+            textbox(slide, Inches(1.42), ty, Inches(1.5), Inches(0.28),
+                    [(label, {"size": 11, "color": MUTE})], space=0)
+            textbox(slide, Inches(2.95), ty, Inches(1.7), Inches(0.28),
+                    [(target, {"size": 14, "bold": True, "color": GOOD})], space=0)
+            textbox(slide, Inches(4.75), ty, Inches(3.0), Inches(0.28),
+                    [(today, {"size": 11, "color": MUTE})], space=0)
+            ty = ty + Inches(0.38)
+
+        textbox(slide, Inches(8.05), y + Inches(0.04), Inches(4.6), Inches(1.4),
+                [(why, {"size": 12})], space=0)
+        y = y + Inches(2.32)
+
+    rule = slide.shapes.add_shape(1, Inches(0.72), Inches(6.42),
+                                  W - Inches(1.44), Pt(1))
     rule.fill.solid()
     rule.fill.fore_color.rgb = RULE
     rule.line.fill.background()
     rule.shadow.inherit = False
-    textbox(slide, Inches(0.62), Inches(6.58), W - Inches(1.24), Inches(0.6),
+    textbox(slide, Inches(0.72), Inches(6.58), W - Inches(1.44), Inches(0.6),
             [[("The ordering is the point.  ", {"size": 12, "bold": True}),
-              ("Measuring stability before coverage tells you a suite "
-               "repeats — including repeating what it never tested; measuring "
-               "efficiency before stability buys stations to fix flakiness. "
-               "L6 is at the first gate with the volume to prove it; L10 is "
-               "not yet at a gate at all.", {"size": 12})]], space=0)
+              ("Coverage, then stability, then efficiency — a station clears "
+               "one gate before the next is worth measuring. L6 is at the "
+               "first gate with the volume to prove it; L10 is not yet at a "
+               "gate at all.", {"size": 12})]], space=0)
     return slide
 
 
