@@ -239,6 +239,174 @@ def title_slide(prs, title, kicker):
     return slide
 
 
+#: The line's own chart, as exported. Callouts are anchored to pixel rectangles
+#: measured from this exact file, so the check below refuses to place them on
+#: an image of a different size — a swapped export would otherwise scatter the
+#: numbers across the picture and still produce a slide.
+FLOW_IMAGE = REPO / "decks" / "img" / "production-test-flow.png"
+FLOW_IMAGE_SIZE = (1662, 920)
+
+#: label -> (x0, y0, x1, y1) in that image, and what the callout should say.
+#: Measured by flood-filling the box fills rather than by eye.
+FLOW_BOXES = {
+    "ASIC":        (91, 218, 235, 299),
+    "WST":         (91, 345, 235, 426),
+    "FT":          (91, 472, 235, 553),
+    "SLT":         (88, 598, 232, 679),
+    "SMT / ICT":   (300, 239, 444, 320),
+    "Flash / BFT": (323, 655, 438, 726),
+    "HTT":         (491, 297, 635, 378),
+    "MLT":         (491, 423, 635, 504),
+    "ASSY@L6":     (491, 548, 635, 630),
+    "ASSY@2U4U":   (756, 298, 900, 379),
+    "FAT / SFT@6U": (1068, 346, 1212, 427),
+    "2U":          (1068, 485, 1212, 566),
+    "ASSY@6U":     (1068, 623, 1212, 705),
+    "Runin@6U":    (1252, 346, 1396, 427),
+    "ASSY@L11":    (1444, 345, 1588, 426),
+    "FAT / SFT@L11": (1444, 494, 1588, 575),
+    "Runin@L11":   (1444, 643, 1588, 724),
+    "Pack":        (1444, 776, 1588, 857),
+}
+
+#: Which box carries which station's number, and what to say where there is no
+#: number to carry.
+FLOW_CALLOUTS = [
+    ("WST", {"external": "wst"}),
+    ("FT", {"external": "ft"}),
+    ("SLT", {"note": "at Sigurd — not collected here"}),
+    ("MLT", {"station": "mlt"}),
+    ("HTT", {"station": "htt"}),
+    ("Flash / BFT", {"note": "VBB — outside the yield view"}),
+    ("FAT / SFT@6U", {"stations": ["l10_fat", "l10_sft"]}),
+    ("2U", {"station": "l10_2u"}),
+    ("Runin@6U", {"station": "l10_rin"}),
+    ("FAT / SFT@L11", {"station": "l11_test"}),
+    ("Runin@L11", {"note": "counted with FAT / SFT"}),
+]
+
+
+def flow_image_slide(prs, data, week, by_station, external):
+    """Page 2 on the line's own exported chart, with the numbers written under
+    the boxes.
+
+    Drawing the chart ourselves kept it in step with the data automatically;
+    using the export keeps it in step with the *line*, which is the version
+    everyone else is already looking at. The trade is real and worth naming:
+    when the line redraws the flow, this image and the rectangles below must be
+    replaced together, and the size check is what stops that being silent.
+    """
+    slide = title_slide(
+        prs,
+        "Production test flow — yield and quantity",
+        "{} · {} to {}{} · UTC · first-pass yield and units, under each step"
+        .format(week["week"], week["from"], week["endsOn"],
+                ", week still running" if week["partial"] else ""))
+
+    # Fit the export by height, leaving a column at the right for the week's
+    # headline figures.
+    img_x, img_y, img_h = 0.30, 1.30, 5.80
+    img_w = img_h * (FLOW_IMAGE_SIZE[0] / FLOW_IMAGE_SIZE[1])
+    slide.shapes.add_picture(str(FLOW_IMAGE), Inches(img_x), Inches(img_y),
+                             Inches(img_w), Inches(img_h))
+
+    def place(px, py):
+        return (img_x + px * img_w / FLOW_IMAGE_SIZE[0],
+                img_y + py * img_h / FLOW_IMAGE_SIZE[1])
+
+    for name, spec in FLOW_CALLOUTS:
+        box = FLOW_BOXES[name]
+        lines = callout_lines(spec, by_station, external)
+        if not lines:
+            continue
+        x, y = place(box[0], box[3] + 3)
+        width = (box[2] - box[0]) * img_w / FLOW_IMAGE_SIZE[0]
+        # A shade wider than the box so "65.5%  228 units" fits on one line,
+        # centred so the overhang is even and stays inside its own lane.
+        pad = 0.34
+        chip = textbox(slide, Inches(x - pad / 2), Inches(y),
+                       Inches(width + pad), Inches(0.24), lines,
+                       align=PP_ALIGN.CENTER, space=0)
+        # Opaque: the gap under a box is where its incoming arrow runs, and
+        # text laid straight over a line is unreadable at the back of a room.
+        chip.fill.solid()
+        chip.fill.fore_color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
+        chip.line.color.rgb = RGBColor(0xC8, 0xC6, 0xC0)
+        chip.line.width = Pt(0.6)
+        chip.shadow.inherit = False
+
+    headline(slide, data, week, Inches(img_x + img_w + 0.16))
+    return slide
+
+
+def callout_lines(spec, by_station, external):
+    """One line under a box: the number, or why there is not one."""
+    ext = external.get(spec.get("external")) if spec.get("external") else None
+    if ext is not None:
+        return [[(pct(ext["yield"]), {"size": 11, "bold": True,
+                                      "color": tone(ext["yield"])}),
+                 ("  reported", {"size": 8, "color": MUTE})]]
+
+    keys = spec.get("stations") or ([spec["station"]] if spec.get("station") else [])
+    rows = [by_station[k] for k in keys if k in by_station]
+    if not rows:
+        return ([[(spec["note"], {"size": 8, "color": MUTE})]]
+                if spec.get("note") else None)
+
+    if len(rows) == 1 and rows[0].get("readable"):
+        row = rows[0]
+        return [[(pct(row["fpy"]), {"size": 12, "bold": True,
+                                    "color": tone(row["fpy"])}),
+                 ("  {} units".format(row["units"]), {"size": 8.5, "color": MUTE})]]
+
+    counts = " · ".join(
+        "{} {}u".format(r["label"].split()[-1], r["units"]) if len(rows) > 1
+        else "{} unit{}".format(r["units"], "" if r["units"] == 1 else "s")
+        for r in rows)
+    return [[(counts, {"size": 10, "bold": True}),
+             ("  quantity only", {"size": 8, "color": MUTE})]]
+
+
+def headline(slide, data, week, x):
+    """The week in three figures, beside the chart.
+
+    Width is fixed at 2.2in and the caller places it right after the image;
+    at 2.35 it ran off the slide by a tenth of an inch, which PowerPoint shows
+    happily and a projector crops.
+    """
+    totals = week["totals"]
+    thin = [t["label"] for t in (totals.get("excludedThin") or [])]
+    counts = [row["label"] for row in week["rows"] if row.get("countsOnly")]
+
+    textbox(slide, x, Inches(1.42), Inches(2.20), Inches(1.0),
+            [[("Rolled first-pass", {"size": 10, "color": MUTE})],
+             [(pct(totals["rolledFpy"]), {"size": 26, "bold": True, "color": ACC})],
+             [(" × ".join(totals["rolledOver"]), {"size": 9, "color": MUTE})]],
+            space=1)
+    textbox(slide, x, Inches(2.72), Inches(2.20), Inches(1.0),
+            [[("Through the line", {"size": 10, "color": MUTE})],
+             [("{} units".format(sum(r["units"] for r in week["rows"])),
+               {"size": 18, "bold": True})],
+             [("{} runs across {} steps".format(
+                 sum(r["runs"] for r in week["rows"]), len(week["rows"])),
+               {"size": 9, "color": MUTE})]], space=1)
+    textbox(slide, x, Inches(3.85), Inches(2.20), Inches(2.9),
+            [[("Reading the numbers", {"size": 10, "bold": True, "color": MUTE})],
+             [("A percentage is a first-pass yield: units that passed at their "
+               "first attempt that week.", {"size": 8.5})],
+             [("A count means no yield is reported. {} are chassis and rack "
+               "level and in bring-up — a percentage over three units swings "
+               "33 points on one of them.".format(", ".join(counts) or "None"),
+               {"size": 8.5})],
+             [("{}WST and FT are reported by Sigurd. VBB is drawn for the flow "
+               "and left out of the yield view."
+               .format("Too few units this week: {}. ".format(", ".join(thin))
+                       if thin else ""), {"size": 8.5})],
+             [("Source: {}, one row per unit."
+               .format((data.get("source") or {}).get("label", "pega2–pega5")),
+               {"size": 8, "color": MUTE})]], space=5)
+
+
 def flow_slide(prs, data, week, by_station, external):
     slide = title_slide(
         prs,
@@ -785,6 +953,15 @@ def table_slide(prs, data, week, external):
 
 def main(argv):
     label = argv[1] if len(argv) > 1 else None
+    if FLOW_IMAGE.exists():
+        from PIL import Image
+        with Image.open(FLOW_IMAGE) as probe:
+            if probe.size != FLOW_IMAGE_SIZE:
+                raise SystemExit(
+                    "{} is {}, expected {} — the callout rectangles were "
+                    "measured against that size and would land in the wrong "
+                    "places. Re-measure FLOW_BOXES or restore the export."
+                    .format(FLOW_IMAGE.name, probe.size, FLOW_IMAGE_SIZE))
     data, week = load(label)
     by_station = {row["key"]: row for row in week["rows"]}
     external = {item["key"]: item for item in (week.get("external") or [])}
@@ -793,7 +970,13 @@ def main(argv):
     prs.slide_width, prs.slide_height = W, H
 
     metrics_slide(prs, data, week, by_station)
-    flow_slide(prs, data, week, by_station, external)
+    if FLOW_IMAGE.exists():
+        flow_image_slide(prs, data, week, by_station, external)
+    else:
+        # The drawn version stays: it needs no asset and cannot fall out of
+        # step with the data, so a checkout without the image still builds.
+        print("note: {} missing — drawing the flow instead".format(FLOW_IMAGE))
+        flow_slide(prs, data, week, by_station, external)
     table_slide(prs, data, week, external)
     actions_slide(prs, data, week, by_station)
     appendix_slide(prs, data, week)
