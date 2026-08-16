@@ -142,8 +142,16 @@ LANES = [
 WIRES = [
     ("ASIC", "WST", "v"), ("WST", "FT", "v"), ("FT", "SLT", "v"),
     ("FT", "SMT / ICT", "hv"),
-    ("SMT / ICT", "Flash / BFT", "v", "VBB"),
-    ("Flash / BFT", "ASSY@L6", "hv"),
+    # SMT/ICT builds four boards and they go three different ways. The earlier
+    # version drew only the VBB branch and then had it rejoin the module line,
+    # which put the VBB board through MLT — it does not go near it. HPB and PDB
+    # skip the module line entirely and meet the modules at L10 assembly.
+    # Two boards leave the bottom of SMT/ICT, so the wires are nudged apart —
+    # drawn from the same point they overlap and read as one.
+    ("SMT / ICT", "Flash / BFT", "v", "VBB", -0.30),
+    ("SMT / ICT", "ASSY@L6", "vh", "PV1", 0.34),
+    ("SMT / ICT", "ASSY@2U4U", "over", "HPB & PDB"),
+    ("Flash / BFT", "ASSY@2U4U", "hv"),
     ("ASSY@L6", "MLT", "v"), ("MLT", "HTT", "v"),
     ("HTT", "ASSY@2U4U", "hv"),
     ("ASSY@2U4U", "FAT / SFT@6U", "hv"),
@@ -246,7 +254,7 @@ def flow_slide(prs, data, week, by_station, external):
         # Clamped: the last lane starts at 11.34in and a fixed 3in heading
         # would hang 1in off a 13.333in slide.
         head_w = min(3.0, 13.15 - first_x)
-        textbox(slide, Inches(first_x), Inches(1.30), Inches(head_w), Inches(0.26),
+        textbox(slide, Inches(first_x), Inches(1.20), Inches(head_w), Inches(0.26),
                 [[(lane["owner"] + "   " if lane["owner"] else "",
                    {"size": 10, "color": MUTE}),
                   (lane["title"], {"size": 12.5, "bold": True})]], space=0)
@@ -260,8 +268,9 @@ def flow_slide(prs, data, week, by_station, external):
     for wire in WIRES:
         src, dst, route = wire[0], wire[1], wire[2]
         label = wire[3] if len(wire) > 3 else None
+        dx = wire[4] if len(wire) > 4 else 0.0
         if src in placed and dst in placed:
-            connect(slide, placed[src], placed[dst], route, label)
+            connect(slide, placed[src], placed[dst], route, label, dx)
 
     footnote(slide, data, week)
     return slide
@@ -360,7 +369,7 @@ def chip(slide, x, y, text):
             [(text, {"size": 9, "bold": True})], align=PP_ALIGN.CENTER, space=0)
 
 
-def connect(slide, a, b, route, label=None):
+def connect(slide, a, b, route, label=None, dx=0.0):
     """An orthogonal wire from box a to box b, arrow on the far end.
 
     Drawn as explicit segments rather than as an elbow connector: PowerPoint
@@ -368,7 +377,7 @@ def connect(slide, a, b, route, label=None):
     """
     ax, ay, aw, ah = a["x"], a["y"], a["w"], a["h"]
     bx, by, bw, bh = b["x"], b["y"], b["w"], b["h"]
-    acx, acy = ax + aw / 2, ay + ah / 2
+    acx, acy = ax + aw / 2 + dx, ay + ah / 2
     bcx, bcy = bx + bw / 2, by + bh / 2
 
     # Same row: whatever the wire list says, the only sane route is straight
@@ -390,6 +399,12 @@ def connect(slide, a, b, route, label=None):
         turn = (bcx if right else bcx)
         points = [(ax + aw if right else ax, acy), (turn, acy),
                   (turn, by + bh if by < ay else by)]
+    elif route == "over":
+        # Up over the top of the chart and down into the target. The HPB and
+        # PDB boards cross three lanes without touching anything in them, and
+        # any route through the body of the chart would imply they do.
+        top = 1.52
+        points = [(acx, ay), (acx, top), (bcx, top), (bcx, by)]
     else:
         # "vh": clear of the source vertically, then straight in at the
         # target's own centre line. Turning early instead put the wire along
@@ -409,9 +424,14 @@ def connect(slide, a, b, route, label=None):
             arrowhead(line)
 
     if label:
-        lx, ly = points[len(points) // 2]
-        textbox(slide, Inches(lx + 0.05), Inches(ly - 0.20), Inches(0.9),
-                Inches(0.2), [(label, {"size": 8.5, "color": MUTE})], space=0)
+        if route == "over":
+            lx = (points[1][0] + points[2][0]) / 2 - 0.35
+            ly = points[1][1] - 0.19
+        else:
+            lx, ly = points[len(points) // 2]
+            lx, ly = lx + 0.05, ly - 0.20
+        textbox(slide, Inches(lx), Inches(ly), Inches(1.1), Inches(0.2),
+                [(label, {"size": 8.5, "color": MUTE})], space=0)
 
 
 def arrowhead(connector):
@@ -525,6 +545,92 @@ def metrics_slide(prs, data, week, by_station):
               ("a line ships at the rate of its worst step, not its average — "
                "so the only useful version of these three numbers is one per "
                "step, in the order a unit travels.", {"size": 13})]], space=0)
+    return slide
+
+
+def actions_slide(prs, data, week, by_station):
+    """What happens next, against the gates the test programme already uses.
+
+    Coverage -> Stability -> Efficiency is not invented here: it is the
+    milestone model in 32x_Manufacturing_Test_Deepdive, where a station clears
+    one gate before the next is worth measuring. Both actions are placed on it,
+    because "improve L10" means nothing until you say which gate it is failing.
+    """
+    slide = title_slide(
+        prs, "What's next",
+        "against the programme's own gates — coverage, then stability, then "
+        "efficiency; a station clears one before the next is worth measuring")
+
+    mlt = by_station.get("mlt") or {}
+    htt = by_station.get("htt") or {}
+    l10 = [row for row in week["rows"] if row["key"].startswith("l10_")]
+    l10_units = sum(row["units"] for row in l10)
+
+    actions = [
+        ("a", "Develop and maintain full coverage for L6",
+         "Coverage",
+         "MLT and HTT are the only steps with enough volume to read, and they "
+         "are where the line loses most of its units: first pass {} and {}, "
+         "recovered to {} and {} by re-running {} and {} units."
+         .format(pct(mlt.get("fpy")), pct(htt.get("fpy")),
+                 pct(mlt.get("finalYield")), pct(htt.get("finalYield")),
+                 mlt.get("retestUnits"), htt.get("retestUnits")),
+         "Full, maintained coverage at L6 — every board, every condition, and "
+         "the suite kept in step as releases land. Coverage is the first gate "
+         "and the only one L6 has the volume to be measured against today.",
+         "SW team leads define and execute the content; production involved."),
+        ("b", "Speed up development of multiple L10 test units",
+         "Volume, before any gate",
+         "L10 ran {} units across its four steps all week — 2 at FAT, 1 at "
+         "SFT, 1 at RIN, 3 at 2U. That is why every L10 box on this deck says "
+         "quantity only: there is no yield to read, and no gate can be "
+         "measured on single digits.".format(l10_units),
+         "More L10 units, sooner. Not to improve the yield — to make a yield "
+         "exist. Until L10 is running tens of chassis a week, its coverage "
+         "cannot be judged, its stability cannot be measured, and its "
+         "efficiency is not yet a question.",
+         "Production, with the L10 station owners."),
+    ]
+
+    y = Inches(1.62)
+    for tag, title, gate, why_now, what, who in actions:
+        marker = slide.shapes.add_shape(9, Inches(0.62), y, Inches(0.4), Inches(0.4))
+        marker.fill.solid()
+        marker.fill.fore_color.rgb = ACC
+        marker.line.fill.background()
+        marker.shadow.inherit = False
+        textbox(slide, Inches(0.62), y + Inches(0.07), Inches(0.4), Inches(0.3),
+                [(tag, {"size": 14, "bold": True,
+                        "color": RGBColor(0xFF, 0xFF, 0xFF)})],
+                align=PP_ALIGN.CENTER, space=0)
+
+        textbox(slide, Inches(1.18), y, Inches(6.0), Inches(0.7),
+                [[(title, {"size": 18, "bold": True})],
+                 [("Gate: ", {"size": 11, "color": MUTE}),
+                  (gate, {"size": 11, "bold": True, "color": ACC})]], space=2)
+        textbox(slide, Inches(1.18), y + Inches(0.78), Inches(5.6), Inches(1.4),
+                [[("Why now.  ", {"size": 11.5, "bold": True}),
+                  (why_now, {"size": 11.5})]], space=0)
+        textbox(slide, Inches(7.1), y + Inches(0.02), Inches(5.6), Inches(1.5),
+                [[("What good looks like.  ", {"size": 11.5, "bold": True}),
+                  (what, {"size": 11.5})],
+                 [("Owner.  ", {"size": 10.5, "bold": True, "color": MUTE}),
+                  (who, {"size": 10.5, "color": MUTE})]], space=6)
+        y = y + Inches(2.35)
+
+    rule = slide.shapes.add_shape(1, Inches(0.62), Inches(6.42),
+                                  W - Inches(1.24), Pt(1))
+    rule.fill.solid()
+    rule.fill.fore_color.rgb = RULE
+    rule.line.fill.background()
+    rule.shadow.inherit = False
+    textbox(slide, Inches(0.62), Inches(6.58), W - Inches(1.24), Inches(0.6),
+            [[("The ordering is the point.  ", {"size": 12, "bold": True}),
+              ("Measuring stability before coverage tells you a suite "
+               "repeats — including repeating what it never tested; measuring "
+               "efficiency before stability buys stations to fix flakiness. "
+               "L6 is at the first gate with the volume to prove it; L10 is "
+               "not yet at a gate at all.", {"size": 12})]], space=0)
     return slide
 
 
@@ -689,6 +795,7 @@ def main(argv):
     metrics_slide(prs, data, week, by_station)
     flow_slide(prs, data, week, by_station, external)
     table_slide(prs, data, week, external)
+    actions_slide(prs, data, week, by_station)
     appendix_slide(prs, data, week)
 
     OUT_DIR.mkdir(exist_ok=True)
