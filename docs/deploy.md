@@ -40,6 +40,7 @@ moved from `$HOME` would keep the home context and nginx would answer 403.
 
 **Scheduling.** `deploy/systemd/` holds a user service and an hourly `:05` timer;
 `make schedule-install` dispatches on `uname` and installs either that or the
+make schedule-weekly-install   # Saturday 18:00 Pacific: deck + archive
 launchd agent. User units need no root. Linger must be enabled or the timer
 stops at logout — reintroducing exactly the failure the host exists to remove —
 so the installer enables it and complains loudly if polkit refuses.

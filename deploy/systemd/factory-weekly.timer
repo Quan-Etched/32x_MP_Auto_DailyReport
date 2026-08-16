@@ -1,0 +1,24 @@
+# Saturday evening, so the week captured is the week Monday will discuss.
+#
+# The calendar carries its own timezone rather than following the host clock:
+# the box runs UTC and "Saturday 18:00" was asked for in Pacific, which is a
+# different day in UTC and shifts by an hour at each DST boundary. Naming the
+# zone lets systemd track that. `make schedule-weekly-install` validates the
+# expression and falls back to the fixed UTC equivalent on a systemd too old to
+# parse it (before v252).
+#
+# __ONCALENDAR__ is replaced at install time.
+
+[Unit]
+Description=Weekly factory snapshot, deck and archive
+
+[Timer]
+OnCalendar=__ONCALENDAR__
+# If the box was down on Saturday evening, take the snapshot when it comes
+# back. A missed week cannot be recovered later — the controllers age their
+# detail out at 30 days.
+Persistent=true
+AccuracySec=5min
+
+[Install]
+WantedBy=timers.target

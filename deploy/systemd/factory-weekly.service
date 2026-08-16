@@ -1,0 +1,32 @@
+# The weekly snapshot: collect, rebuild, deck, archive, publish.
+#
+# Separate from factory-refresh.service on purpose. The weekly *pages* are
+# rebuilt on every hourly tick and need no schedule; what needs a fixed time is
+# the snapshot — the deck and the copy under weekly/<ISO week>/ that a later
+# week is compared against. One of those a week, at a known moment.
+#
+# A user unit, like the hourly one: it runs as the user who owns the repo, the
+# API key and the web root, and needs no root.
+#
+# Installed by `make schedule-weekly-install`; __REPO__ is replaced at install
+# time. Started by factory-weekly.timer, never enabled directly.
+
+[Unit]
+Description=factory_data_analysis — weekly snapshot, deck and archive
+Documentation=file://__REPO__/README.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=__REPO__
+ExecStart=/bin/bash __REPO__/tools/weekly_snapshot.sh
+
+StandardOutput=journal
+StandardError=journal
+
+Nice=10
+IOSchedulingClass=idle
+
+# It waits up to 20 minutes for the hourly job's lock, then does a 30-day
+# collect and a full rebuild. Generous, and still bounded.
+TimeoutStartSec=90min

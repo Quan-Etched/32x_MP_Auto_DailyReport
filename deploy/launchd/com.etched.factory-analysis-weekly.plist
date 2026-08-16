@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The weekly snapshot on a laptop. Saturday at 18:00 local — launchd's
+  StartCalendarInterval follows the machine's own clock, so unlike the systemd
+  unit there is no timezone to name here.
+
+  RunAtLoad is deliberately absent: installing the agent should not fire a
+  30-day collect and overwrite this week's archive with a partial one.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.etched.factory-analysis-weekly</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/tools/weekly_snapshot.sh</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>6</integer>
+    <key>Hour</key><integer>18</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>__REPO__/data/logs/weekly.out</string>
+  <key>StandardErrorPath</key>
+  <string>__REPO__/data/logs/weekly.err</string>
+
+  <key>LowPriorityIO</key><true/>
+  <key>Nice</key><integer>10</integer>
+</dict>
+</plist>

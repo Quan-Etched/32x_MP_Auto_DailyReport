@@ -11,6 +11,11 @@ STATION ?= l10_sft
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
         dailyexcel requests l10 pega-stations fpy weekly weekly-deck archive \
+        weekly-snapshot schedule-weekly-install schedule-weekly-uninstall \
+        schedule-weekly-status schedule-weekly-install-macos \
+        schedule-weekly-uninstall-macos schedule-weekly-status-macos \
+        schedule-weekly-install-systemd schedule-weekly-uninstall-systemd \
+        schedule-weekly-status-systemd \
         schedule-install-macos schedule-uninstall-macos schedule-status-macos \
         schedule-install-systemd schedule-uninstall-systemd schedule-status-systemd \
         update clean distclean
@@ -26,6 +31,8 @@ help:
 	@echo "make requests           re-check what we need from other systems"
 	@echo "make l10                build the L10 daily tracker (FAT/SFT/RIN/2U) from pega4"
 	@echo "make schedule-install   install the hourly job (launchd / systemd timer)"
+	@echo "make schedule-weekly-install  install the Saturday 18:00 snapshot job"
+	@echo "make weekly-snapshot    run that snapshot now: collect, deck, archive, publish"
 	@echo "make demo               synthetic data + dashboard bundle (no API key needed)"
 	@echo "make collect [DAYS=2]   fetch real runs from the EOS API into data/processed/"
 	@echo "make build              compile data/processed/runs.json into the dashboard bundle"
@@ -117,6 +124,10 @@ weekly:
 weekly-deck: weekly
 	$(PY) tools/build_weekly_deck.py
 
+# The whole weekly job by hand — the same script the Saturday timer runs.
+weekly-snapshot:
+	@bash tools/weekly_snapshot.sh
+
 # Pack a week out for later comparison: the bundle as it stood, a readable
 # summary and the deck, under weekly/<ISO week>/.
 archive: weekly-deck
@@ -144,6 +155,20 @@ schedule-install:   schedule-install-$(SCHED)
 schedule-uninstall: schedule-uninstall-$(SCHED)
 schedule-status:    schedule-status-$(SCHED)
 
+# The weekly snapshot is a second, independent job. The hourly one already
+# rebuilds every page including the weekly ones; this is the deck and the
+# archived copy of the week, which must happen once at a known moment.
+#
+# WEEKLY_AT is a systemd calendar expression carrying its own timezone: the box
+# runs UTC and "Saturday 18:00" was asked for in Pacific, which is a different
+# day there and moves an hour at each DST boundary.
+WEEKLY_AT ?= Sat *-*-* 18:00:00 America/Los_Angeles
+WEEKLY_AT_FALLBACK ?= Sun *-*-* 01:00:00 UTC
+
+schedule-weekly-install:   schedule-weekly-install-$(SCHED)
+schedule-weekly-uninstall: schedule-weekly-uninstall-$(SCHED)
+schedule-weekly-status:    schedule-weekly-status-$(SCHED)
+
 # -------------------------------------------------------------------- macOS
 # launchd follows local time and DST, so :05 stays :05 through PST/PDT.
 LAUNCHD_LABEL := com.etched.factory-analysis-refresh
@@ -156,6 +181,28 @@ schedule-install-macos:
 	@launchctl load $(LAUNCHD_DEST)
 	@echo "Installed $(LAUNCHD_LABEL) — runs at :05 every hour."
 	@echo "Logs: data/logs/refresh.log"
+
+LAUNCHD_WEEKLY := com.etched.factory-analysis-weekly
+LAUNCHD_WEEKLY_DEST := $(HOME)/Library/LaunchAgents/$(LAUNCHD_WEEKLY).plist
+
+schedule-weekly-install-macos:
+	@mkdir -p $(HOME)/Library/LaunchAgents data/logs
+	@sed 's|__REPO__|$(REPO_DIR)|g' deploy/launchd/$(LAUNCHD_WEEKLY).plist \
+	    > $(LAUNCHD_WEEKLY_DEST)
+	@launchctl unload $(LAUNCHD_WEEKLY_DEST) 2>/dev/null || true
+	@launchctl load $(LAUNCHD_WEEKLY_DEST)
+	@echo "Installed $(LAUNCHD_WEEKLY) — Saturdays at 18:00 local."
+	@echo "Logs: data/logs/weekly.log"
+
+schedule-weekly-uninstall-macos:
+	@launchctl unload $(LAUNCHD_WEEKLY_DEST) 2>/dev/null || true
+	@rm -f $(LAUNCHD_WEEKLY_DEST)
+	@echo "Removed $(LAUNCHD_WEEKLY)."
+
+schedule-weekly-status-macos:
+	@launchctl list | grep $(LAUNCHD_WEEKLY) || echo "not loaded"
+	@echo "---"
+	@tail -12 data/logs/weekly.log 2>/dev/null || echo "no log yet"
 
 schedule-uninstall-macos:
 	@launchctl unload $(LAUNCHD_DEST) 2>/dev/null || true
@@ -194,6 +241,46 @@ schedule-uninstall-systemd:
 	@rm -f $(SYSTEMD_DIR)/$(SYSTEMD_UNIT).timer $(SYSTEMD_DIR)/$(SYSTEMD_UNIT).service
 	@systemctl --user daemon-reload
 	@echo "Removed $(SYSTEMD_UNIT)."
+
+SYSTEMD_WEEKLY := factory-weekly
+
+schedule-weekly-install-systemd:
+	@mkdir -p $(SYSTEMD_DIR) data/logs
+	@# Validate the zoned expression before installing it. systemd only learned
+	@# to parse a timezone in a calendar spec in v252; on anything older the
+	@# timer would fail to load and the week would silently never be archived.
+	@ONCAL="$(WEEKLY_AT)"; \
+	if ! systemd-analyze calendar "$$ONCAL" >/dev/null 2>&1; then \
+	    ONCAL="$(WEEKLY_AT_FALLBACK)"; \
+	    echo "NOTE: this systemd cannot parse a zoned calendar; using $$ONCAL."; \
+	    echo "      That is 18:00 Pacific in summer and 17:00 in winter."; \
+	fi; \
+	sed "s|__REPO__|$(REPO_DIR)|g" deploy/systemd/$(SYSTEMD_WEEKLY).service \
+	    > $(SYSTEMD_DIR)/$(SYSTEMD_WEEKLY).service; \
+	sed "s|__ONCALENDAR__|$$ONCAL|" deploy/systemd/$(SYSTEMD_WEEKLY).timer \
+	    > $(SYSTEMD_DIR)/$(SYSTEMD_WEEKLY).timer
+	@systemctl --user daemon-reload
+	@systemctl --user enable --now $(SYSTEMD_WEEKLY).timer
+	@loginctl enable-linger $(USER) 2>/dev/null \
+	    && echo "Linger enabled — the timer runs whether or not you are logged in." \
+	    || echo "WARNING: could not enable linger. Ask #infra-help for: loginctl enable-linger $(USER)"
+	@# Not started now: firing it on install would archive a partial week and
+	@# overwrite the copy a later run would have made properly.
+	@systemctl --user list-timers $(SYSTEMD_WEEKLY).timer --no-pager | head -3
+
+schedule-weekly-uninstall-systemd:
+	@systemctl --user disable --now $(SYSTEMD_WEEKLY).timer 2>/dev/null || true
+	@rm -f $(SYSTEMD_DIR)/$(SYSTEMD_WEEKLY).timer $(SYSTEMD_DIR)/$(SYSTEMD_WEEKLY).service
+	@systemctl --user daemon-reload
+	@echo "Removed $(SYSTEMD_WEEKLY)."
+
+schedule-weekly-status-systemd:
+	@systemctl --user list-timers $(SYSTEMD_WEEKLY).timer --no-pager 2>/dev/null | head -4 || echo "not loaded"
+	@systemctl --user is-active $(SYSTEMD_WEEKLY).service >/dev/null 2>&1 \
+	    && echo "state: a snapshot is running now" \
+	    || echo "state: idle — $$(systemctl --user show -p Result --value $(SYSTEMD_WEEKLY).service 2>/dev/null) on last run"
+	@echo "---"
+	@tail -12 data/logs/weekly.log 2>/dev/null || echo "no log yet"
 
 schedule-status-systemd:
 	@systemctl --user list-timers $(SYSTEMD_UNIT).timer --no-pager 2>/dev/null | head -4 || echo "not loaded"
