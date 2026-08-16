@@ -34,6 +34,9 @@ ARCHIVE_DIR = config.REPO_ROOT / "weekly"
 #: Where the live bundle is written by `factory.cli fpy`.
 BUNDLE = config.DASHBOARD_DATA_DIR / "fpy.js"
 
+#: The weekly tracker's bundle, which is what names the week.
+WEEKLY = config.DASHBOARD_DATA_DIR / "weekly.js"
+
 
 def _load(path: Path) -> Dict[str, Any]:
     text = path.read_text(encoding="utf-8")
@@ -43,27 +46,52 @@ def _load(path: Path) -> Dict[str, Any]:
 
 def archive(label: Optional[str] = None, bundle: Optional[Path] = None,
             root: Optional[Path] = None) -> List[Path]:
-    """Write this week's summary to ``weekly/<label>/`` and return the paths."""
-    source = bundle or BUNDLE
+    """Write one week to ``weekly/<ISO week>/`` and return the paths.
+
+    Sourced from the weekly bundle rather than the rolling one, so the folder,
+    the deck and the page's own address all describe the same Monday-to-Sunday
+    week. An archive that disagreed with the page it was archiving would be
+    worse than no archive.
+    """
+    source = bundle or WEEKLY
     if not source.exists():
         raise FileNotFoundError(
-            "{} — run `make fpy` first".format(source))
+            "{} — run `make weekly` first".format(source))
 
     data = _load(source)
-    window = data.get("window") or {}
-    name = label or window.get("to") or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    weeks = data.get("weeks") or []
+    if not weeks:
+        raise FileNotFoundError("{} holds no weeks".format(source))
+
+    week = weeks[0]
+    if label:
+        week = next((w for w in weeks if w["week"] == label), None)
+        if week is None:
+            raise FileNotFoundError("no week {} in {}".format(label, source))
+
+    name = week["week"]
     target = (root or ARCHIVE_DIR) / name
     target.mkdir(parents=True, exist_ok=True)
 
     written: List[Path] = []
 
-    payload = target / "fpy.json"
-    payload.write_text(json.dumps(data, indent=1, sort_keys=True) + "\n",
+    # The week, plus the context needed to read it a quarter from now: what the
+    # cohort floor was, which stage was excluded, where the numbers came from.
+    stored = dict(week, context={
+        "minCohort": data.get("minCohort"),
+        "excluded": data.get("excluded"),
+        "historyDays": data.get("historyDays"),
+        "source": data.get("source"),
+        "build": data.get("build"),
+        "generatedAt": data.get("generatedAt"),
+    })
+    payload = target / "week.json"
+    payload.write_text(json.dumps(stored, indent=1, sort_keys=True) + "\n",
                        encoding="utf-8")
     written.append(payload)
 
     readme = target / "summary.md"
-    readme.write_text(summarise(data), encoding="utf-8")
+    readme.write_text(summarise(stored), encoding="utf-8")
     written.append(readme)
 
     # The deck, if one was built for this week. Matched on the window's end
@@ -79,27 +107,40 @@ def archive(label: Optional[str] = None, bundle: Optional[Path] = None,
     return written
 
 
-def summarise(data: Dict[str, Any]) -> str:
+def _current_week() -> Optional[str]:
+    if not WEEKLY.exists():
+        return None
+    try:
+        weeks = _load(WEEKLY).get("weeks") or []
+    except (OSError, ValueError, IndexError):
+        return None
+    return weeks[0]["week"] if weeks else None
+
+
+def summarise(week: Dict[str, Any]) -> str:
     """The week as prose and one table — readable without the dashboard."""
-    window = data.get("window") or {}
-    totals = data.get("totals") or {}
-    rows = data.get("rows") or []
-    external = data.get("external") or []
+    context = week.get("context") or {}
+    totals = week.get("totals") or {}
+    rows = week.get("rows") or []
+    external = week.get("external") or []
 
     def pct(value: Optional[float]) -> str:
         return "—" if value is None else "{:.1f}%".format(value * 100)
 
     lines = [
-        "# First-pass yield, {} to {}".format(window.get("from"), window.get("to")),
+        "# {} — first-pass yield, {} to {}{}".format(
+            week.get("week"), week.get("from"), week.get("endsOn"),
+            " (week still running when archived)" if week.get("partial") else ""),
         "",
-        "Archived from `dashboard/data/fpy.js` on {}.".format(
-            datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+        "Archived from `dashboard/data/weekly.js` on {}. Live page: "
+        "`week.html#week={}`.".format(
+            datetime.now(timezone.utc).strftime("%Y-%m-%d"), week.get("week")),
         "",
         "Rolled first-pass across {}: **{}**.".format(
             " x ".join(totals.get("rolledOver") or []) or "no stage",
             pct(totals.get("rolledFpy"))),
         "",
-        "| Step | Units | Runs | First pass | After retest | Retest load | Top failure |",
+        "| Step | Units | Runs | First pass | After retest | Retest rate | Top failure |",
         "| --- | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
 
@@ -120,13 +161,13 @@ def summarise(data: Dict[str, Any]) -> str:
             "",
             "Excluded from the rolled figure — fewer than {} first-time units, "
             "which is too few to read a yield from: {}.".format(
-                totals.get("minCohort"),
+                context.get("minCohort"),
                 ", ".join("{} ({} unit{})".format(
                 t["label"], t["units"], "" if t["units"] == 1 else "s")
                 for t in thin)),
         ]
 
-    source = data.get("source") or {}
+    source = context.get("source") or {}
     lines += [
         "",
         "## Sources",
@@ -135,10 +176,13 @@ def summarise(data: Dict[str, Any]) -> str:
             source.get("label", "the station controllers")),
         "- Attempts numbered over {} days of history, so a unit returning this "
         "week counts as a retest rather than a first pass.".format(
-            data.get("historyDays")),
+            context.get("historyDays")),
         "- Reported rows are hand-entered; the source and date are on the row.",
+        "- Excluded from this view: {}.".format(
+            ", ".join(context.get("excluded") or []) or "nothing"),
+        "- {} unit-level rows kept with this week.".format(len(week.get("units") or [])),
         "- Built from commit {}.".format(
-            (data.get("build") or {}).get("commit", "unknown")),
+            (context.get("build") or {}).get("commit", "unknown")),
         "",
     ]
     return "\n".join(lines)

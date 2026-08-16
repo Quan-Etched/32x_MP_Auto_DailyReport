@@ -10,7 +10,7 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        dailyexcel requests l10 pega-stations builds validation fpy weekly archive \
+        dailyexcel requests l10 pega-stations builds validation fpy weekly weekly-deck archive \
         schedule-install-macos schedule-uninstall-macos schedule-status-macos \
         schedule-install-systemd schedule-uninstall-systemd schedule-status-systemd \
         update clean distclean
@@ -120,9 +120,14 @@ fpy:
 weekly:
 	$(PY) -m factory.cli weekly
 
-# Pack a week out for later comparison: the bundle as it stood plus a readable
-# summary, under a dated folder in weekly/.
-archive: fpy
+# The weekly deck: the flow with the numbers in it, plus the step table.
+# Reads the bundle `make weekly` wrote, so run that first.
+weekly-deck: weekly
+	$(PY) tools/build_weekly_deck.py
+
+# Pack a week out for later comparison: the bundle as it stood, a readable
+# summary and the deck, under weekly/<ISO week>/.
+archive: weekly-deck
 	$(PY) -m factory.cli archive
 
 # Re-check what we need from other systems (routes, certs, IAM, API fields) and
