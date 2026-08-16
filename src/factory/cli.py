@@ -318,13 +318,6 @@ def cmd_build(args: argparse.Namespace) -> int:
                 pega_payload, pega_collect.fetch_state(pega_payload))
             pega_path = build_stations.write_bundle(
                 pega_bundle, config.DASHBOARD_DATA_DIR / "pega_stations.js")
-            # Same payload again: which units were new to a station and which
-            # came back. Free, since the collection is already in hand.
-            from . import build_history
-            builds_path = build_history.write_bundle(
-                build_history.build_bundle(pega_payload))
-            print("Builds ({:.0f} KB) -> {}".format(
-                builds_path.stat().st_size / 1024, builds_path))
             print("Pega stations ({:.0f} KB, {} unit runs) -> {}".format(
                 pega_path.stat().st_size / 1024, pega_payload["runCount"], pega_path))
         else:
@@ -409,30 +402,6 @@ def cmd_build(args: argparse.Namespace) -> int:
                 wk_path.stat().st_size / 1024, wk_path))
         except Exception as exc:                          # noqa: BLE001
             print("Weekly tracker skipped ({})".format(exc))
-
-    # The current validation build, unit by unit. Which suite that is resolves
-    # at build time, so the page follows the line instead of freezing on the
-    # release it was written for. No validation running is a normal week, not
-    # an error.
-    from . import build_validation
-    try:
-        collected = build_validation.collect()
-        if collected["units"]:
-            # The history join needs the controllers' payload. Reuse the one
-            # already collected above; only pay for a second walk if that
-            # collection failed, and let the except below catch it if it fails
-            # again rather than taking the build down with it.
-            val_payload = (pega_payload if pega_bundle is not None
-                           else pega_collect.collect(days=30))
-            val_path = build_validation.write_bundle(
-                build_validation.build_bundle(val_payload, collected))
-            print("Validation ({:.0f} KB, {} units on {}) -> {}".format(
-                val_path.stat().st_size / 1024, len(collected["units"]),
-                collected["suite"], val_path))
-        else:
-            print("Validation page skipped (no validation suite in the window)")
-    except Exception as exc:                              # noqa: BLE001
-        print("Validation page skipped ({})".format(exc))
 
     # The releases page needs the item store; skip rather than fail when it has
     # not been built yet (`make items`).
@@ -702,55 +671,6 @@ def cmd_fpy(args: argparse.Namespace) -> int:
     if rolled is not None:
         print("  rolled first-pass across {} stages: {:.1%}".format(
             len(bundle["totals"]["rolledOver"]), rolled))
-    return 0
-
-
-def cmd_validation(args: argparse.Namespace) -> int:
-    """The units that went through one suite, and how they reconcile."""
-    from . import build_validation, pega_collect
-
-    suite = args.suite or build_validation.DEFAULT_SUITE
-    host = args.host or build_validation.DEFAULT_HOST
-    collected = build_validation.collect(suite=suite, host=host)
-    if not collected["units"]:
-        print("No units found for {} on {}.".format(suite, host), file=sys.stderr)
-        return 1
-
-    bundle = build_validation.build_bundle(pega_collect.collect(days=30), collected)
-    path = build_validation.write_bundle(bundle)
-    counts = bundle["counts"]
-    print("Validation ({:.0f} KB, {} units) -> {}".format(
-        path.stat().st_size / 1024, counts["units"], path))
-    print("  {} passed / {} failed  ({} new: {} passed · {} seen before: {} passed)".format(
-        counts["passed"], counts["failed"],
-        counts["new"]["units"], counts["new"]["passed"],
-        counts["seen"]["units"], counts["seen"]["passed"]))
-    print("  the same station ran {} units that day across {} other suites".format(
-        bundle["reconcile"]["dayTotal"], len(bundle["reconcile"]["siblings"])))
-    return 0
-
-
-def cmd_builds(args: argparse.Namespace) -> int:
-    """New build or retest, per unit per station, from the controllers."""
-    from . import build_history, pega_collect
-
-    payload = pega_collect.collect(days=30)
-    if not payload["runs"]:
-        print("No runs from the controllers.", file=sys.stderr)
-        return 1
-    bundle = build_history.build_bundle(payload, days=args.days)
-    path = build_history.write_bundle(bundle)
-    counts = bundle["counts"]
-    print("Builds ({:.0f} KB, {} runs over {} units) -> {}".format(
-        path.stat().st_size / 1024, counts["runs"], counts["units"], path))
-    for key, label in (("new", "new builds"),
-                       ("retestAfterFail", "retests after a failure"),
-                       ("retestAfterPass", "retests after a pass")):
-        entry = counts[key]
-        rate = entry["rate"]
-        print("  {:<24} {:>4}  pass rate {}".format(
-            label, entry["runs"],
-            "{:.1f}%".format(100 * rate) if rate is not None else "—"))
     return 0
 
 
@@ -1052,17 +972,6 @@ def _build_parser() -> argparse.ArgumentParser:
         "fpy", help="end-to-end first-pass yield, one row per test step")
     fpy.add_argument("--days", type=int, default=None)
     fpy.set_defaults(handler=cmd_fpy)
-
-    validation = subparsers.add_parser(
-        "validation", help="one suite's validation run, unit by unit")
-    validation.add_argument("--suite", default=None)
-    validation.add_argument("--host", default=None)
-    validation.set_defaults(handler=cmd_validation)
-
-    builds = subparsers.add_parser(
-        "builds", help="mark each run as a new build or a retest")
-    builds.add_argument("--days", type=int, default=14)
-    builds.set_defaults(handler=cmd_builds)
 
     l10 = subparsers.add_parser("l10", help="build the L10 daily tracker from pega4")
     l10.add_argument("--days", type=int, default=build_l10_default_days())
