@@ -61,7 +61,7 @@ python3 -c "import sqlite3; sqlite3.connect('data/processed/items.sqlite').execu
 #    and .git itself, so the box can diff and pull later. .env is deliberately
 #    NOT synced; see "Updating the code" below.
 ssh chuck@chuck-dashboard.usw2.i.etched.com 'mkdir -p factory_data_analysis/data/processed'
-rsync -av --no-owner --no-group \
+rsync -av --delete --no-owner --no-group \
   --exclude '.DS_Store' --exclude '__pycache__/' \
   --exclude '.env' \
   --exclude 'data/' --exclude 'dashboard/data/' \
@@ -157,7 +157,35 @@ cannot reach the controllers, which is why the code path remains.
 
 ### Updating the code
 
-Another `rsync` from the laptop — step 3, **including its `--exclude '.env'`**.
+Another `rsync` from the laptop — step 3, **including its `--delete` and its
+`--exclude '.env'`**.
+
+`--delete` is not tidiness either, and it was missing here until a page had to
+be taken down. Without it a file deleted in the repo simply stays on the box,
+and `make publish` — which *does* rsync `dashboard/` with `--delete` — copies
+it back into the web root from the box's own stale tree. The page comes back
+from the dead and the deploy looks like it worked. Deleting `validation.html`
+and `builds.html` was the case that found it.
+
+It is safe with the exclusions above: rsync protects excluded paths from
+deletion unless you also pass `--delete-excluded`, so `.env`, `data/` and
+`dashboard/data/` survive untouched while everything else is made to match.
+`dashboard/data/` surviving has one consequence worth knowing: a *generated*
+bundle whose builder was removed is not cleaned up by the sync. Delete those by
+hand on the box — see below.
+
+**Removing a page.** Deleting `dashboard/foo.html` (and its `.js`, `.css` and
+builder) covers the page itself. Its generated bundle lives under
+`dashboard/data/`, which the sync deliberately does not touch, so remove that
+one on the box:
+
+```bash
+# box, after the rsync
+rm -f dashboard/data/foo.js
+make build && make publish
+curl -o /dev/null -sw '%{http_code}\n' https://32x-production.i.etched.com/foo.html   # 404
+```
+
 That exclusion is not tidiness. The box's `.env` carries `FACTORY_WEB_ROOT`,
 which is what makes `make publish` copy into the web root instead of pushing to
 `gh-pages`; a laptop `.env` has no such line. Syncing it over silently converts
