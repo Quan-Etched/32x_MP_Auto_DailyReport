@@ -45,7 +45,7 @@ import json
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from . import config, rootcause, stations, version
 
@@ -89,10 +89,23 @@ def _day(ts: int) -> str:
     return datetime.fromtimestamp(ts, timezone.utc).strftime("%Y-%m-%d")
 
 
-def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS) -> Dict[str, Any]:
+def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
+                 start: Optional[str] = None, end: Optional[str] = None,
+                 exclude: Sequence[str] = (),
+                 min_cohort: Optional[int] = None) -> Dict[str, Any]:
+    """The window's yield per step.
+
+    ``start``/``end`` pin the window to real dates — a working week runs Monday
+    to Sunday, and a rolling "last seven days" quietly straddles two of them,
+    which is how a Monday meeting ends up discussing a number that includes
+    the previous Sunday.
+    """
+    floor = MIN_COHORT if min_cohort is None else min_cohort
     today = datetime.now(timezone.utc).date()
-    start = (today - timedelta(days=days - 1)).strftime("%Y-%m-%d")
-    end = today.strftime("%Y-%m-%d")
+    if start is None:
+        start = (today - timedelta(days=days - 1)).strftime("%Y-%m-%d")
+    if end is None:
+        end = today.strftime("%Y-%m-%d")
 
     runs = sorted(
         (run for run in payload.get("runs", [])
@@ -109,8 +122,11 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS) -> Dict[str,
 
     for key in sorted({station for station, _dut in history},
                       key=lambda k: registry.get(k, {}).get("order", 999)):
+        if key in exclude:
+            continue
         units = {dut: rs for (station, dut), rs in history.items() if station == key}
-        window = {dut: [r for r in rs if _day(r["startTs"]) >= start]
+        window = {dut: [r for r in rs
+                        if start <= _day(r["startTs"]) <= end]
                   for dut, rs in units.items()}
         window = {dut: rs for dut, rs in window.items() if rs}
         if not window:
@@ -119,6 +135,11 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS) -> Dict[str,
         # New to this stage: its very first run in the collected history landed
         # inside the window. These are the only units an FPY can be asked of.
         fresh = [dut for dut in window if _day(units[dut][0]["startTs"]) >= start]
+        # Two floors, because the two figures have different denominators: a
+        # stage can test fifty units of which three are new, and its final
+        # yield is then perfectly readable while its first-pass yield is not.
+        readable = len(fresh) >= floor
+        yield_readable = len(window) >= floor
         first_pass = sum(1 for dut in fresh if units[dut][0]["status"] == "pass")
         passed = sum(1 for rs in window.values()
                      if any(r["status"] == "pass" for r in rs))
@@ -131,11 +152,20 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS) -> Dict[str,
             "units": len(window),
             "runs": sum(len(rs) for rs in window.values()),
             "newUnits": len(fresh),
-            "fpy": (first_pass / len(fresh)) if fresh else None,
-            "finalYield": passed / len(window),
+            # Below MIN_COHORT no yield is published, in either column. A
+            # 0.0% over two units is not a yield, and printing one invites
+            # somebody to quote it — the counts beside it say everything that
+            # can honestly be said about a stage that ran three chassis.
+            "fpy": (first_pass / len(fresh)) if (fresh and readable) else None,
+            "finalYield": (passed / len(window)) if yield_readable else None,
+            "readable": readable,
+            "yieldReadable": yield_readable,
+            "passedUnits": passed,
+            "firstPassUnits": first_pass if readable else None,
             # Retest load: units that needed more than one run this week. Left
             # out where repeat runs are a provisioning sequence rather than a
             # second attempt at the same test.
+            # Plainly: the share of units that had to be run more than once.
             "retestRatio": None if key in MULTI_SUITE else repeats / len(window),
             "retestUnits": None if key in MULTI_SUITE else repeats,
             "retestNote": ("repeat runs here are a provisioning sequence, not "
@@ -150,6 +180,7 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS) -> Dict[str,
         "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "build": version.describe(),
         "window": {"from": start, "to": end, "days": days},
+        "excluded": list(exclude),
         "historyDays": HISTORY_DAYS,
         "source": payload.get("dataSource") or {},
         "rows": rows,
@@ -159,7 +190,7 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS) -> Dict[str,
                  measured=False)
             for key in ("wst", "ft") if key in EXTERNAL
         ],
-        "totals": _totals(rows),
+        "totals": _totals(rows, floor),
     }
 
 
@@ -192,10 +223,10 @@ def _top_failures(runs: List[Dict[str, Any]], limit: int = 5) -> List[Dict[str, 
 MIN_COHORT = 20
 
 
-def _totals(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _totals(rows: List[Dict[str, Any]], floor: int = MIN_COHORT) -> Dict[str, Any]:
     graded = [row for row in rows if row["fpy"] is not None]
-    counted = [row for row in graded if row["newUnits"] >= MIN_COHORT]
-    thin = [row for row in rows if row["newUnits"] < MIN_COHORT]
+    counted = [row for row in graded if row["readable"]]
+    thin = [row for row in rows if not row["readable"]]
     return {
         "stations": len(rows),
         "units": sum(row["units"] for row in rows),
@@ -210,7 +241,7 @@ def _totals(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
         # like whole-line coverage.
         "excludedThin": [{"label": row["label"], "newUnits": row["newUnits"],
                           "units": row["units"]} for row in thin],
-        "minCohort": MIN_COHORT,
+        "minCohort": floor,
     }
 
 

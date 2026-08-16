@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Week — Yield and Source Data</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="weekly.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <h1 id="title">Week</h1>
+    <span class="meta" id="meta"></span>
+    <span class="build" id="build"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" href="weekly.html">&larr; All weeks</a>
+    <a class="theme-toggle" href="flow.html">Test flow &rarr;</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <nav class="wk-bar" id="weekbar"></nav>
+
+  <section class="wk-tiles" id="tiles"></section>
+
+  <div class="table-wrap">
+    <table class="wk-table steps">
+      <caption id="steps-caption"></caption>
+      <thead>
+        <tr>
+          <th scope="col">Test step</th>
+          <th scope="col" class="n">Units</th>
+          <th scope="col" class="n">Runs</th>
+          <th scope="col" class="n">First-pass yield</th>
+          <th scope="col" class="n">After retest</th>
+          <th scope="col" class="n">Retest rate</th>
+          <th scope="col">Top failures</th>
+        </tr>
+      </thead>
+      <tbody id="steps"></tbody>
+    </table>
+  </div>
+
+  <!-- The point of the page: the rows behind every number above. -->
+  <section class="wk-source">
+    <h2>Source data — every unit run this week</h2>
+    <p class="wk-note" id="source-note"></p>
+    <div class="wk-filters" id="filters"></div>
+    <div class="table-wrap">
+      <table class="wk-table units">
+        <caption id="units-caption"></caption>
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Test step</th>
+            <th scope="col">DUT SN</th>
+            <th scope="col">Software release</th>
+            <th scope="col" class="n">Attempt</th>
+            <th scope="col">Result</th>
+            <th scope="col">Failed test cases</th>
+            <th scope="col">Source</th>
+          </tr>
+        </thead>
+        <tbody id="units"></tbody>
+      </table>
+    </div>
+    <p class="wk-more" id="more"></p>
+  </section>
+
+  <footer class="notes" id="sources"></footer>
+</div>
+
+<script src="data/weekly.js"></script>
+<script src="week.js"></script>
+<script src="theme.js"></script>
+<script src="update.js"></script>
+</body>
+</html>

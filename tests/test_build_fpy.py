@@ -32,7 +32,9 @@ def payload(runs):
 
 class FirstPassTest(unittest.TestCase):
     def rows(self, runs, days=7):
-        bundle = build_fpy.build_bundle(payload(runs), days=days)
+        # min_cohort=1: these cases are about what counts as a first pass, not
+        # about the volume floor, which has its own tests below.
+        bundle = build_fpy.build_bundle(payload(runs), days=days, min_cohort=1)
         return {row["key"]: row for row in bundle["rows"]}
 
     def test_a_unit_that_passes_first_time_is_a_first_pass(self):
@@ -72,15 +74,15 @@ class RetestTest(unittest.TestCase):
         for a stage that retests almost nothing."""
         bundle = build_fpy.build_bundle(payload([
             run("A", "vbb_provision", "pass", ts(2)),
-            run("A", "vbb_provision", "pass", ts(2) + 60)]))
+            run("A", "vbb_provision", "pass", ts(2) + 60)]), min_cohort=1)
         row = bundle["rows"][0]
         self.assertIsNone(row["retestRatio"])
         self.assertIn("sequence", row["retestNote"])
 
 
 class RolledTest(unittest.TestCase):
-    def bundle(self, runs):
-        return build_fpy.build_bundle(payload(runs))
+    def bundle(self, runs, **kwargs):
+        return build_fpy.build_bundle(payload(runs), **kwargs)
 
     def many(self, station, count, passing):
         out = []
@@ -104,6 +106,18 @@ class RolledTest(unittest.TestCase):
         self.assertEqual([e["label"] for e in bundle["totals"]["excludedThin"]],
                          ["L10 SFT"])
 
+    def test_below_the_floor_no_yield_is_published_at_all(self):
+        """A 0.0% over two units is not a yield. Printing one invites somebody
+        to quote it; the counts beside it say all that can honestly be said."""
+        bundle = self.bundle([run("X", "l10_fat", "fail", ts(1)),
+                              run("Y", "l10_fat", "pass", ts(1))])
+        row = bundle["rows"][0]
+        self.assertIsNone(row["fpy"])
+        self.assertIsNone(row["finalYield"])
+        self.assertFalse(row["readable"])
+        self.assertEqual(row["units"], 2)
+        self.assertEqual(row["passedUnits"], 1)
+
     def test_the_thin_stages_are_named_rather_than_dropped(self):
         """That they are too thin to read is the readiness finding; hiding
         them would make the headline look like whole-line coverage."""
@@ -117,7 +131,8 @@ class ExternalTest(unittest.TestCase):
     def test_reported_stages_carry_their_source_and_date(self):
         """A figure someone typed in and a figure from 279 runs must never be
         indistinguishable on a slide."""
-        bundle = build_fpy.build_bundle(payload([run("A", "mlt", "pass", ts(1))]))
+        bundle = build_fpy.build_bundle(payload([run("A", "mlt", "pass", ts(1))]),
+                                        min_cohort=1)
         external = {item["key"]: item for item in bundle["external"]}
         self.assertEqual(set(external), {"wst", "ft"})
         for item in external.values():
@@ -126,7 +141,8 @@ class ExternalTest(unittest.TestCase):
             self.assertTrue(item["asOf"])
 
     def test_measured_rows_say_so(self):
-        bundle = build_fpy.build_bundle(payload([run("A", "mlt", "pass", ts(1))]))
+        bundle = build_fpy.build_bundle(payload([run("A", "mlt", "pass", ts(1))]),
+                                        min_cohort=1)
         self.assertTrue(bundle["rows"][0]["measured"])
 
 
@@ -134,13 +150,15 @@ class FailureTest(unittest.TestCase):
     def test_containers_do_not_top_the_failure_list(self):
         bundle = build_fpy.build_bundle(payload([
             run("A", "mlt", "fail", ts(1),
-                ["SltModuleNestedTestCase", "SohuPowerVirusTestCase"])]))
+                ["SltModuleNestedTestCase", "SohuPowerVirusTestCase"])]),
+            min_cohort=1)
         names = [f["name"] for f in bundle["rows"][0]["topFailures"]]
         self.assertEqual(names, ["SohuPowerVirusTestCase"])
 
     def test_a_passing_run_contributes_no_failures(self):
         bundle = build_fpy.build_bundle(payload([
-            run("A", "mlt", "pass", ts(1), ["SohuPowerVirusTestCase"])]))
+            run("A", "mlt", "pass", ts(1), ["SohuPowerVirusTestCase"])]),
+            min_cohort=1)
         self.assertEqual(bundle["rows"][0]["topFailures"], [])
 
 

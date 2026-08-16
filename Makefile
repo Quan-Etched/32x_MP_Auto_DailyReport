@@ -10,7 +10,7 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        dailyexcel requests l10 pega-stations builds validation fpy weekly \
+        dailyexcel requests l10 pega-stations builds validation fpy weekly archive \
         schedule-install-macos schedule-uninstall-macos schedule-status-macos \
         schedule-install-systemd schedule-uninstall-systemd schedule-status-systemd \
         update clean distclean
@@ -117,8 +117,13 @@ fpy:
 # Pack the week out: the bundle as it stood, plus a readable summary, under a
 # dated folder in weekly/. The dashboard always shows the current seven days,
 # so without this the comparison a month from now has nothing to compare to.
-weekly: fpy
+weekly:
 	$(PY) -m factory.cli weekly
+
+# Pack a week out for later comparison: the bundle as it stood plus a readable
+# summary, under a dated folder in weekly/.
+archive: fpy
+	$(PY) -m factory.cli archive
 
 # Re-check what we need from other systems (routes, certs, IAM, API fields) and
 # rebuild that page. Also runs as part of `make build`.

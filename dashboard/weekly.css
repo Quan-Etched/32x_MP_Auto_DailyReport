@@ -1,0 +1,105 @@
+/* The weekly tracker: the index over weeks, and one week in full.
+   Shared by weekly.html and week.html so the two cannot drift apart. */
+
+.wk-intro { max-width: 78ch; margin: 14px 0 4px; color: var(--text-secondary); line-height: 1.55; }
+.wk-intro strong { color: var(--text-primary); }
+
+/* --------------------------------------------------------------- week bar */
+
+.wk-bar { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 4px; }
+
+.wk-bar button {
+  display: flex; flex-direction: column; gap: 1px;
+  padding: 6px 12px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer;
+}
+
+.wk-bar button:hover { background: var(--hover-wash); color: var(--text-primary); }
+.wk-bar button[aria-pressed="true"] {
+  border-color: var(--accent-solid); color: var(--text-primary);
+  background: var(--hover-wash);
+}
+.wk-bar .n { font-size: 11px; color: var(--text-muted); }
+
+/* ----------------------------------------------------------------- tiles */
+
+.wk-tiles { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 6px; }
+
+.wk-tile {
+  flex: 1 1 220px; padding: 13px 15px; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--surface-1);
+}
+.wk-tile.lead { border-color: var(--accent-solid); }
+.wk-tile .k { display: block; font-size: 12px; color: var(--text-muted); }
+.wk-tile .v {
+  display: block; font-size: 30px; line-height: 1.15; margin: 4px 0 2px;
+  font-variant-numeric: tabular-nums; color: var(--text-primary);
+}
+.wk-tile.lead .v { color: var(--accent-solid); }
+.wk-tile .s { display: block; font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+
+/* ----------------------------------------------------------------- table */
+
+.wk-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.wk-table caption { text-align: left; padding: 10px 0; color: var(--text-secondary); max-width: 96ch; }
+.wk-table th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 12px; }
+.wk-table th.n, .wk-table td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.wk-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.wk-table .step { font-weight: 600; color: var(--text-primary); }
+.wk-table .sub { display: block; font-size: 10.5px; color: var(--text-muted); font-weight: 400; }
+.wk-table tr.thin td { color: var(--text-muted); }
+.wk-table .y { font-size: 15px; font-weight: 650; }
+.wk-table .good { color: var(--status-good); }
+.wk-table .warn { color: var(--status-warning); }
+.wk-table .bad  { color: var(--status-critical); }
+.wk-table .countonly { color: var(--text-muted); font-size: 12px; }
+.wk-table .fails { font-size: 12px; color: var(--text-secondary); line-height: 1.45; white-space: pre-line; }
+.wk-table .fails.small { font-size: 11px; max-width: 30ch; }
+.wk-table .fails b { font-weight: 600; color: var(--text-primary); }
+.wk-link { font-weight: 600; color: var(--accent-solid); }
+
+/* Retest rate is a percentage of units, and was read as a count by more than
+   one person — so the row under it spells the fraction out. */
+.wk-table .retest { color: var(--text-primary); }
+
+/* A reported figure and a measured one must not look alike. */
+.wk-table tr.reported .step::after {
+  content: 'reported'; display: inline-block; margin-left: 7px;
+  padding: 1px 6px; border: 1px dashed var(--text-muted); border-radius: 3px;
+  font-size: 10px; font-weight: 500; color: var(--text-muted); vertical-align: middle;
+}
+
+/* ---------------------------------------------------------- source table */
+
+.wk-source { margin-top: 30px; }
+.wk-source h2 { font-size: 17px; margin: 0 0 6px; }
+.wk-note { margin: 0 0 12px; color: var(--text-secondary); max-width: 88ch; line-height: 1.5; }
+
+.wk-filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+.wk-chip {
+  padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-secondary); font: inherit;
+  font-size: 12px; cursor: pointer;
+}
+.wk-chip:hover { background: var(--hover-wash); color: var(--text-primary); }
+.wk-chip[aria-pressed="true"] {
+  border-color: var(--accent-solid); color: var(--accent-solid);
+}
+
+.units .day { color: var(--text-muted); white-space: nowrap; }
+.units .dut { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.units .rel { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; overflow-wrap: anywhere; }
+.units .res { text-transform: capitalize; font-weight: 600; }
+.units .r-pass { color: var(--status-good); }
+.units .r-fail, .units .r-error { color: var(--status-critical); }
+.units .srclink { color: var(--accent-solid); white-space: nowrap; }
+
+.wk-more { margin: 12px 0 0; }
+.wk-more-btn {
+  padding: 6px 14px; border-radius: var(--radius); border: 1px solid var(--border);
+  background: transparent; color: var(--text-primary); font: inherit; cursor: pointer;
+}
+.wk-more-btn:hover { background: var(--hover-wash); }
+
+.notes .src { font-size: 12px; color: var(--text-muted); line-height: 1.6; }

@@ -73,11 +73,15 @@ LINK_COLUMNS = ("G", "J")
 
 DEFAULT_DIR = config.REPO_ROOT / "daily"
 
-#: Days EOS has module MLT/HTT data for, but the workbook does not, are rebuilt
-#: from the API so the page keeps going when nobody has exported the sheet yet.
-#: Capped: the point is "today and the day before", not a parallel history that
-#: quietly competes with the line's own record.
-DERIVE_LIMIT = 3
+#: Days the workbook has not reached are rebuilt from the controllers so the
+#: page keeps going when nobody has exported the sheet yet.
+#:
+#: Five, not three: the candidate list became calendar-driven, and the calendar
+#: includes today — which in UTC arrives mid-afternoon Pacific and is usually
+#: empty. Three slots therefore held two real days plus an empty one, and
+#: 08-13 silently dropped off a tracker that had shown it the day before. Five
+#: covers a working week's tail with room for the empty day.
+DERIVE_LIMIT = 5
 
 #: The stations the tracker covers, and the column pair each one fills.
 DERIVED_STATIONS = (("mlt", "E", "F", "G"), ("htt", "H", "I", "J"))

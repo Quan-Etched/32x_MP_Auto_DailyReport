@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weekly Yield Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="weekly.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <h1>Weekly Yield Tracker</h1>
+    <span class="meta" id="meta"></span>
+    <span class="build" id="build"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" href="flow.html">Test flow &rarr;</a>
+    <a class="theme-toggle" href="index.html">&larr; Station yield</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <p class="wk-intro">
+    Every week since collection began, Monday to Sunday, one row each. The
+    figure is <strong>first-pass yield</strong> — units that passed on their
+    first run at that step. Click a week for its step-by-step detail and the
+    unit rows behind every number.
+  </p>
+
+  <div class="table-wrap">
+    <table class="wk-table" id="summary">
+      <caption id="caption"></caption>
+      <thead id="head"></thead>
+      <tbody id="body"></tbody>
+    </table>
+  </div>
+
+  <footer class="notes" id="sources"></footer>
+</div>
+
+<script src="data/weekly.js"></script>
+<script src="weeklysummary.js"></script>
+<script src="theme.js"></script>
+<script src="update.js"></script>
+</body>
+</html>

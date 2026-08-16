@@ -398,6 +398,18 @@ def cmd_build(args: argparse.Namespace) -> int:
         except Exception as exc:                          # noqa: BLE001
             print("FPY summary skipped ({})".format(exc))
 
+    # The weekly tracker — every week Monday to Sunday, and the unit rows
+    # behind each number so anyone can check it.
+    if pega_bundle is not None:
+        from . import build_weekly
+        try:
+            wk_path = build_weekly.write_bundle(
+                build_weekly.build_bundle(pega_payload))
+            print("Weekly tracker ({:.0f} KB) -> {}".format(
+                wk_path.stat().st_size / 1024, wk_path))
+        except Exception as exc:                          # noqa: BLE001
+            print("Weekly tracker skipped ({})".format(exc))
+
     # The current validation build, unit by unit. Which suite that is resolves
     # at build time, so the page follows the line instead of freezing on the
     # release it was written for. No validation running is a normal week, not
@@ -631,7 +643,27 @@ def cmd_requests(args: argparse.Namespace) -> int:
 
 
 def cmd_weekly(args: argparse.Namespace) -> int:
-    """Pack the week out, so a later week has something to compare against."""
+    """The weekly tracker: every week's yield, and the rows behind it."""
+    from . import build_weekly, pega_collect
+
+    payload = pega_collect.collect(days=build_weekly.build_fpy.HISTORY_DAYS)
+    if not payload["runs"]:
+        print("No runs from the controllers.", file=sys.stderr)
+        return 1
+    bundle = build_weekly.build_bundle(payload, weeks=args.weeks)
+    path = build_weekly.write_bundle(bundle)
+    print("Weekly tracker ({:.0f} KB, {} weeks) -> {}".format(
+        path.stat().st_size / 1024, len(bundle["weeks"]), path))
+    for week in bundle["weeks"]:
+        print("  {}  {} .. {}{}  {} steps, {} unit runs".format(
+            week["week"], week["from"], week["to"],
+            " (partial)" if week["partial"] else "",
+            len(week["rows"]), len(week["units"])))
+    return 0
+
+
+def cmd_archive(args: argparse.Namespace) -> int:
+    """Pack a week out, so a later week has something to compare against."""
     from . import weekly as weekly_mod
 
     try:
@@ -1006,10 +1038,15 @@ def _build_parser() -> argparse.ArgumentParser:
     pega_stations.set_defaults(handler=cmd_pega_stations)
 
     weekly = subparsers.add_parser(
-        "weekly", help="archive this week's FPY summary under weekly/")
-    weekly.add_argument("--label", default=None,
-                        help="folder name; defaults to the window's end date")
+        "weekly", help="the weekly tracker: every week's yield and its rows")
+    weekly.add_argument("--weeks", type=int, default=12)
     weekly.set_defaults(handler=cmd_weekly)
+
+    archive = subparsers.add_parser(
+        "archive", help="pack a week out under weekly/ for later comparison")
+    archive.add_argument("--label", default=None,
+                         help="folder name; defaults to the window's end date")
+    archive.set_defaults(handler=cmd_archive)
 
     fpy = subparsers.add_parser(
         "fpy", help="end-to-end first-pass yield, one row per test step")
