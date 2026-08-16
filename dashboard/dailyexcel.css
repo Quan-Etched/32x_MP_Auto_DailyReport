@@ -491,3 +491,15 @@ span.jira-key { color: var(--text-secondary); }
   border-top: 1px dashed var(--status-warning);
   color: var(--status-warning);
 }
+
+/* The release-only figure, wherever the tile above it counts a validation or
+   debug build too. Marked, because the difference between the two numbers is
+   exactly what gets misread. */
+.sheet-tile .tile-release {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+  color: var(--text-secondary);
+}
+
+.sheet-tile .tile-release strong { color: var(--text-primary); }

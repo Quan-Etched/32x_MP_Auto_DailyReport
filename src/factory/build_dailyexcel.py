@@ -125,6 +125,14 @@ ENGINEERING = re.compile(
 #: output-directory artefacts. Those are not line units at all.
 DEBUG_BUILD = re.compile(r"((^|_)debug|_dbg)", re.IGNORECASE)
 
+#: Anything that is not a plain release build: validation runs and debug
+#: bundles both. The tracker counts them — that is the point of the version
+#: column — but a yield tile that silently mixes them with production is how
+#: somebody reads a validation campaign as the day's line yield. Asked about
+#: exactly that: "we're sure the data here doesn't have any potential errors
+#: like accidentally including validation runs?"
+NON_RELEASE = re.compile(r"((^|_)debug|_dbg|validation)", re.IGNORECASE)
+
 #: Which module station a pega3 suite belongs to.
 #:
 #: Matched on the name rather than on the run id's first characters. The old
@@ -1098,23 +1106,46 @@ def _header(cell, widths) -> Dict[str, Any]:
 
 
 def _counts(rows: List[List[Dict[str, Any]]], header: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Pass/fail per result column, by the sheet's own colouring."""
+    """Pass/fail per result column, by the sheet's own colouring.
+
+    Counted twice: once over everything the station ran, and once over release
+    builds alone. The tab deliberately includes validation and debug runs —
+    they are real units tested on real stations — but the yield above the table
+    must not quietly become a mixture. Where the two differ, the page shows
+    both and says which is which.
+    """
     index = {entry["key"]: position for position, entry in enumerate(header)}
     counts = {}
     for column in RESULT_COLUMNS:
         position = index.get(column)
         if position is None:
             continue
+        station = _station_of_column(column)
+        version_at = index.get(_version_column(station)) if station else None
+
         tally = {"pass": 0, "fail": 0, "blank": 0}
+        release = {"pass": 0, "fail": 0, "blank": 0}
+        non_release: List[str] = []
+
         for row in rows:
             cell = row[position] if position < len(row) else {}
             tone = cell.get("t")
-            if tone in tally:
-                tally[tone] += 1
-            else:
-                tally["blank"] += 1
+            bucket = tone if tone in tally else "blank"
+            tally[bucket] += 1
+
+            build = ""
+            if version_at is not None and version_at < len(row):
+                build = (row[version_at] or {}).get("v") or ""
+            if build and NON_RELEASE.search(build):
+                if build not in non_release:
+                    non_release.append(build)
+                continue
+            release[bucket] += 1
+
         counts[column] = dict(tally, title=header[position]["title"],
-                              sub=header[position].get("sub"))
+                              sub=header[position].get("sub"),
+                              release=release,
+                              nonRelease=sorted(non_release))
     return counts
 
 

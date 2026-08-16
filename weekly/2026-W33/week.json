@@ -1,9 +1,9 @@
 {
  "context": {
   "build": {
-   "commit": "1e2f671",
-   "commitUrl": "https://github.com/etched-ai/factory_data_analysis/commit/1e2f671",
-   "commitsSinceRelease": 27,
+   "commit": "21fff6c",
+   "commitUrl": "https://github.com/etched-ai/factory_data_analysis/commit/21fff6c",
+   "commitsSinceRelease": 32,
    "dirty": true,
    "release": "v0.4",
    "releaseUrl": "https://github.com/etched-ai/factory_data_analysis/releases/tag/v0.4",
@@ -12,7 +12,7 @@
   "excluded": [
    "vbb_provision"
   ],
-  "generatedAt": "2026-08-16T04:41:31+00:00",
+  "generatedAt": "2026-08-16T22:53:38+00:00",
   "historyDays": 30,
   "minCohort": 20,
   "source": {

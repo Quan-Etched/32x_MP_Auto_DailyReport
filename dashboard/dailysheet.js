@@ -84,6 +84,31 @@
   /* The sheet's own tallies, counted from its own colouring — deliberately not
    * recomputed from EOS. If these disagree with the station page, that is a
    * finding about the two sources, and flattening it here would hide it. */
+  /* The same tile, over release builds alone.
+   *
+   * The tab counts validation and debug runs deliberately — they are real
+   * units on real stations, and the version column names them. But the
+   * percentage above the table must not quietly become a mixture: on 08-14 the
+   * MLT tile read 61.5% including a validation campaign and 53.3% without it,
+   * and somebody reading the first as the day's line yield is how this comes
+   * back as a correction later.
+   */
+  function releaseOnly(entry) {
+    var rel = entry.release;
+    if (!rel || !(entry.nonRelease || []).length) return null;
+    var graded = rel.pass + rel.fail;
+    var rate = graded ? Math.round((rel.pass / graded) * 1000) / 10 + '%' : null;
+    return h('span', { class: 'tile-sub tile-release' }, [
+      h('strong', { text: rate === null
+        ? 'No release build ran here.'
+        : 'Release builds only: ' + rate }),
+      h('span', { text: rate === null
+        ? ' Everything above is ' + entry.nonRelease.join(', ') + '.'
+        : '  (' + rel.pass + ' passed · ' + rel.fail + ' failed). Above ' +
+          'includes ' + entry.nonRelease.join(', ') + '.' })
+    ]);
+  }
+
   /* The verdicts of the rows that are showing.
    *
    * These used to come straight from the bundle, so filtering the table to one
@@ -194,7 +219,8 @@
           entry.blank
             ? h('span', { class: 'tile-blank', text: ' · ' + entry.blank + ' not run' })
             : null
-        ])
+        ]),
+        releaseOnly(entry)
       ]));
     });
 

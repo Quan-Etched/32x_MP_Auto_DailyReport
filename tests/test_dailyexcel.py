@@ -972,3 +972,61 @@ class StationOfTest(unittest.TestCase):
                      "htt_2026.217.0-git3940b759",
                      "mlt_validation_2026.225.0-gitb937ca2c"):
             self.assertIsNone(build_dailyexcel.ENGINEERING.search(name), name)
+
+
+class ReleaseOnlyCountTest(unittest.TestCase):
+    """The yield above the table, counted twice.
+
+    Asked directly: "we're sure the data here doesn't have any potential errors
+    like accidentally including validation runs?" On 08-14 the MLT tile read
+    61.5% counting a validation campaign and 53.3% without it. The tab includes
+    those runs on purpose; the tile has to say so and show both.
+    """
+
+    def tab(self, rows):
+        columns = build_dailyexcel._with_version_columns([
+            {"key": "A", "title": "Date"}, {"key": "B", "title": "DUT SN"},
+            {"key": "E", "title": "MLT Results"},
+            {"key": "F", "title": "MLT Failure Test Case"},
+            {"key": "G", "title": "FI Test Link"},
+            {"key": "H", "title": "HTT Results"},
+            {"key": "I", "title": "HTT Failure"}, {"key": "J", "title": "Link"},
+        ])
+        index = {c["key"]: i for i, c in enumerate(columns)}
+        built = []
+        for dut, verdict, build in rows:
+            row = [{} for _ in columns]
+            row[index["B"]] = {"v": dut}
+            row[index["E"]] = {"v": verdict.title(), "t": verdict}
+            row[index["Ev"]] = {"v": build}
+            built.append(row)
+        return build_dailyexcel._counts(built, columns)["E"]
+
+    def test_release_and_everything_are_counted_separately(self):
+        counts = self.tab([("A", "pass", "mlt_2026.220.0-gitabc"),
+                           ("B", "fail", "mlt_2026.220.0-gitabc"),
+                           ("C", "pass", "mlt_validation_2026.225.0-gitx"),
+                           ("D", "pass", "mlt_validation_2026.225.0-gitx")])
+        self.assertEqual((counts["pass"], counts["fail"]), (3, 1))
+        self.assertEqual((counts["release"]["pass"], counts["release"]["fail"]),
+                         (1, 1))
+
+    def test_the_excluded_builds_are_named(self):
+        counts = self.tab([("A", "pass", "mlt_2026.220.0-gitabc"),
+                           ("C", "fail", "debug_only_mlt_2026.223.0-gitx")])
+        self.assertEqual(counts["nonRelease"], ["debug_only_mlt_2026.223.0-gitx"])
+
+    def test_a_day_of_only_release_builds_flags_nothing(self):
+        """No note where there is nothing to warn about — a caveat on every
+        tile is a caveat nobody reads."""
+        counts = self.tab([("A", "pass", "mlt_2026.220.0-gitabc"),
+                           ("B", "fail", "mlt_2026.220.0-gitabc")])
+        self.assertEqual(counts["nonRelease"], [])
+        self.assertEqual((counts["pass"], counts["fail"]), (1, 1))
+        self.assertEqual((counts["release"]["pass"], counts["release"]["fail"]),
+                         (1, 1))
+
+    def test_a_day_with_no_release_build_at_all_reports_zero(self):
+        counts = self.tab([("C", "fail", "mlt_validation_2026.225.0-gitx")])
+        self.assertEqual(counts["release"]["pass"] + counts["release"]["fail"], 0)
+        self.assertEqual(counts["fail"], 1)
