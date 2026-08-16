@@ -40,6 +40,10 @@ REPO = pathlib.Path(__file__).resolve().parent.parent
 BUNDLE = REPO / "dashboard" / "data" / "weekly.js"
 OUT_DIR = REPO / "decks"
 
+#: Where the published dashboard lives. Every link on the appendix slide is
+#: built from this, so a move is one edit rather than nine.
+SITE = "32x-production.i.etched.com"
+
 W, H = Inches(13.333), Inches(7.5)
 
 INK = RGBColor(0x14, 0x14, 0x14)
@@ -442,6 +446,156 @@ def footnote(slide, data, week):
     ], space=1)
 
 
+def metrics_slide(prs, data, week, by_station):
+    """Page 0: what the three numbers mean, before anyone reads any of them.
+
+    Written because the room contains test engineers, who know, and everyone
+    else, who reasonably does not — and because "yield" and "retest rate" get
+    used loosely enough that two people can agree on a number while disagreeing
+    about what it counts. Each definition carries this week's own figure, so
+    the vocabulary and the data arrive together.
+    """
+    slide = title_slide(
+        prs, "How to read this",
+        "three numbers, and why the table on the next pages is broken out by "
+        "test step")
+
+    mlt = by_station.get("mlt") or {}
+    htt = by_station.get("htt") or {}
+    total_units = sum(row["units"] for row in week["rows"])
+    total_runs = sum(row["runs"] for row in week["rows"])
+
+    blocks = [
+        ("1.  Capacity",
+         "How many units a step can put through in a week.",
+         # Both figures are summed per step, so a module that goes through MLT
+         # and HTT counts at each. Saying "units" flat would read as distinct
+         # modules and overstate the week by roughly half.
+         "Counted here as units and runs at each step: {} step-visits across "
+         "{} runs this week. Runs exceed visits because a unit can occupy a "
+         "station more than once — which is why capacity and retest are the "
+         "same conversation."
+         .format(total_units, total_runs),
+         "It sets the schedule. A station cannot ship what it cannot test, "
+         "and every re-run is a slot a new unit did not get."),
+        ("2.  Yield",
+         "The share of units that pass.",
+         "First-pass yield counts units that passed on their first attempt "
+         "({} at MLT). Yield after retest counts units that passed eventually "
+         "({}). The gap between them is work done twice."
+         .format(pct(mlt.get("fpy")), pct(mlt.get("finalYield"))),
+         "It sets how many units you must start to ship one. At a rolled "
+         "{} through MLT and HTT, roughly three modules are started for every "
+         "one that comes out clean first time."
+         .format(pct(week["totals"]["rolledFpy"]))),
+        ("3.  Retest",
+         "The share of units that had to be run again.",
+         "{} of units at MLT and {} at HTT came back for a second run — "
+         "{} and {} units. Not the same as failures: a unit can be re-run and "
+         "pass, and most are."
+         .format(pct(mlt.get("retestRatio")), pct(htt.get("retestRatio")),
+                 mlt.get("retestUnits"), htt.get("retestUnits")),
+         "It is where yield loss turns into capacity loss. Recovering a unit "
+         "on the second try protects the shipment and costs the station time "
+         "it will not get back."),
+    ]
+
+    y = Inches(1.62)
+    for head, what, detail, why in blocks:
+        textbox(slide, Inches(0.62), y, Inches(2.55), Inches(1.1),
+                [[(head, {"size": 17, "bold": True})],
+                 [(what, {"size": 11.5, "color": MUTE})]], space=2)
+        textbox(slide, Inches(3.35), y + Inches(0.04), Inches(4.6), Inches(1.3),
+                [(detail, {"size": 12})], space=0)
+        textbox(slide, Inches(8.25), y + Inches(0.04), Inches(4.5), Inches(1.3),
+                [[("Why it matters.  ", {"size": 12, "bold": True}),
+                  (why, {"size": 12})]], space=0)
+        y = y + Inches(1.58)
+
+    rule = slide.shapes.add_shape(1, Inches(0.62), Inches(6.32),
+                                  W - Inches(1.24), Pt(1))
+    rule.fill.solid()
+    rule.fill.fore_color.rgb = RULE
+    rule.line.fill.background()
+    rule.shadow.inherit = False
+
+    # The single sentence that justifies the next two slides.
+    textbox(slide, Inches(0.62), Inches(6.5), W - Inches(1.24), Inches(0.7),
+            [[("Why it is broken out by test step:  ", {"size": 13, "bold": True}),
+              ("a line ships at the rate of its worst step, not its average — "
+               "so the only useful version of these three numbers is one per "
+               "step, in the order a unit travels.", {"size": 13})]], space=0)
+    return slide
+
+
+def appendix_slide(prs, data, week):
+    """Page 4: where every number on the deck came from, as addresses.
+
+    A deck that cannot be checked gets argued with instead of acted on. The
+    week's own page is first because it is the one that answers "which units",
+    which is the question that has actually been asked of these numbers.
+    """
+    slide = title_slide(
+        prs, "Appendix — where the data comes from",
+        "every figure on this deck traces to one of these; the first one lists "
+        "the units behind it")
+
+    groups = [
+        ("This week, unit by unit", [
+            ("Source data for {} — every DUT serial, software release, "
+             "verdict and a link to its run".format(week["week"]),
+             "{}/week.html#week={}".format(SITE, week["week"])),
+            ("Every week since collection began, one row each",
+             "{}/weekly.html".format(SITE)),
+        ]),
+        ("The rest of the dashboard", [
+            ("Daily tracker — the line's own MLT/HTT tabs, rebuilt from pega3",
+             "{}/dailyexcel.html".format(SITE)),
+            ("L10 daily tracker — FAT, SFT, RIN, 2U from pega4",
+             "{}/l10.html".format(SITE)),
+            ("Station yield, from the controllers",
+             "{}/direct.html".format(SITE)),
+            ("Station yield, from OCP Logs — and the measured gap between them",
+             "{}/index.html".format(SITE)),
+            ("Run drill-down, any serial or test name",
+             "{}/runs.html".format(SITE)),
+            ("Production test flow, with coverage",
+             "{}/flow.html".format(SITE)),
+        ]),
+        ("Upstream of the dashboard", [
+            ("The controllers themselves — ESVM login admin / admin",
+             "pega2:3000 · pega3:3000 · pega4:3000 · pega5:3000"),
+            ("OCP Logs / EOS, the other side of the discrepancy",
+             "ocplogs.core.etched.com"),
+            ("WST and FT — Sigurd's STDF and SPLM, asked for weekly in "
+             "#production-test-eng",
+             "strata6.sv9.i.etched.com:8235 · splm.i.etched.com"),
+            ("This deck, the pipeline that built it, and every archived week",
+             "github.com/etched-ai/factory_data_analysis · weekly/{}/".format(
+                 week["week"])),
+        ]),
+    ]
+
+    y = Inches(1.55)
+    for title, rows in groups:
+        textbox(slide, Inches(0.62), y, Inches(6.0), Inches(0.26),
+                [(title, {"size": 12, "bold": True, "color": ACC})], space=0)
+        y = y + Inches(0.32)
+        for label, url in rows:
+            textbox(slide, Inches(0.8), y, Inches(6.6), Inches(0.26),
+                    [(label, {"size": 11})], space=0)
+            textbox(slide, Inches(7.5), y, Inches(5.3), Inches(0.26),
+                    [(url, {"size": 10.5, "font": MONO, "color": MUTE})], space=0)
+            y = y + Inches(0.30)
+        y = y + Inches(0.14)
+
+    textbox(slide, Inches(0.62), Inches(6.92), W - Inches(1.24), Inches(0.4),
+            [("All addresses are on the factory network. The dashboard rebuilds "
+              "hourly; the archived copy of {} under weekly/ does not change."
+              .format(week["week"]), {"size": 9.5, "color": MUTE})], space=0)
+    return slide
+
+
 def table_slide(prs, data, week, external):
     slide = title_slide(
         prs, "Every step, with the retest rate",
@@ -532,8 +686,10 @@ def main(argv):
     prs = Presentation()
     prs.slide_width, prs.slide_height = W, H
 
+    metrics_slide(prs, data, week, by_station)
     flow_slide(prs, data, week, by_station, external)
     table_slide(prs, data, week, external)
+    appendix_slide(prs, data, week)
 
     OUT_DIR.mkdir(exist_ok=True)
     out = OUT_DIR / "weekly-{}.pptx".format(week["week"])
