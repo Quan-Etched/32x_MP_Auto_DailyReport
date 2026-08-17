@@ -31,11 +31,53 @@ DEFAULT_SOURCE = {
 RETEST_DETAIL_LIMIT = 60
 
 
+#: How much of the collected history the station page reports.
+#:
+#: Seven days, not thirty. The pages are read to answer "how is the line doing
+#: this week", and a month-long average hides the week inside it — a release
+#: that landed on Tuesday is a fifth of a 30-day bar and all of a 7-day one.
+#: Collection still keeps 30 days: the weekly page needs them to tell a unit's
+#: first attempt from its fourth, and trimming at collection time would break
+#: that. Trimmed here instead, at the point of reporting.
+WINDOW_DAYS = 7
+
+
+def _trim(runs: List[Dict[str, Any]], tz_name: str,
+          days: int = WINDOW_DAYS) -> List[Dict[str, Any]]:
+    if not days:
+        return runs
+    seen = sorted({daily.day_key(r["startTs"], tz_name)
+                   for r in runs if r.get("startTs")})
+    if len(seen) <= days:
+        return runs
+    # Anchored on the newest day *with data* rather than on today, so a quiet
+    # weekend does not empty the page.
+    cutoff = seen[-days]
+    return [r for r in runs
+            if r.get("startTs") and daily.day_key(r["startTs"], tz_name) >= cutoff]
+
+
 def build_bundle(
-    payload: Dict[str, Any], state: Optional[Dict[str, Any]] = None
+    payload: Dict[str, Any], state: Optional[Dict[str, Any]] = None,
+    window_days: int = WINDOW_DAYS,
 ) -> Dict[str, Any]:
-    runs: List[Dict[str, Any]] = payload.get("runs", [])
     tz_name = payload.get("timezone", config.timezone_name())
+    runs: List[Dict[str, Any]] = _trim(
+        payload.get("runs", []),
+        "UTC" if payload.get("source") == "pega" else tz_name,
+        window_days)
+    # The controllers are the tracker's source, so the tracker's definition of a
+    # day wins on that side — both what a day *contains* (one row per unit,
+    # last attempt) and where a day *starts*. The tracker cuts days in UTC,
+    # reconciled against the line's own sheet: a unit tested at 17:30 Pacific on
+    # 08-11 carries a runId stamped 20260812_0030 and the sheet files it under
+    # 08-12. Bucketing this page in Pacific put the same units a day earlier and
+    # made every row disagree.
+    #
+    # EOS is one row per fixture and has no tracker to agree with, so it is left
+    # counting runs on the factory-local day.
+    per_unit = payload.get("source") == "pega"
+    day_tz = "UTC" if per_unit else tz_name
     by_station = daily.split_by_station(runs)
     level_errors = payload.get("levelErrors") or {}
 
@@ -47,7 +89,7 @@ def build_bundle(
         bucket = by_station.get(key, [])
         blocked_by = _blocking_error(entry, level_errors)
         registry.append(dict(entry, runs=len(bucket), blockedBy=blocked_by))
-        views[key] = _view(bucket, tz_name)
+        views[key] = _view(bucket, tz_name, per_unit, day_tz)
 
     # Runs whose suite matches no station: a finding, not noise.
     unclassified = by_station.get(stations.UNCLASSIFIED, [])
@@ -65,7 +107,7 @@ def build_bundle(
             "note": "Runs whose suite matches no station in the registry: "
                     + ", ".join(suites[:12]),
         })
-        views[stations.UNCLASSIFIED] = _view(unclassified, tz_name)
+        views[stations.UNCLASSIFIED] = _view(unclassified, tz_name, per_unit, day_tz)
 
     # Debug builds, repros and smoke tests: a bucket of their own, so
     # "unclassified" keeps meaning "nobody has worked out what this is".
@@ -86,7 +128,7 @@ def build_bundle(
                     "yield because they run on engineering DUTs. "
                     + ", ".join(suites[:12]),
         })
-        views[stations.ENGINEERING] = _view(engineering, tz_name)
+        views[stations.ENGINEERING] = _view(engineering, tz_name, per_unit, day_tz)
 
     # "All stations" is the union of production runs — the unclassified tail and
     # the engineering runs are both excluded so neither can quietly move
@@ -94,7 +136,7 @@ def build_bundle(
     off_line = (stations.UNCLASSIFIED, stations.ENGINEERING)
     classified = [r for r in runs
                   if (r.get("stationKey") or stations.UNCLASSIFIED) not in off_line]
-    views["__all__"] = _view(classified, tz_name)
+    views["__all__"] = _view(classified, tz_name, per_unit, day_tz)
     registry.insert(0, {
         "key": "__all__", "label": "All stations", "state": "active",
         "order": 0, "runs": len(classified), "blockedBy": None,
@@ -111,7 +153,16 @@ def build_bundle(
         "dataSource": payload.get("dataSource") or DEFAULT_SOURCE,
         "collectedAt": payload.get("generatedAt"),
         "timezone": tz_name,
-        "window": payload.get("window", {}),
+        # The window the page is *about*, which after trimming is not the
+        # window that was collected.
+        "window": _reported_window(
+            runs, "UTC" if per_unit else tz_name) or payload.get("window", {}),
+        # What a day means on this page, so the header can say it rather than
+        # leaving a reader to discover it by disagreeing with another page.
+        "dayBasis": {"timezone": "UTC" if per_unit else tz_name,
+                     "counts": "units, last attempt of the day"
+                               if per_unit else "runs"},
+        "collectedWindow": payload.get("window", {}),
         "source": payload.get("source", "eos-api"),
         "levelErrors": level_errors,
         "stations": registry,
@@ -128,7 +179,14 @@ def _blocking_error(entry: Dict[str, Any], level_errors: Dict[str, str]) -> Opti
     return None
 
 
-def _view(runs: List[Dict[str, Any]], tz_name: str) -> Dict[str, Any]:
+def _reported_window(runs: List[Dict[str, Any]], tz_name: str) -> Dict[str, Any]:
+    days = sorted({daily.day_key(r["startTs"], tz_name)
+                   for r in runs if r.get("startTs")})
+    return {"from": days[0], "to": days[-1], "days": len(days)} if days else {}
+
+
+def _view(runs: List[Dict[str, Any]], tz_name: str,
+          per_unit: bool = False, day_tz: Optional[str] = None) -> Dict[str, Any]:
     retest = daily.retest(runs, tz_name)
     detail = retest.pop("detail", [])
     return {
@@ -141,7 +199,8 @@ def _view(runs: List[Dict[str, Any]], tz_name: str) -> Dict[str, Any]:
         # the run figure is what the API measured, the unit figure is what the
         # line means by yield. Null where a station's tests carry no chip index.
         "units": chips.summarize(runs),
-        "daily": daily.daily_yield(runs, tz_name),
+        "daily": daily.daily_yield(runs, day_tz or tz_name,
+                                   per_unit=per_unit),
         "releases": daily.release_yield(runs, tz_name),
         "pareto": daily.top_yield_hits(runs),
         "firstFailure": daily.first_failure_areas(runs),

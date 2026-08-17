@@ -86,8 +86,33 @@ def build_bundle(
         # (rootcause.is_container), applied once per name rather than per row.
         "containerNames": sorted(containers),
         "runs": rows,
-        "links": links.describe(),
+        "links": dict(links.describe(), **_controller_links(payload)),
         "fetch": fetchstate.summary(state or {}),
+    }
+
+
+def _controller_links(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Where a run can be opened, when the run came from the controllers.
+
+    OCP Logs has no per-run URL, so the EOS view can only offer its search
+    page. The controllers do: every run id here is exactly the id in a
+    /suite_run/ path, and the slot rides on it after a #. Sending someone from
+    the controller-sourced page to OCP's search box was making them look up, by
+    hand, a run we already hold the address of.
+
+    A template plus a station->host map rather than a URL per run: the map is
+    eleven entries and the URLs would be one per run.
+    """
+    if payload.get("source") != "pega":
+        return {}
+    return {
+        "pega": {
+            "urlTemplate": "http://{host}:3000/suite_run/{run}?slot_number={slot}",
+            "runTemplateNoSlot": "http://{host}:3000/suite_run/{run}",
+            "hosts": {station.key: station.controller
+                      for station in stations.STATIONS if station.controller},
+            "note": "opens on the controller that ran it — ESVM login admin/admin",
+        }
     }
 
 

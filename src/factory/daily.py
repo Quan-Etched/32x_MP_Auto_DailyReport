@@ -82,13 +82,22 @@ def _fpy(runs: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
 # ------------------------------------------------------- (a) yield vs daily
 
 def daily_yield(
-    runs: Sequence[Dict[str, Any]], tz_name: Optional[str] = None
+    runs: Sequence[Dict[str, Any]], tz_name: Optional[str] = None,
+    per_unit: bool = False,
 ) -> List[Dict[str, Any]]:
     """One row per calendar day that has runs: pass/fail/abort plus FPY.
 
     Days with no runs are omitted rather than zero-filled — the reference
     dashboard skips non-production days (weekends) instead of drawing a gap, and
     a zero-run day has no yield to report.
+
+    ``per_unit`` counts a day the way the daily tracker does: one row per unit,
+    the last attempt of the day winning, rather than one row per run. The two
+    answer different questions and both are defensible, but they were being read
+    as the same number on two pages of one dashboard — a unit that failed at
+    09:00 and passed at 14:00 is one pass on the tracker and one pass plus one
+    failure here. Where the source is the controllers, the tracker is the
+    definition and this follows it.
     """
     grouped: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for run in runs:
@@ -98,12 +107,33 @@ def daily_yield(
     rows = []
     for day in sorted(grouped):
         bucket = grouped[day]
+        counted = _latest_per_unit(bucket) if per_unit else bucket
         row = {"day": day}
-        row.update(_tally(bucket))
+        row.update(_tally(counted))
+        # First-pass yield stays over first attempts either way; per-unit only
+        # changes which run represents the unit *that day*.
         row.update(_fpy(bucket))
         row["units"] = len({r.get("dutSerial") for r in bucket if r.get("dutSerial")})
+        row["perUnit"] = per_unit
         rows.append(row)
     return rows
+
+
+def _latest_per_unit(bucket: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """The last run each unit had that day — the tracker's row for it.
+
+    A unit with no serial cannot be collapsed onto anything, so it is kept as
+    its own row rather than silently dropped.
+    """
+    latest: Dict[str, Dict[str, Any]] = {}
+    loose: List[Dict[str, Any]] = []
+    for run in sorted(bucket, key=lambda r: r.get("startTs") or 0):
+        dut = (run.get("dutSerial") or "").strip()
+        if not dut:
+            loose.append(run)
+            continue
+        latest[dut] = run
+    return list(latest.values()) + loose
 
 
 # ----------------------------------------------------- (b) yield vs releases

@@ -194,3 +194,40 @@ class WriteBundleTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ControllerLinkTest(unittest.TestCase):
+    """A run from the controllers has a real address; OCP Logs has none.
+
+    Sending a reader from the controller-sourced page to OCP's search box made
+    them look up by hand a run whose URL the bundle already holds.
+    """
+
+    def bundle(self, source):
+        payload = {
+            "runs": [{"runId": "mlt_2026.220.0-gitabc_run_dead#slot5",
+                      "dutSerial": "268494130000067", "stationKey": "mlt",
+                      "level": "module", "suite": "mlt_2026.220.0-gitabc",
+                      "version": "2026.220.0-gitabc", "status": "fail",
+                      "startTs": 1786000000, "attempt": 1, "tests": []}],
+            "source": source, "timezone": "UTC",
+            "stations": [{"key": "mlt", "label": "MLT", "levels": ["module"]}],
+        }
+        return build_runs.build_bundle(payload, {})
+
+    def test_controller_data_carries_a_url_template_and_host_map(self):
+        links = self.bundle("pega")["links"]["pega"]
+        self.assertIn("suite_run", links["urlTemplate"])
+        self.assertEqual(links["hosts"]["mlt"], "pega3")
+        self.assertEqual(links["hosts"]["l10_fat"], "pega4")
+        self.assertEqual(links["hosts"]["l11_test"], "pega5")
+
+    def test_eos_data_carries_none(self):
+        """EOS has no per-run route; offering one would be a broken link."""
+        self.assertNotIn("pega", self.bundle("eos")["links"])
+
+    def test_the_run_id_still_carries_its_slot(self):
+        """The slot is the half of the address that says which of the eight
+        modules in the fixture this row is."""
+        row = self.bundle("pega")["runs"][0]
+        self.assertTrue(str(row["i"]).endswith("#slot5"))

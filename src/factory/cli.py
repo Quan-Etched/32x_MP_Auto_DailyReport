@@ -330,6 +330,21 @@ def cmd_build(args: argparse.Namespace) -> int:
     if pega_bundle is not None:
         from . import compare
         stations_bundle["comparison"] = compare.build(stations_bundle, pega_bundle)
+    # The controller-sourced run table, so the direct page's "Raw runs" link
+    # lands on runs that came from the same place its numbers did — and whose
+    # rows open on the controller rather than in OCP's search box.
+    if pega_bundle is not None:
+        try:
+            pega_runs = build_runs.build_bundle(
+                pega_payload, pega_collect.fetch_state(pega_payload))
+            pega_runs_path = build_runs.write_bundle(
+                pega_runs, config.DASHBOARD_DATA_DIR / "runs_pega.js")
+            print("Runs bundle, controllers ({:.0f} KB, {} runs) -> {}".format(
+                pega_runs_path.stat().st_size / 1024, len(pega_runs["runs"]),
+                pega_runs_path))
+        except Exception as exc:                          # noqa: BLE001
+            print("Controller run table skipped ({})".format(exc))
+
     stations_path = build_stations.write_bundle(stations_bundle)
     print("Stations bundle ({:.0f} KB) -> {}".format(
         stations_path.stat().st_size / 1024, stations_path))

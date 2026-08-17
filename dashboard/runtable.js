@@ -246,7 +246,32 @@
     return /^https?:\/\//i.test(url || '') ? url : null;
   }
 
+  /* The controller that ran it, when the bundle came from the controllers.
+   * That is a real per-run address; OCP Logs has none, and sending a reader
+   * from the controller-sourced page to OCP's search box made them look up by
+   * hand a run whose URL we already hold. */
+  function pegaUrl(run) {
+    var cfg = LINKS.pega;
+    if (!cfg || !run.i) return null;
+    var host = (cfg.hosts || {})[run.k];
+    if (!host) return null;
+    var id = String(run.i), slot = null, hash = id.indexOf('#slot');
+    if (hash !== -1) { slot = id.slice(hash + 5); id = id.slice(0, hash); }
+    var url = (slot === null ? cfg.runTemplateNoSlot : cfg.urlTemplate)
+      .replace('{host}', host).replace('{run}', encodeURIComponent(id))
+      .replace('{slot}', encodeURIComponent(slot || ''));
+    return { url: url, host: host };
+  }
+
   function sourceCell(run) {
+    var pega = pegaUrl(run);
+    if (pega) {
+      return h('td', { class: 'src' }, [
+        h('a', { href: pega.url, target: '_blank', rel: 'noopener',
+                 title: pega.url + '  (ESVM login admin / admin)',
+                 text: pega.host + ' \u2197' })
+      ]);
+    }
     var direct = LINKS.runTemplate ? safeUrl(expand(LINKS.runTemplate, run)) : null;
     if (direct) {
       return h('td', { class: 'src' }, [
@@ -564,7 +589,11 @@
       + ' · bundle built ' + (DATA.generatedAt || '—') + ' · source ' + (DATA.source || '—');
 
     clear(refs.sourceNote);
-    if (!LINKS.runLinksResolve) {
+    if (LINKS.pega) {
+      refs.sourceNote.textContent =
+        'Source column: every run opens on the controller that ran it. ' +
+        (LINKS.pega.note || '');
+    } else if (!LINKS.runLinksResolve) {
       refs.sourceNote.appendChild(h('span', {
         text: 'Source column: OCP Logs has no confirmed per-run URL yet, so it '
             + 'opens the search page and offers the run ID to paste. Filling in '

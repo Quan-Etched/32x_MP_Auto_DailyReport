@@ -793,6 +793,26 @@ def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
                 "pn": entry.get("dut_part_number") or "",
                 "asic": entry.get("asic_lot_code") or "",
             })
+            # The last *release* attempt, kept separately from the last attempt
+            # of any kind. On 08-14 sixteen units ran mlt_2026.225.0 at 08:23
+            # and mlt_validation_225 at 10:03; the row shows the validation
+            # result, and a release-only tally that just filtered those rows
+            # lost all sixteen units rather than counting the release run they
+            # really had.
+            #
+            # Above the "latest attempt wins" guard below, deliberately: that
+            # guard returns early for any run older than the one already held,
+            # and pega3 does not return a day's runs in time order — so the
+            # 08:23 release run arrived after the 10:03 validation run and was
+            # skipped before it could be recorded.
+            if not NON_RELEASE.search(suite):
+                previous_release = unit.get(station + ":release")
+                if not previous_release or previous_release["started"] < started:
+                    unit[station + ":release"] = {
+                        "status": part["status"], "suite": suite,
+                        "started": started,
+                    }
+
             # A unit retested the same day gets one row, not one per attempt —
             # the sheet has one row per unit. The row is the *latest* attempt:
             # keeping whichever run happened to be processed last made the
@@ -865,7 +885,17 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
                 row[index[fail_col]] = {"v": got["fail"]}
             row[index[link_col]] = {"v": got["short"], "h": got["url"]}
             if got.get("suite"):
-                row[index[_version_column(station)]] = {"v": got["suite"]}
+                cell = {"v": got["suite"]}
+                release = unit.get(station + ":release")
+                if release and release["suite"] != got["suite"]:
+                    # Same unit, same day, a release run that a later
+                    # non-release run superseded. The table shows where the
+                    # unit ended up; the tile needs what it did on the release.
+                    cell["rel"] = release["suite"]
+                    cell["relStatus"] = release["status"]
+                elif release:
+                    cell["relStatus"] = release["status"]
+                row[index[_version_column(station)]] = cell
         rows.append(row)
 
     _resync_version_subs(columns, rows)
@@ -1133,12 +1163,17 @@ def _counts(rows: List[List[Dict[str, Any]]], header: List[Dict[str, Any]]) -> D
             bucket = tone if tone in tally else "blank"
             tally[bucket] += 1
 
-            build = ""
-            if version_at is not None and version_at < len(row):
-                build = (row[version_at] or {}).get("v") or ""
+            version = (row[version_at] or {}) if (
+                version_at is not None and version_at < len(row)) else {}
+            build = version.get("v") or ""
             if build and NON_RELEASE.search(build):
                 if build not in non_release:
                     non_release.append(build)
+                # The unit may still have run a release build earlier the same
+                # day. Count that verdict rather than dropping the unit.
+                status = version.get("relStatus")
+                if status in ("pass", "fail"):
+                    release[status] += 1
                 continue
             release[bucket] += 1
 
