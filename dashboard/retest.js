@@ -72,36 +72,77 @@
 
   /* --------------------------------------------------------------- sankey */
 
-  /* Hand-drawn rather than pulled from a library: the page has to work with no
-   * network, and three stages of ribbons is less code than a dependency. */
-  function renderSankey() {
-    var data = DATA.sankey || {};
-    var nodes = data.nodes || [];
-    var links = data.links || [];
+  /* Aggregated from the rows on screen rather than shipped pre-computed, so
+   * filtering to MLT redraws the diagram for MLT. Three stages: the build a
+   * unit first ran, the build it was re-run on, and how it ended.
+   *
+   * Hand-drawn rather than pulled from a library: the page has to work with no
+   * network, and three stages of ribbons is less code than a dependency.
+   */
+  function sankeyFrom(rows) {
+    var order = [], nodes = {}, flows = {}, ends = {};
+
+    function node(label, stage) {
+      var id = stage + '|' + label;
+      if (!nodes[id]) {
+        nodes[id] = { id: id, stage: stage, label: label, in: 0, out: 0 };
+        order.push(id);
+      }
+      return nodes[id];
+    }
+
+    rows.forEach(function (row) {
+      var from = row.stationLabel + ' ' + row.firstBuildShort;
+      var to = row.stationLabel + ' ' + row.lastBuildShort;
+      flows[from + '\u0000' + to] = (flows[from + '\u0000' + to] || 0) + 1;
+      ends[to + '\u0000' + row.outcome] = (ends[to + '\u0000' + row.outcome] || 0) + 1;
+    });
+
+    var links = [];
+    Object.keys(flows).sort(function (a, b) { return flows[b] - flows[a]; })
+      .forEach(function (key) {
+        var pair = key.split('\u0000');
+        links.push({ source: node(pair[0], 0).id, target: node(pair[1], 1).id,
+                     value: flows[key] });
+      });
+    Object.keys(ends).sort(function (a, b) { return ends[b] - ends[a]; })
+      .forEach(function (key) {
+        var pair = key.split('\u0000');
+        links.push({ source: node(pair[0], 1).id, target: node(pair[1], 2).id,
+                     value: ends[key], outcome: pair[1] });
+      });
+
+    return { nodes: order.map(function (id) { return nodes[id]; }), links: links };
+  }
+
+  function renderSankey(rows) {
     var host = byId('sankey');
-    if (!nodes.length) { host.hidden = true; return; }
+    host.innerHTML = '';
+    if (!rows.length) { host.hidden = true; return; }
+    host.hidden = false;
+
+    var data = sankeyFrom(rows);
+    var nodes = data.nodes, links = data.links;
 
     var W = 1120, PAD = 8, NODE_W = 13, GAP = 9;
-    var stages = [0, 1, 2];
-    var byId_ = {};
-    nodes.forEach(function (n) { byId_[n.id] = n; n.in = 0; n.out = 0; });
+    var byKey = {};
+    nodes.forEach(function (n) { byKey[n.id] = n; n.in = 0; n.out = 0; });
     links.forEach(function (l) {
-      byId_[l.source].out += l.value;
-      byId_[l.target].in += l.value;
+      byKey[l.source].out += l.value;
+      byKey[l.target].in += l.value;
     });
     nodes.forEach(function (n) { n.value = Math.max(n.in, n.out); });
 
-    var perStage = stages.map(function (s) {
+    var perStage = [0, 1, 2].map(function (s) {
       return nodes.filter(function (n) { return n.stage === s; })
                   .sort(function (a, b) { return b.value - a.value; });
     });
     var tallest = Math.max.apply(null, perStage.map(function (col) {
-      return col.reduce(function (sum, n) { return sum + n.value; }, 0)
-        + Math.max(0, col.length - 1) * 0;
-    }));
+      return col.reduce(function (sum, n) { return sum + n.value; }, 0);
+    })) || 1;
     var maxRows = Math.max.apply(null, perStage.map(function (c) { return c.length; }));
-    var H = Math.max(300, tallest * 3.1 + maxRows * GAP + PAD * 2);
-    var scale = (H - PAD * 2 - (maxRows - 1) * GAP) / tallest;
+    var H = Math.max(260, tallest * 3.1 + maxRows * GAP + PAD * 2);
+    var scale = (H - PAD * 2 - Math.max(0, maxRows - 1) * GAP) / tallest;
 
     perStage.forEach(function (col, index) {
       var y = PAD;
@@ -123,11 +164,11 @@
     /* Widest ribbons first, so a thin flow is never hidden under a fat one. */
     links.slice().sort(function (a, b) { return b.value - a.value; })
       .forEach(function (l) {
-        var s = byId_[l.source], t = byId_[l.target];
+        var s = byKey[l.source], tn = byKey[l.target];
         var sh = l.value * scale, th = l.value * scale;
-        var y0 = s.sourceY, y1 = t.targetY;
-        s.sourceY += sh; t.targetY += th;
-        var x0 = s.x + NODE_W, x1 = t.x, mid = (x0 + x1) / 2;
+        var y0 = s.sourceY, y1 = tn.targetY;
+        s.sourceY += sh; tn.targetY += th;
+        var x0 = s.x + NODE_W, x1 = tn.x, mid = (x0 + x1) / 2;
         var path = svg('path', {
           d: 'M' + x0 + ',' + y0 + ' C' + mid + ',' + y0 + ' ' + mid + ',' + y1 +
              ' ' + x1 + ',' + y1 + ' L' + x1 + ',' + (y1 + th) +
@@ -136,7 +177,7 @@
           class: 'sk-link ' + outcomeClass(l.outcome)
         });
         path.appendChild(svg('title', {})).textContent =
-          s.label + '  →  ' + t.label + '   ' + l.value + ' unit' +
+          s.label + '  \u2192  ' + tn.label + '   ' + l.value + ' unit' +
           (l.value === 1 ? '' : 's');
         frame.appendChild(path);
       });
@@ -149,24 +190,23 @@
       rect.appendChild(svg('title', {})).textContent =
         n.label + '  ' + n.value + ' unit' + (n.value === 1 ? '' : 's');
       frame.appendChild(rect);
-
       var label = svg('text', {
         x: n.stage === 0 ? n.x - 8 : n.x + NODE_W + 8,
-        y: n.y + n.h / 2 + 4,
-        class: 'sk-text',
+        y: n.y + n.h / 2 + 4, class: 'sk-text',
         'text-anchor': n.stage === 0 ? 'end' : 'start'
       });
       label.textContent = n.label + '  ' + n.value;
       frame.appendChild(label);
     });
 
-    host.innerHTML = '';
-    host.appendChild(h('h2', { text: 'Where a re-run unit went' }));
+    var crossed = rows.filter(function (r) { return r.crossedBuild; }).length;
+    host.appendChild(h('h2', { text: 'Where these re-run units went' }));
     host.appendChild(h('p', { class: 'rt-note-wide', text:
       'Left: the build a unit first ran. Middle: the build it was re-run on. ' +
-      'Right: how it ended. A ribbon that crosses to a different build in the ' +
-      'middle column is a unit re-run against a different release — which is ' +
-      'the only kind of retest that can tell you a fix worked.' }));
+      'Right: how it ended. Follows the filter above — ' + rows.length +
+      ' trace' + (rows.length === 1 ? '' : 's') + ' shown, ' + crossed +
+      ' of them re-run against a different build, which is the only kind of ' +
+      'retest that can tell you a fix worked.' }));
     host.appendChild(frame);
   }
 
@@ -204,7 +244,7 @@
         text: option[1] + ' (' + n + ')'
       });
       button.addEventListener('click', function () {
-        filter = option[0]; renderFilters(); renderRows();
+        filter = option[0]; renderFilters(); renderRows(); renderSankey(shown());
       });
       host.appendChild(button);
     });
@@ -266,6 +306,59 @@
       ', which is where the workbook’s retest tab starts.';
   }
 
+  /* ------------------------------------------------------------------ csv */
+
+  /* One line per attempt, not per trace: the table collapses a unit's journey
+   * into a chain of chips, which reads well and pivots badly. What someone
+   * wants a download for is the raw attempt list.
+   */
+  function csv(rows) {
+    var head = ['first_seen', 'dut_sn', 'dut_pn', 'station', 'attempt',
+                'attempts_total', 'day', 'result', 'build', 'run_id',
+                'failed_test_cases', 'run_url', 'trace_outcome',
+                'crossed_build'];
+    var lines = [head.join(',')];
+    rows.forEach(function (row) {
+      row.attempts.forEach(function (a, index) {
+        lines.push([
+          row.day, row.dut, row.pn, row.stationLabel, index + 1, row.count,
+          a.day, a.status, a.suite, a.short,
+          (a.failures || '').replace(/\n/g, '; '),
+          a.url || '', row.outcome, row.crossedBuild ? 'yes' : 'no'
+        ].map(field).join(','));
+      });
+    });
+    return lines.join('\n');
+  }
+
+  function field(value) {
+    var text = value == null ? '' : String(value);
+    /* A failure list can contain a comma and a serial can look like a number
+     * to a spreadsheet; quoting everything is cheaper than deciding. */
+    return '"' + text.replace(/"/g, '""') + '"';
+  }
+
+  function wireDownload() {
+    var button = byId('download');
+    if (!button) return;
+    button.addEventListener('click', function () {
+      var rows = shown();
+      var name = 'retests_' + (DATA.window || {}).from + '_to_' +
+        (DATA.window || {}).to + (filter ? '_' + filter : '') + '.csv';
+      var blob = new Blob([csv(rows)], { type: 'text/csv;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var link = h('a', { href: url, download: name });
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      /* Revoked on the next tick: revoking immediately races the download in
+       * Safari and hands the reader an empty file. */
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      button.textContent = 'Downloaded ' + rows.length + ' traces';
+      setTimeout(function () { button.textContent = 'Download CSV'; }, 2500);
+    });
+  }
+
   /* --------------------------------------------------------------- chrome */
 
   function renderSources() {
@@ -300,9 +393,10 @@
     var w = DATA.window || {};
     byId('meta').textContent = w.from + ' → ' + w.to + ' · ' + w.days + ' days';
     renderSplit();
-    renderSankey();
     renderFilters();
     renderRows();
+    renderSankey(shown());
+    wireDownload();
     renderSources();
     renderBuild();
   }

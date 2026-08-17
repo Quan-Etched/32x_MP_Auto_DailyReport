@@ -150,6 +150,8 @@ def build_bundle(collected: Dict[str, Any]) -> Dict[str, Any]:
                 "attempts": [_attempt(a) for a in graded],
                 "firstBuild": graded[0]["suite"],
                 "lastBuild": graded[-1]["suite"],
+                "firstBuildShort": short_build(graded[0]["suite"]),
+                "lastBuildShort": short_build(graded[-1]["suite"]),
                 # Re-run against a different build is a different event from
                 # re-run against the same one: the first is a fix being tried,
                 # the second is a flake being chased.
@@ -158,6 +160,12 @@ def build_bundle(collected: Dict[str, Any]) -> Dict[str, Any]:
                 "recovered": (graded[0]["status"] == "fail"
                               and graded[-1]["status"] == "pass"),
                 "stillFailing": graded[-1]["status"] == "fail",
+                "outcome": ("Recovered"
+                            if graded[0]["status"] == "fail"
+                            and graded[-1]["status"] == "pass"
+                            else "Still failing"
+                            if graded[-1]["status"] == "fail"
+                            else "Passed throughout"),
             })
 
     rows.sort(key=lambda r: (r["day"], r["dut"], r["station"]))
@@ -175,7 +183,9 @@ def build_bundle(collected: Dict[str, Any]) -> Dict[str, Any]:
                     "named on each attempt",
         },
         "split": _split(attempts),
-        "sankey": _sankey(rows),
+        # No pre-aggregated diagram: it has to follow the page's filter, and
+        # shipping one here as well would be a second implementation of the
+        # same five lines, free to disagree with the one on screen.
         "rows": rows,
         "runs": collected["runs"],
     }
@@ -207,47 +217,6 @@ def short_build(suite: str) -> str:
     if "debug" in lowered:
         marks.append("debug")
     return " ".join([release or name] + marks).strip()
-
-
-def _sankey(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Where a re-run unit went: the build it failed on, the build it was
-    re-run on, and how it ended.
-
-    Asked for as "how does the same unit retest at different versions" — which
-    a table cannot answer without the reader adding up rows, and which is the
-    question behind every "did 225 fix it".
-    """
-    flows: Dict[tuple, int] = defaultdict(int)
-    ends: Dict[tuple, int] = defaultdict(int)
-    for row in rows:
-        first = "{} {}".format(row["stationLabel"], short_build(row["firstBuild"]))
-        last = "{} {}".format(row["stationLabel"], short_build(row["lastBuild"]))
-        outcome = ("Recovered" if row["recovered"]
-                   else "Still failing" if row["stillFailing"]
-                   else "Passed throughout")
-        flows[(first, last)] += 1
-        ends[(last, outcome)] += 1
-
-    order: List[str] = []
-
-    def node(name: str, stage: int) -> str:
-        key = "{}|{}".format(stage, name)
-        if key not in order:
-            order.append(key)
-        return key
-
-    links = []
-    for (first, last), n in sorted(flows.items(), key=lambda kv: -kv[1]):
-        links.append({"source": node(first, 0), "target": node(last, 1),
-                      "value": n})
-    for (last, outcome), n in sorted(ends.items(), key=lambda kv: -kv[1]):
-        links.append({"source": node(last, 1), "target": node(outcome, 2),
-                      "value": n, "outcome": outcome})
-
-    nodes = [{"id": key, "stage": int(key.split("|", 1)[0]),
-              "label": key.split("|", 1)[1]} for key in order]
-    return {"nodes": nodes, "links": links,
-            "units": sum(1 for _ in rows)}
 
 
 def _split(attempts: Dict[str, Dict[str, List[Dict[str, Any]]]]) -> Dict[str, Any]:

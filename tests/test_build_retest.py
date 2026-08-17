@@ -127,44 +127,46 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class SankeyTest(unittest.TestCase):
-    """Where a re-run unit went, build to build.
+class DiagramInputTest(unittest.TestCase):
+    """What the Sankey is drawn from.
 
-    The question behind every "did 225 fix it": when the same unit comes back,
-    which build does it come back on, and does changing the build change the
-    outcome. A table cannot answer that without the reader adding up rows.
+    The diagram is aggregated in the page so it can follow the filter, so what
+    is worth pinning here is the per-row material it aggregates: which build
+    the unit started on, which it ended on, and how it finished.
     """
 
-    def sankey(self, units):
-        return build_retest.build_bundle(collected(units))["sankey"]
+    def rows(self, units):
+        return build_retest.build_bundle(collected(units))["rows"]
 
-    def test_a_unit_re_run_on_a_newer_build_crosses_between_nodes(self):
+    def test_a_row_names_the_build_it_started_and_ended_on(self):
         units = {"A": {"mlt": [attempt("fail", "2026-08-11", "T1",
                                        suite="mlt_2026.220.0-gitabc"),
                                attempt("pass", "2026-08-12", "T2",
                                        suite="mlt_2026.225.0-gitxyz")]}}
-        s = self.sankey(units)
-        labels = {n["id"]: n["label"] for n in s["nodes"]}
-        crossing = [l for l in s["links"] if labels[l["source"]] != labels[l["target"]]
-                    and "Recovered" not in labels[l["target"]]]
-        self.assertEqual(len(crossing), 1)
-        self.assertEqual(labels[crossing[0]["source"]], "MLT 220")
-        self.assertEqual(labels[crossing[0]["target"]], "MLT 225")
+        row = self.rows(units)[0]
+        self.assertEqual(row["firstBuildShort"], "220")
+        self.assertEqual(row["lastBuildShort"], "225")
+        self.assertTrue(row["crossedBuild"])
 
-    def test_the_outcome_is_the_last_stage(self):
-        units = {"A": {"mlt": [attempt("fail", "2026-08-11", "T1"),
-                               attempt("pass", "2026-08-12", "T2")]}}
-        s = self.sankey(units)
-        ends = [n["label"] for n in s["nodes"] if n["stage"] == 2]
-        self.assertEqual(ends, ["Recovered"])
+    def test_the_outcome_is_on_the_row(self):
+        cases = [
+            (["fail", "pass"], "Recovered"),
+            (["fail", "fail"], "Still failing"),
+            (["pass", "pass"], "Passed throughout"),
+        ]
+        for statuses, expected in cases:
+            units = {"A": {"mlt": [attempt(s, "2026-08-1%d" % (i + 1),
+                                           "T%d" % i)
+                                   for i, s in enumerate(statuses)]}}
+            with self.subTest(statuses=statuses):
+                self.assertEqual(self.rows(units)[0]["outcome"], expected)
 
-    def test_units_are_counted_not_runs(self):
+    def test_a_trace_is_one_unit_however_many_attempts(self):
         """Three attempts is one unit's journey, not three."""
         units = {"A": {"mlt": [attempt("fail", "2026-08-11", "T1"),
                                attempt("fail", "2026-08-12", "T2"),
                                attempt("fail", "2026-08-13", "T3")]}}
-        s = self.sankey(units)
-        self.assertTrue(all(l["value"] == 1 for l in s["links"]))
+        self.assertEqual(len(self.rows(units)), 1)
 
 
 class BuildLabelTest(unittest.TestCase):
