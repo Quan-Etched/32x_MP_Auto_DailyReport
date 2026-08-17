@@ -830,7 +830,7 @@
 
     host.appendChild(h('p', { class: 'rec-foot' }, [
       document.createTextNode('Computed on every build from both bundles — '),
-      h('a', { href: 'direct.html', text: 'open the direct page' }),
+      h('a', { href: 'index.html', text: 'open the controller-sourced page' }),
       document.createTextNode(' to check any figure above against its own charts.')
     ]));
   }

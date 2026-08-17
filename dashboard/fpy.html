@@ -8,6 +8,14 @@
        was handed out. -->
   <meta http-equiv="refresh" content="0; url=week.html">
   <link rel="canonical" href="week.html">
+  <script>
+    /* A meta refresh drops the #fragment, and these addresses were handed out
+       with one — index.html#station=l10_2u and the like. Carry it across. */
+    (function () {
+      var target = 'week.html';
+      if (location.hash) { location.replace(target + location.hash); }
+    })();
+  </script>
 </head>
 <body>
   <p>This page is now <a href="week.html">the weekly tracker</a>.</p>

@@ -67,5 +67,73 @@ class PageSourceTest(unittest.TestCase):
                     self.assertTrue((DASHBOARD / href).exists(), href)
 
 
+class LinkTest(unittest.TestCase):
+    """Every internal link resolves, and lands where it says.
+
+    Found the hard way: the flow chart's per-box "open" links pointed at
+    direct.html#station=l10_2u. direct.html became a redirect, a meta refresh
+    drops the #fragment, and every one of those links landed on the station
+    page with nothing selected — the boxes looked wired and went nowhere.
+    """
+
+    LINK = re.compile(r'''["'](?:href=)?([a-z0-9_]+\.html)(#[^"'\s]*)?["']''')
+
+    def is_redirect(self, name):
+        return 'http-equiv="refresh"' in (DASHBOARD / name).read_text(
+            encoding="utf-8")
+
+    def links(self):
+        """(source, target, fragment) for every internal link, markup or JS."""
+        found = []
+        sources = sorted(DASHBOARD.glob("*.html")) + sorted(DASHBOARD.glob("*.js"))
+        for src in sources:
+            text = src.read_text(encoding="utf-8")
+            for match in self.LINK.finditer(text):
+                found.append((src.name, match.group(1), match.group(2) or ""))
+        return found
+
+    def test_every_link_target_exists(self):
+        for src, target, _frag in self.links():
+            with self.subTest(src=src, target=target):
+                self.assertTrue((DASHBOARD / target).exists(), target)
+
+    def test_no_link_sends_a_fragment_through_a_redirect(self):
+        """A meta refresh drops it, so the reader lands on the right page with
+        the wrong thing selected — which reads as a broken page."""
+        for src, target, frag in self.links():
+            if not frag:
+                continue
+            with self.subTest(src=src, target=target + frag):
+                self.assertFalse(self.is_redirect(target),
+                                 "{} -> {}{}".format(src, target, frag))
+
+    def test_the_redirects_carry_a_fragment_anyway(self):
+        """Belt and braces: these addresses are in Slack messages already."""
+        for name in REDIRECTS:
+            text = (DASHBOARD / name).read_text(encoding="utf-8")
+            self.assertIn("location.hash", text, name)
+
+    def test_flowchart_boxes_link_to_stations_that_exist(self):
+        """The links are computed from station keys, so a renamed station
+        silently produces a link to nothing."""
+        import json
+        bundle = DASHBOARD / "data" / "pega_stations.js"
+        if not bundle.exists():
+            self.skipTest("no station bundle built")
+        views = json.loads(
+            bundle.read_text().split("= ", 1)[1].rstrip().rstrip(";"))["views"]
+        flow = (DASHBOARD / "flow.js").read_text(encoding="utf-8")
+        keys = re.findall(r"station:\s*'([a-z0-9_]+)'", flow)
+        self.assertTrue(keys, "no station keys found in flow.js")
+        for key in dict.fromkeys(keys):
+            with self.subTest(station=key):
+                self.assertIn(key, views)
+
+    def test_the_flowchart_links_at_the_default_station_page(self):
+        flow = (DASHBOARD / "flow.js").read_text(encoding="utf-8")
+        self.assertIn("'index.html#station='", flow)
+        self.assertNotIn("'direct.html#station='", flow)
+
+
 if __name__ == "__main__":
     unittest.main()

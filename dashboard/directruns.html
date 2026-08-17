@@ -6,6 +6,14 @@
   <!-- the controller-sourced run table is now the default. Kept as a redirect because the address was handed out. -->
   <meta http-equiv="refresh" content="0; url=runs.html">
   <link rel="canonical" href="runs.html">
+  <script>
+    /* A meta refresh drops the #fragment, and these addresses were handed out
+       with one — index.html#station=l10_2u and the like. Carry it across. */
+    (function () {
+      var target = 'runs.html';
+      if (location.hash) { location.replace(target + location.hash); }
+    })();
+  </script>
 </head>
 <body><p>This page moved to <a href="runs.html">runs.html</a>.</p></body>
 </html>

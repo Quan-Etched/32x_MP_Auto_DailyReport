@@ -6,6 +6,14 @@
   <!-- the controller-sourced station page is now the default view. Kept as a redirect because the address was handed out. -->
   <meta http-equiv="refresh" content="0; url=index.html">
   <link rel="canonical" href="index.html">
+  <script>
+    /* A meta refresh drops the #fragment, and these addresses were handed out
+       with one — index.html#station=l10_2u and the like. Carry it across. */
+    (function () {
+      var target = 'index.html';
+      if (location.hash) { location.replace(target + location.hash); }
+    })();
+  </script>
 </head>
 <body><p>This page moved to <a href="index.html">index.html</a>.</p></body>
 </html>

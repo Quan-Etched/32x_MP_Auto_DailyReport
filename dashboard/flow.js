@@ -192,7 +192,10 @@
        * where someone notices a number; the drill-down is where they find out
        * why it is that number. */
       var link = h('a', {
-        class: 'box-link', href: 'direct.html#station=' + node.station,
+        /* index.html, not direct.html: direct.html is a redirect now, and a
+         * meta refresh drops the #fragment — so every one of these landed on
+         * the station page with no station selected. */
+        class: 'box-link', href: 'index.html#station=' + node.station,
         title: 'Open ' + node.label + ' on the station page'
       }, [document.createTextNode('open')]);
       box.appendChild(link);
@@ -205,7 +208,7 @@
        * between a gap in the line and a gap in this dashboard. */
       box.appendChild(h('span', { class: 'box-note',
         text: node.owner ? 'measured at ' + node.owner + ' — not collected here'
-                         : 'no runs in the last 30 days' }));
+                         : 'no runs in the window' }));
     }
 
     boxes[node.id] = box;
@@ -334,7 +337,8 @@
 
     var window30 = STATIONS.window || {};
     byId('meta').textContent = window30.from
-      ? 'yields from ' + window30.from + ' to ' + window30.to
+      ? 'yields from ' + window30.from + ' to ' + window30.to +
+        (window30.days ? ' \u00b7 ' + window30.days + ' days' : '')
       : 'flow only — no station data loaded';
 
     renderLanes();
