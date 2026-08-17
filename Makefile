@@ -10,7 +10,7 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        dailyexcel requests l10 pega-stations fpy weekly weekly-deck archive \
+        dailyexcel requests l10 pega-stations retest fpy weekly weekly-deck archive \
         weekly-snapshot schedule-weekly-install schedule-weekly-uninstall \
         schedule-weekly-status schedule-weekly-install-macos \
         schedule-weekly-uninstall-macos schedule-weekly-status-macos \
@@ -109,6 +109,10 @@ pega-stations:
 
 # Mark each run as a new build or a retest, with what a returning unit failed
 # last time. Also part of `make build`.
+# Retests split from new builds, in the line's own Retest-tab format.
+retest:
+	$(PY) -m factory.cli retest
+
 # End-to-end first-pass yield, one row per test step — the weekly summary.
 fpy:
 	$(PY) -m factory.cli fpy

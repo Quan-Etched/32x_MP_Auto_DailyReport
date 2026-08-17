@@ -1,0 +1,63 @@
+/* The retest page. Laid out like the workbook's Retest tab — first attempt on
+   the left, retest on the right — because that is the shape the line already
+   reads in its reviews. */
+
+.rt-intro { max-width: 82ch; margin: 14px 0 0; color: var(--text-secondary); line-height: 1.55; }
+
+.rt-split { display: flex; flex-wrap: wrap; gap: 14px; margin: 18px 0 10px; }
+
+.rt-card {
+  flex: 1 1 320px; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; background: var(--surface-1);
+}
+.rt-card h2 { margin: 0 0 10px; font-size: 15px; }
+.rt-pair { display: flex; gap: 26px; }
+.rt-pair > div { flex: 1; }
+.rt-k { display: block; font-size: 11.5px; color: var(--text-muted); }
+.rt-v { display: block; font-size: 25px; line-height: 1.15; margin: 2px 0;
+        font-variant-numeric: tabular-nums; }
+.rt-s { display: block; font-size: 11.5px; color: var(--text-secondary); }
+.rt-new .rt-v { color: var(--accent-solid); }
+.rt-back .rt-v { color: var(--status-warning); }
+.rt-card .rt-note { display: block; margin-top: 9px; padding-top: 8px;
+  border-top: 1px dashed var(--border); font-size: 11.5px; color: var(--text-secondary); }
+
+.rt-filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 10px; }
+.rt-chip {
+  padding: 4px 11px; border-radius: 999px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-secondary); font: inherit;
+  font-size: 12px; cursor: pointer;
+}
+.rt-chip:hover { background: var(--hover-wash); color: var(--text-primary); }
+.rt-chip[aria-pressed="true"] { border-color: var(--accent-solid); color: var(--accent-solid); }
+
+.rt-table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.rt-table caption { text-align: left; padding: 10px 0; color: var(--text-secondary); max-width: 96ch; }
+.rt-table th {
+  text-align: left; padding: 6px 9px; font-size: 11.5px;
+  border-bottom: 1px solid var(--border); vertical-align: bottom;
+}
+/* The two halves of the row are the point of the page, so they are separated
+   rather than left to be counted across. */
+.rt-table th.grp {
+  text-align: center; border-bottom: 2px solid var(--border);
+  color: var(--text-muted); font-weight: 600;
+}
+.rt-table th.grp.rt, .rt-table th.rt { color: var(--accent-solid); }
+.rt-table th.rt, .rt-table td.rt { background: var(--hover-wash); }
+.rt-table td { padding: 6px 9px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.rt-table .dut { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
+.rt-table .day { color: var(--text-muted); white-space: nowrap; }
+.rt-table .res { font-weight: 600; text-transform: capitalize; white-space: nowrap; }
+.rt-table .r-pass { color: var(--status-good); }
+.rt-table .r-fail { color: var(--status-critical); }
+.rt-table .fails { font-size: 11px; color: var(--text-secondary); white-space: pre-line; max-width: 26ch; }
+.rt-table .link { color: var(--accent-solid); white-space: nowrap; font-size: 11px; }
+.rt-table .build { display: block; font-size: 10px; color: var(--text-muted); }
+.rt-table .out { white-space: nowrap; font-weight: 600; }
+.rt-table .out-recovered { color: var(--status-good); }
+.rt-table .out-failing { color: var(--status-critical); }
+.rt-table .out-mixed { color: var(--status-warning); }
+.rt-table tr:hover td { background: var(--hover-wash); }
+
+.notes .src { font-size: 12px; color: var(--text-muted); line-height: 1.6; }

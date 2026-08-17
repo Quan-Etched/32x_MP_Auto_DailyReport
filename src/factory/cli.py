@@ -414,6 +414,20 @@ def cmd_build(args: argparse.Namespace) -> int:
         except Exception as exc:                          # noqa: BLE001
             print("FPY summary skipped ({})".format(exc))
 
+    # Retests, split from new builds. Straight from pega3 rather than from the
+    # collected payload, because it must agree with the daily tracker — which
+    # keeps validation and debug builds that pega_collect drops.
+    from . import build_retest
+    try:
+        collected = build_retest.collect()
+        if collected["attempts"]:
+            rt_path = build_retest.write_bundle(
+                build_retest.build_bundle(collected))
+            print("Retest page ({:.0f} KB) -> {}".format(
+                rt_path.stat().st_size / 1024, rt_path))
+    except Exception as exc:                              # noqa: BLE001
+        print("Retest page skipped ({})".format(exc))
+
     # The weekly tracker — every week Monday to Sunday, and the unit rows
     # behind each number so anyone can check it.
     if pega_bundle is not None:
@@ -667,6 +681,30 @@ def cmd_archive(args: argparse.Namespace) -> int:
     for path in written:
         print("  {:>7} KB  {}".format(int(path.stat().st_size / 1024) or "<1",
                                       path))
+    return 0
+
+
+def cmd_retest(args: argparse.Namespace) -> int:
+    """Which units came back, what they failed, and what happened next."""
+    from . import build_retest
+
+    collected = build_retest.collect(days=args.days or build_retest.DEFAULT_DAYS)
+    if not collected["attempts"]:
+        print("No module runs in the window.", file=sys.stderr)
+        return 1
+    bundle = build_retest.build_bundle(collected)
+    path = build_retest.write_bundle(bundle)
+    window = bundle["window"]
+    print("Retests {} .. {} ({} units re-run) -> {}".format(
+        window["from"], window["to"], len(bundle["rows"]), path))
+    for key, split in bundle["split"].items():
+        rate = ("{:.1%}".format(split["firstPassRate"])
+                if split["firstPassRate"] is not None else "n/a")
+        back = ("{:.1%}".format(split["retestRate"])
+                if split["retestRate"] is not None else "n/a")
+        print("  {:<4} {:>4} units, first pass {:>7}  ·  {:>3} came back ({}), "
+              "{} recovered".format(split["label"], split["units"], rate,
+                                    split["retested"], back, split["recovered"]))
     return 0
 
 
@@ -994,6 +1032,11 @@ def _build_parser() -> argparse.ArgumentParser:
                          help="archive the week in progress rather than the "
                               "most recent completed one")
     archive.set_defaults(handler=cmd_archive)
+
+    retest = subparsers.add_parser(
+        "retest", help="retests split from new builds, in the line's own format")
+    retest.add_argument("--days", type=int, default=None)
+    retest.set_defaults(handler=cmd_retest)
 
     fpy = subparsers.add_parser(
         "fpy", help="end-to-end first-pass yield, one row per test step")

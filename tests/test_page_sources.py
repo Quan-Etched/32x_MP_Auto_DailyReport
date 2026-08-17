@@ -25,6 +25,7 @@ EXPECTED = {
     "weekly.html": "data/weekly.js",
     "week.html": "data/weekly.js",
     "flow.html": "data/pega_stations.js",
+    "retest.html": "data/retest.js",
 }
 
 #: Addresses that were handed out and must keep resolving.

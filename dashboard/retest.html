@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Retests</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="retest.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Retests</h1>
+    <span class="meta" id="meta"></span>
+    <span class="build" id="build"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" href="dailyexcel.html">Daily tracker &rarr;</a>
+    <a class="theme-toggle" href="weekly.html">Weekly tracker &rarr;</a>
+    <a class="theme-toggle" href="index.html">&larr; Station yield</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <p class="rt-intro">
+    New builds and retests, counted separately. The daily tracker shows one row
+    per unit with the latest attempt winning, so a unit that failed in the
+    morning and passed in the afternoon appears once, as a pass — right for
+    "what is the state of the line", wrong for "how did the fresh units do".
+    A shift that starts twenty modules and re-runs fifteen known-bad ones has
+    two yields, and the average of them describes neither.
+  </p>
+
+  <section class="rt-split" id="split"></section>
+
+  <div class="rt-filters" id="filters"></div>
+
+  <div class="table-wrap">
+    <table class="rt-table">
+      <caption id="caption"></caption>
+      <thead>
+        <tr>
+          <th scope="col" rowspan="2">Date</th>
+          <th scope="col" rowspan="2">DUT SN</th>
+          <th scope="col" rowspan="2">DUT PN</th>
+          <th scope="col" colspan="3" class="grp">First attempt &mdash; MLT</th>
+          <th scope="col" colspan="3" class="grp">First attempt &mdash; HTT</th>
+          <th scope="col" colspan="3" class="grp rt">Retest &mdash; MLT</th>
+          <th scope="col" colspan="3" class="grp rt">Retest &mdash; HTT</th>
+          <th scope="col" rowspan="2">Outcome</th>
+        </tr>
+        <tr>
+          <th scope="col">Result</th><th scope="col">Failure test case</th><th scope="col">FI test link</th>
+          <th scope="col">Result</th><th scope="col">Failure test case</th><th scope="col">FI test link</th>
+          <th scope="col" class="rt">Result</th><th scope="col" class="rt">Failure test case</th><th scope="col" class="rt">FI test link</th>
+          <th scope="col" class="rt">Result</th><th scope="col" class="rt">Failure test case</th><th scope="col" class="rt">FI test link</th>
+        </tr>
+      </thead>
+      <tbody id="body"></tbody>
+    </table>
+  </div>
+
+  <footer class="notes" id="sources"></footer>
+
+</div>
+
+<script src="data/retest.js"></script>
+<script src="retest.js"></script>
+<script src="theme.js"></script>
+<script src="update.js"></script>
+</body>
+</html>
