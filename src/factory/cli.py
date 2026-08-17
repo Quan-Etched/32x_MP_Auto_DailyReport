@@ -309,7 +309,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     from . import pega_collect
     pega_bundle = None
     try:
-        pega_payload = pega_collect.collect(days=30)
+        pega_payload = pega_collect.collect()
     except Exception as exc:                              # noqa: BLE001
         print("Pega stations skipped ({})".format(exc))
     else:
@@ -329,7 +329,15 @@ def cmd_build(args: argparse.Namespace) -> int:
     # lands on and the one whose numbers get challenged.
     if pega_bundle is not None:
         from . import compare
-        stations_bundle["comparison"] = compare.build(stations_bundle, pega_bundle)
+        comparison = compare.build(stations_bundle, pega_bundle)
+        # On both bundles, not just the EOS one. It used to sit only on the
+        # page a reader landed on, and the page a reader lands on is now the
+        # controller-sourced one — leaving it behind would have quietly
+        # dropped the proof of the gap from the default view.
+        stations_bundle["comparison"] = comparison
+        pega_bundle["comparison"] = comparison
+        build_stations.write_bundle(
+            pega_bundle, config.DASHBOARD_DATA_DIR / "pega_stations.js")
     # The controller-sourced run table, so the direct page's "Raw runs" link
     # lands on runs that came from the same place its numbers did — and whose
     # rows open on the controller rather than in OCP's search box.

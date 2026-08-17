@@ -62,6 +62,20 @@ NOT_PRODUCTION = re.compile(
     r"(_validation|_debug|_krish|_out_dir|_SAM|_SMOKE|_etch\d+|^DRY_?RUN|^test_)",
     re.IGNORECASE)
 
+#: How far back to walk the controllers.
+#:
+#: Ninety, which is everything they hold. Probed rather than assumed: pega3
+#: answers with runs at 30 and 45 days back, thins to a couple at 60, and
+#: returns nothing at 90, 120 or 180. Asking for 90 therefore captures the
+#: whole history and costs a handful of empty listings at the far end.
+#:
+#: It is cheap to keep: a finished run never changes, so every day but today
+#: is served from disk after the first build. The reporting windows are much
+#: shorter and are trimmed at the point of use — the station page shows seven
+#: days — but the collected history is what lets the weekly page tell a unit's
+#: first attempt from its fourth.
+COLLECT_DAYS = 90
+
 #: pega verdicts -> the vocabulary the rest of the repo speaks.
 STATUS = {
     "passed": "pass", "pass": "pass",
@@ -155,7 +169,7 @@ def _tests_for(detail: Dict[str, Any], slot: Optional[int]) -> List[Dict[str, An
     return out
 
 
-def collect(days: int = 30, hosts: Tuple[Tuple[str, str, bool], ...] = HOSTS,
+def collect(days: int = COLLECT_DAYS, hosts: Tuple[Tuple[str, str, bool], ...] = HOSTS,
             progress: bool = True) -> Dict[str, Any]:
     """Walk every controller and return a payload shaped like the EOS one."""
     today = datetime.now(timezone.utc).date()

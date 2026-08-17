@@ -54,8 +54,10 @@ from . import config, rootcause, stations, version
 DEFAULT_DAYS = 7
 
 #: Days of history walked to decide whether a unit is new to a stage. Longer
-#: than the reported window on purpose — see the module docstring.
-HISTORY_DAYS = 30
+#: than the reported window on purpose — see the module docstring — and now as
+#: long as the controllers keep, so "first attempt" means first attempt rather
+#: than first attempt this month.
+HISTORY_DAYS = 90
 
 GRADED = ("pass", "fail", "error")
 

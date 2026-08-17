@@ -75,6 +75,13 @@ scp .env chuck@chuck-dashboard.usw2.i.etched.com:factory_data_analysis/.env
 rsync -av --progress data/processed/items.sqlite data/processed/fetch_state.json \
   chuck@chuck-dashboard.usw2.i.etched.com:factory_data_analysis/data/processed/
 
+# The pages, and which source each one is:
+#   index.html   station yield from the controllers  <- the default
+#   ocp.html     the same page from OCP Logs         <- second opinion
+#   runs.html    run table from the controllers, each row links to pega
+#   ocpruns.html run table from OCP
+#   direct.html and directruns.html redirect to the two defaults.
+
 # 5. box: choose the publish target, then prove the network path.
 printf '\nFACTORY_WEB_ROOT=/var/www/32x-production\n' >> .env && chmod 600 .env
 make levels            # DNS + internal CA + API key, in one call
