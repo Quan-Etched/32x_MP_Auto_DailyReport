@@ -19,7 +19,8 @@
   var ROWS = DATA.rows || [];
   var STATIONS = [['mlt', 'MLT'], ['htt', 'HTT']];
 
-  var filter = null;
+  var filter = null;      /* the chip: which traces the diagram is drawn from */
+  var picked = null;      /* a node or ribbon clicked on the diagram */
 
   function h(tag, attrs, kids) {
     var node = document.createElement(tag);
@@ -174,29 +175,42 @@
              ' ' + x1 + ',' + y1 + ' L' + x1 + ',' + (y1 + th) +
              ' C' + mid + ',' + (y1 + th) + ' ' + mid + ',' + (y0 + sh) +
              ' ' + x0 + ',' + (y0 + sh) + ' Z',
-          class: 'sk-link ' + outcomeClass(l.outcome)
+          class: 'sk-link sk-pick ' + outcomeClass(l.outcome) +
+                 (picked && picked.id === linkKey(s, tn) ? ' on' : ''),
+          role: 'button', tabindex: '0',
+          'aria-label': 'Show the ' + l.value + ' traces from ' + s.label +
+                        ' to ' + tn.label
         });
         path.appendChild(svg('title', {})).textContent =
           s.label + '  \u2192  ' + tn.label + '   ' + l.value + ' unit' +
-          (l.value === 1 ? '' : 's');
+          (l.value === 1 ? '' : 's') + ' — click to list them';
+        choose(path, linkSelection(s, tn));
         frame.appendChild(path);
       });
 
     nodes.forEach(function (n) {
-      var rect = svg('rect', {
+      var chosen = picked && picked.id === nodeKey(n);
+      var group = svg('g', {
+        class: 'sk-pick' + (chosen ? ' on' : ''),
+        role: 'button', tabindex: '0',
+        'aria-label': 'Show the ' + n.value + ' traces at ' + n.label
+      });
+      group.appendChild(svg('rect', {
         x: n.x, y: n.y, width: NODE_W, height: n.h,
         class: 'sk-node ' + (n.stage === 2 ? outcomeClass(n.label) : '')
-      });
-      rect.appendChild(svg('title', {})).textContent =
-        n.label + '  ' + n.value + ' unit' + (n.value === 1 ? '' : 's');
-      frame.appendChild(rect);
+      }));
       var label = svg('text', {
         x: n.stage === 0 ? n.x - 8 : n.x + NODE_W + 8,
         y: n.y + n.h / 2 + 4, class: 'sk-text',
         'text-anchor': n.stage === 0 ? 'end' : 'start'
       });
       label.textContent = n.label + '  ' + n.value;
-      frame.appendChild(label);
+      group.appendChild(label);
+      group.appendChild(svg('title', {})).textContent =
+        n.label + '  ' + n.value + ' unit' + (n.value === 1 ? '' : 's') +
+        ' — click to list them';
+      choose(group, nodeSelection(n));
+      frame.appendChild(group);
     });
 
     var crossed = rows.filter(function (r) { return r.crossedBuild; }).length;
@@ -210,6 +224,53 @@
     host.appendChild(frame);
   }
 
+  function stageLabel(row, stage) {
+    if (stage === 0) return row.stationLabel + ' ' + row.firstBuildShort;
+    if (stage === 1) return row.stationLabel + ' ' + row.lastBuildShort;
+    return row.outcome;
+  }
+
+  function nodeKey(n) { return 'n' + n.stage + '|' + n.label; }
+  function linkKey(s, t2) { return 'l' + s.stage + '|' + s.label + '>' + t2.label; }
+
+  function nodeSelection(n) {
+    var name = n.stage === 0 ? 'first ran ' + n.label
+      : n.stage === 1 ? 're-run on ' + n.label
+      : n.label;
+    return {
+      id: nodeKey(n), label: name,
+      match: function (row) { return stageLabel(row, n.stage) === n.label; }
+    };
+  }
+
+  function linkSelection(s, t2) {
+    var name = s.stage === 0
+      ? s.label + ' \u2192 ' + t2.label
+      : t2.label + ' after ' + s.label;
+    return {
+      id: linkKey(s, t2), label: name,
+      match: function (row) {
+        return stageLabel(row, s.stage) === s.label &&
+               stageLabel(row, t2.stage) === t2.label;
+      }
+    };
+  }
+
+  /* Mouse and keyboard, because these are the page's main controls now and a
+   * control you can only reach with a pointer is half a control. */
+  function choose(node, selection) {
+    function pick(event) {
+      event.preventDefault();
+      picked = (picked && picked.id === selection.id) ? null : selection;
+      renderRows();
+      renderSankey(chipRows());
+    }
+    node.addEventListener('click', pick);
+    node.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' || event.key === ' ') pick(event);
+    });
+  }
+
   function outcomeClass(label) {
     if (label === 'Recovered') return 'ok';
     if (label === 'Still failing') return 'bad';
@@ -219,7 +280,18 @@
 
   /* -------------------------------------------------------------- filters */
 
+  /* Two levels, deliberately. The chip decides what the diagram is drawn
+   * from; clicking the diagram narrows the table without redrawing it. If a
+   * click redrew the diagram to its own selection there would be nothing left
+   * to click next, which is the difference between a picture you can explore
+   * and one you can use once. */
   function shown() {
+    return chipRows().filter(function (row) {
+      return !picked || picked.match(row);
+    });
+  }
+
+  function chipRows() {
     return ROWS.filter(function (row) {
       if (!filter) return true;
       if (filter === 'recovered') return row.recovered;
@@ -236,15 +308,19 @@
      ['crossed', 'Re-run on a different build'],
      ['recovered', 'Recovered'], ['failing', 'Still failing']
     ].forEach(function (option) {
-      var was = filter; filter = option[0];
-      var n = shown().length; filter = was;
+      var was = filter, wasPicked = picked;
+      filter = option[0]; picked = null;
+      var n = shown().length;
+      filter = was; picked = wasPicked;
       var button = h('button', {
         type: 'button', class: 'rt-chip',
         'aria-pressed': filter === option[0] ? 'true' : 'false',
         text: option[1] + ' (' + n + ')'
       });
       button.addEventListener('click', function () {
-        filter = option[0]; renderFilters(); renderRows(); renderSankey(shown());
+        filter = option[0];
+        picked = null;          /* a pick belongs to the set it was made in */
+        renderFilters(); renderRows(); renderSankey(chipRows());
       });
       host.appendChild(button);
     });
@@ -298,6 +374,8 @@
       ]));
       body.appendChild(tr);
     });
+
+    renderPicked(rows.length);
 
     var w = DATA.window || {};
     byId('caption').textContent = rows.length + ' of ' + ROWS.length +
@@ -359,6 +437,25 @@
     });
   }
 
+  /* A table that silently shows a subset is a table someone quotes as the
+   * whole. The selection is named above it, with the way out beside it. */
+  function renderPicked(count) {
+    var host = byId('picked');
+    host.innerHTML = '';
+    if (!picked) { host.hidden = true; return; }
+    host.hidden = false;
+    host.appendChild(h('span', { class: 'pk-k', text: 'Showing' }));
+    host.appendChild(h('strong', { class: 'pk-v', text: picked.label }));
+    host.appendChild(h('span', { class: 'pk-n', text: count + ' trace' +
+      (count === 1 ? '' : 's') }));
+    var clear = h('button', { type: 'button', class: 'pk-x',
+                              text: 'show all' });
+    clear.addEventListener('click', function () {
+      picked = null; renderRows(); renderSankey(chipRows());
+    });
+    host.appendChild(clear);
+  }
+
   /* --------------------------------------------------------------- chrome */
 
   function renderSources() {
@@ -395,7 +492,7 @@
     renderSplit();
     renderFilters();
     renderRows();
-    renderSankey(shown());
+    renderSankey(chipRows());
     wireDownload();
     renderSources();
     renderBuild();

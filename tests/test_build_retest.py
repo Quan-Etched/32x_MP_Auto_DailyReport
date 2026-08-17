@@ -169,6 +169,58 @@ class DiagramInputTest(unittest.TestCase):
         self.assertEqual(len(self.rows(units)), 1)
 
 
+class SelectableLabelTest(unittest.TestCase):
+    """Every diagram label has to name a selectable subset.
+
+    The nodes and ribbons are the page's main controls now — clicking "Still
+    failing 58" lists those 58. A row missing one of these fields produces a
+    node that still counts it and cannot select it, which reads as a control
+    that does nothing.
+    """
+
+    def rows(self, units):
+        return build_retest.build_bundle(collected(units))["rows"]
+
+    def test_every_row_carries_all_three_labels(self):
+        units = {
+            "A": {"mlt": [attempt("fail", "2026-08-11", "T1"),
+                          attempt("pass", "2026-08-12", "T2",
+                                  suite="mlt_2026.225.0-gitx")]},
+            "B": {"htt": [attempt("fail", "2026-08-11", "T1",
+                                  suite="debug_only_htt_2026.223.0-gitq"),
+                          attempt("fail", "2026-08-12", "T2",
+                                  suite="htt_2026.226.0-gitz")]},
+        }
+        for row in self.rows(units):
+            for field in ("firstBuildShort", "lastBuildShort", "outcome",
+                          "stationLabel"):
+                with self.subTest(dut=row["dut"], field=field):
+                    self.assertTrue(row[field], field)
+
+    def test_a_suite_with_no_release_number_still_labels(self):
+        """An unparseable name must not become an empty node."""
+        units = {"A": {"mlt": [attempt("fail", "2026-08-11", "T1",
+                                       suite="mlt_experiment"),
+                               attempt("fail", "2026-08-12", "T2",
+                                       suite="mlt_experiment")]}}
+        row = self.rows(units)[0]
+        self.assertEqual(row["firstBuildShort"], "mlt_experiment")
+
+    def test_the_three_outcomes_are_a_closed_set(self):
+        """The page colours them by name; a fourth would render uncoloured."""
+        units = {
+            "A": {"mlt": [attempt("fail", "2026-08-11", "T1"),
+                          attempt("pass", "2026-08-12", "T2")]},
+            "B": {"mlt": [attempt("fail", "2026-08-11", "T1"),
+                          attempt("fail", "2026-08-12", "T2")]},
+            "C": {"mlt": [attempt("pass", "2026-08-11", "T1"),
+                          attempt("pass", "2026-08-12", "T2")]},
+        }
+        seen = {row["outcome"] for row in self.rows(units)}
+        self.assertEqual(seen, {"Recovered", "Still failing",
+                                "Passed throughout"})
+
+
 class BuildLabelTest(unittest.TestCase):
     def test_a_release_reduces_to_its_number(self):
         self.assertEqual(build_retest.short_build("mlt_2026.220.0-git2f1c2f23"),

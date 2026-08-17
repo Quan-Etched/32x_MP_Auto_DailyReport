@@ -121,3 +121,36 @@
   color: var(--text-primary); font: inherit; font-size: 12.5px; cursor: pointer;
 }
 .rt-download:hover { background: var(--hover-wash); border-color: var(--accent-solid); }
+
+/* ------------------------------------------------- selecting on the chart */
+
+/* Nodes and ribbons are controls, so they say so on hover and keep a visible
+   focus ring — they are the page's main way of choosing a subset now. */
+.sk-pick { cursor: pointer; }
+.sk-pick:hover .sk-node { fill: var(--accent-solid); }
+.sk-pick:hover .sk-text { fill: var(--text-primary); }
+path.sk-pick:hover { opacity: 0.75; }
+.sk-pick:focus { outline: none; }
+.sk-pick:focus-visible .sk-node,
+path.sk-pick:focus-visible { outline: 2px solid var(--accent-solid);
+                             outline-offset: 2px; }
+
+/* The chosen one stays lit while the rest of the diagram keeps its shape, so
+   the next click is still there to make. */
+.sk-pick.on .sk-node { fill: var(--accent-solid); }
+.sk-pick.on .sk-text { fill: var(--text-primary); font-weight: 700; }
+path.sk-pick.on { opacity: 0.85; }
+
+.rt-picked {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 8px; padding: 8px 12px; border-radius: var(--radius);
+  border: 1px solid var(--accent-solid); background: var(--hover-wash);
+}
+.rt-picked .pk-k { font-size: 12px; color: var(--text-muted); }
+.rt-picked .pk-v { font-size: 14px; color: var(--accent-solid); }
+.rt-picked .pk-n { font-size: 12px; color: var(--text-secondary); }
+.rt-picked .pk-x {
+  margin-left: auto; border: 0; background: transparent; font: inherit;
+  font-size: 12px; color: var(--accent-solid); cursor: pointer;
+  text-decoration: underline;
+}
