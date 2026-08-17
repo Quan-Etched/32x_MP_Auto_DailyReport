@@ -32,6 +32,8 @@
 
   <section class="rt-split" id="split"></section>
 
+  <section class="rt-sankey" id="sankey"></section>
+
   <div class="rt-filters" id="filters"></div>
 
   <div class="table-wrap">
@@ -39,20 +41,13 @@
       <caption id="caption"></caption>
       <thead>
         <tr>
-          <th scope="col" rowspan="2">Date</th>
-          <th scope="col" rowspan="2">DUT SN</th>
-          <th scope="col" rowspan="2">DUT PN</th>
-          <th scope="col" colspan="3" class="grp">First attempt &mdash; MLT</th>
-          <th scope="col" colspan="3" class="grp">First attempt &mdash; HTT</th>
-          <th scope="col" colspan="3" class="grp rt">Retest &mdash; MLT</th>
-          <th scope="col" colspan="3" class="grp rt">Retest &mdash; HTT</th>
-          <th scope="col" rowspan="2">Outcome</th>
-        </tr>
-        <tr>
-          <th scope="col">Result</th><th scope="col">Failure test case</th><th scope="col">FI test link</th>
-          <th scope="col">Result</th><th scope="col">Failure test case</th><th scope="col">FI test link</th>
-          <th scope="col" class="rt">Result</th><th scope="col" class="rt">Failure test case</th><th scope="col" class="rt">FI test link</th>
-          <th scope="col" class="rt">Result</th><th scope="col" class="rt">Failure test case</th><th scope="col" class="rt">FI test link</th>
+          <th scope="col">First seen</th>
+          <th scope="col">DUT SN</th>
+          <th scope="col">Step</th>
+          <th scope="col">Attempts &mdash; oldest first, each links to its run</th>
+          <th scope="col">Failed on first</th>
+          <th scope="col">Failing now</th>
+          <th scope="col">Outcome</th>
         </tr>
       </thead>
       <tbody id="body"></tbody>

@@ -42,8 +42,14 @@ from typing import Any, Dict, List, Optional
 
 from . import build_dailyexcel, config, pega, version
 
-#: Days reported. The same seven the station page and the weekly tracker use.
-DEFAULT_DAYS = 7
+#: Where the trace starts.
+#:
+#: 2026-08-07, not a rolling seven days — the workbook's retest tab starts
+#: there ("08-17 Retest with 225-226", whose first rows are dated 08-07), and a
+#: retest trace that begins after a unit's first failure shows the retest and
+#: hides what it was retesting. The window runs from here to today, so it
+#: lengthens rather than sliding.
+WINDOW_START = "2026-08-07"
 
 #: The two module stations, in the order a unit meets them.
 STATIONS = (("mlt", "MLT"), ("htt", "HTT"))
@@ -51,7 +57,7 @@ STATIONS = (("mlt", "MLT"), ("htt", "HTT"))
 GRADED = ("pass", "fail")
 
 
-def collect(days: int = DEFAULT_DAYS) -> Dict[str, Any]:
+def collect(start: str = WINDOW_START, end: Optional[str] = None) -> Dict[str, Any]:
     """Every attempt each unit made at MLT and HTT inside the window.
 
     Walked straight from pega3 rather than through ``pega_collect``, which
@@ -59,9 +65,11 @@ def collect(days: int = DEFAULT_DAYS) -> Dict[str, Any]:
     has to agree with the tracker. The build is carried on every attempt so a
     reader can tell them apart.
     """
-    today = datetime.now(timezone.utc).date()
-    window = [(today - timedelta(days=offset)).strftime("%Y-%m-%d")
-              for offset in range(days - 1, -1, -1)]
+    first = datetime.strptime(start, "%Y-%m-%d").date()
+    last = (datetime.strptime(end, "%Y-%m-%d").date() if end
+            else datetime.now(timezone.utc).date())
+    window = [(first + timedelta(days=offset)).strftime("%Y-%m-%d")
+              for offset in range((last - first).days + 1)]
 
     attempts: Dict[str, Dict[str, List[Dict[str, Any]]]] = defaultdict(
         lambda: defaultdict(list))
@@ -116,46 +124,50 @@ def build_bundle(collected: Dict[str, Any]) -> Dict[str, Any]:
     window = collected["window"]
     attempts = collected["attempts"]
 
+    # One row per unit *per station*, carrying every attempt rather than just
+    # the first and the last. Sixteen columns of first-and-last was the
+    # workbook's shape and it does not survive a unit that was re-run four
+    # times across three builds — which is most of them here.
     rows: List[Dict[str, Any]] = []
     for dut in sorted(attempts):
-        by_station = attempts[dut]
-        retested = {station for station, _label in STATIONS
-                    if len([a for a in by_station.get(station, [])
-                            if a["status"] in GRADED]) > 1}
-        if not retested:
-            continue
-
-        row: Dict[str, Any] = {
-            "dut": dut,
-            "pn": collected["parts"].get(dut, ""),
-            "day": min(a["day"] for runs in by_station.values() for a in runs),
-            "retested": sorted(retested),
-            "attempts": {},
-        }
-        for station, _label in STATIONS:
-            graded = [a for a in by_station.get(station, [])
+        for station, label in STATIONS:
+            graded = [a for a in attempts[dut].get(station, [])
                       if a["status"] in GRADED]
-            if not graded:
+            if len(graded) < 2:
                 continue
-            row["attempts"][station] = {
-                "first": graded[0],
-                "last": graded[-1],
+            builds = []
+            for a in graded:
+                if a["suite"] not in builds:
+                    builds.append(a["suite"])
+            rows.append({
+                "dut": dut,
+                "pn": collected["parts"].get(dut, ""),
+                "station": station,
+                "stationLabel": label,
+                "day": graded[0]["day"],
+                "lastDay": graded[-1]["day"],
                 "count": len(graded),
-                # Recovered: failed the first time and passed in the end. The
-                # number the retest column exists to produce.
+                "attempts": [_attempt(a) for a in graded],
+                "firstBuild": graded[0]["suite"],
+                "lastBuild": graded[-1]["suite"],
+                # Re-run against a different build is a different event from
+                # re-run against the same one: the first is a fix being tried,
+                # the second is a flake being chased.
+                "builds": builds,
+                "crossedBuild": len(builds) > 1,
                 "recovered": (graded[0]["status"] == "fail"
                               and graded[-1]["status"] == "pass"),
                 "stillFailing": graded[-1]["status"] == "fail",
-            }
-        rows.append(row)
+            })
 
-    rows.sort(key=lambda r: (r["day"], r["dut"]))
+    rows.sort(key=lambda r: (r["day"], r["dut"], r["station"]))
 
     return {
         "schemaVersion": 1,
         "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "build": version.describe(),
-        "window": {"from": window[0], "to": window[-1], "days": len(window)},
+        "window": {"from": window[0], "to": window[-1], "days": len(window),
+                   "anchored": WINDOW_START},
         "source": {
             "label": "pega3 (ESVM)",
             "note": "every attempt each unit made, straight from the "
@@ -163,9 +175,79 @@ def build_bundle(collected: Dict[str, Any]) -> Dict[str, Any]:
                     "named on each attempt",
         },
         "split": _split(attempts),
+        "sankey": _sankey(rows),
         "rows": rows,
         "runs": collected["runs"],
     }
+
+
+def _attempt(a: Dict[str, Any]) -> Dict[str, Any]:
+    return {"day": a["day"], "status": a["status"], "suite": a["suite"],
+            "build": short_build(a["suite"]), "short": a["short"],
+            "url": a["url"], "failures": a["failures"]}
+
+
+def short_build(suite: str) -> str:
+    """``mlt_validation_2026.225.0-gitb937ca2c`` -> ``225 validation``.
+
+    The station prefix repeats on every node and the commit is nine characters
+    of noise on a diagram; the release number and whether it is a validation
+    build are what distinguishes one from another.
+    """
+    name = suite or ""
+    release = ""
+    for chunk in name.split("_"):
+        if chunk[:5].replace(".", "").isdigit() and "." in chunk:
+            release = chunk.split(".")[1] if chunk.count(".") >= 1 else chunk
+            break
+    marks = []
+    lowered = name.lower()
+    if "validation" in lowered:
+        marks.append("validation")
+    if "debug" in lowered:
+        marks.append("debug")
+    return " ".join([release or name] + marks).strip()
+
+
+def _sankey(rows: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Where a re-run unit went: the build it failed on, the build it was
+    re-run on, and how it ended.
+
+    Asked for as "how does the same unit retest at different versions" — which
+    a table cannot answer without the reader adding up rows, and which is the
+    question behind every "did 225 fix it".
+    """
+    flows: Dict[tuple, int] = defaultdict(int)
+    ends: Dict[tuple, int] = defaultdict(int)
+    for row in rows:
+        first = "{} {}".format(row["stationLabel"], short_build(row["firstBuild"]))
+        last = "{} {}".format(row["stationLabel"], short_build(row["lastBuild"]))
+        outcome = ("Recovered" if row["recovered"]
+                   else "Still failing" if row["stillFailing"]
+                   else "Passed throughout")
+        flows[(first, last)] += 1
+        ends[(last, outcome)] += 1
+
+    order: List[str] = []
+
+    def node(name: str, stage: int) -> str:
+        key = "{}|{}".format(stage, name)
+        if key not in order:
+            order.append(key)
+        return key
+
+    links = []
+    for (first, last), n in sorted(flows.items(), key=lambda kv: -kv[1]):
+        links.append({"source": node(first, 0), "target": node(last, 1),
+                      "value": n})
+    for (last, outcome), n in sorted(ends.items(), key=lambda kv: -kv[1]):
+        links.append({"source": node(last, 1), "target": node(outcome, 2),
+                      "value": n, "outcome": outcome})
+
+    nodes = [{"id": key, "stage": int(key.split("|", 1)[0]),
+              "label": key.split("|", 1)[1]} for key in order]
+    return {"nodes": nodes, "links": links,
+            "units": sum(1 for _ in rows)}
 
 
 def _split(attempts: Dict[str, Dict[str, List[Dict[str, Any]]]]) -> Dict[str, Any]:

@@ -688,14 +688,15 @@ def cmd_retest(args: argparse.Namespace) -> int:
     """Which units came back, what they failed, and what happened next."""
     from . import build_retest
 
-    collected = build_retest.collect(days=args.days or build_retest.DEFAULT_DAYS)
+    collected = build_retest.collect(
+        start=args.start or build_retest.WINDOW_START)
     if not collected["attempts"]:
         print("No module runs in the window.", file=sys.stderr)
         return 1
     bundle = build_retest.build_bundle(collected)
     path = build_retest.write_bundle(bundle)
     window = bundle["window"]
-    print("Retests {} .. {} ({} units re-run) -> {}".format(
+    print("Retests {} .. {} ({} unit-station traces) -> {}".format(
         window["from"], window["to"], len(bundle["rows"]), path))
     for key, split in bundle["split"].items():
         rate = ("{:.1%}".format(split["firstPassRate"])
@@ -1035,7 +1036,9 @@ def _build_parser() -> argparse.ArgumentParser:
 
     retest = subparsers.add_parser(
         "retest", help="retests split from new builds, in the line's own format")
-    retest.add_argument("--days", type=int, default=None)
+    retest.add_argument("--from", dest="start", default=None,
+                        help="first day of the trace (default {})".format(
+                            "2026-08-07"))
     retest.set_defaults(handler=cmd_retest)
 
     fpy = subparsers.add_parser(

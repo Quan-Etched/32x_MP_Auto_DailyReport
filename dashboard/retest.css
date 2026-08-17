@@ -61,3 +61,50 @@
 .rt-table tr:hover td { background: var(--hover-wash); }
 
 .notes .src { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+
+/* ------------------------------------------------------------- the chain */
+
+/* A trace is one unit at one station, read left to right. The workbook's
+   first-and-last pair cannot show four attempts across three builds, and four
+   attempts across three builds is most of this page. */
+.rt-table .chain { white-space: nowrap; }
+.rt-table .arrow { color: var(--text-muted); margin: 0 5px; font-size: 11px; }
+
+.att {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  padding: 2px 7px; border-radius: 5px; border: 1px solid var(--border);
+  text-decoration: none; font-size: 11px;
+}
+.att:hover { border-color: var(--accent-solid); }
+.att-day { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.att-build { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+             color: var(--text-primary); }
+.att-res { font-weight: 700; }
+.a-pass { background: var(--sheet-pass-bg, rgba(0, 120, 0, 0.08)); }
+.a-pass .att-res { color: var(--status-good); }
+.a-fail { background: var(--sheet-fail-bg, rgba(180, 0, 0, 0.08)); }
+.a-fail .att-res { color: var(--status-critical); }
+
+.rt-table .st { white-space: nowrap; font-weight: 600; }
+.x-build { display: block; font-size: 10px; font-weight: 400; color: var(--status-warning); }
+.x-build.same { color: var(--text-muted); }
+.out-neutral { color: var(--text-secondary); }
+
+/* ------------------------------------------------------------- the sankey */
+
+.rt-sankey { margin: 22px 0 6px; }
+.rt-sankey h2 { margin: 0 0 4px; font-size: 16px; }
+.rt-note-wide { margin: 0 0 10px; max-width: 92ch; color: var(--text-secondary);
+                line-height: 1.5; font-size: 13px; }
+.sk { width: 100%; height: auto; overflow: visible; }
+.sk-node { fill: var(--text-secondary); }
+.sk-node.ok { fill: var(--status-good); }
+.sk-node.bad { fill: var(--status-critical); }
+.sk-node.neutral { fill: var(--text-muted); }
+.sk-link { fill: var(--axis); opacity: 0.38; }
+.sk-link:hover { opacity: 0.7; }
+.sk-link.ok { fill: var(--status-good); opacity: 0.3; }
+.sk-link.bad { fill: var(--status-critical); opacity: 0.3; }
+.sk-link.neutral { fill: var(--text-muted); opacity: 0.25; }
+.sk-text { fill: var(--text-secondary); font-size: 11px;
+           font-family: inherit; font-variant-numeric: tabular-nums; }
