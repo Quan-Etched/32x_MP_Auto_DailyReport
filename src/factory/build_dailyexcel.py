@@ -802,12 +802,14 @@ def _sheet_versions(tab: Dict[str, Any], result_key: str) -> List[Optional[str]]
             if position < len(row)]
 
 
-#: The first day L10 appears on the module tracker.
+#: The earliest day L10 is looked for on the module tracker.
 #:
-#: L10 started testing on 2026-08-18, and the tracker's earlier tabs are the
-#: line's own sheet, which has no L10 in it. Backfilling would put a table on
-#: 08-11 that the record it copies never had.
-L10_FROM = "2026-08-18"
+#: Every published day, now that the standalone L10 page is gone: a floor here
+#: would be a floor on where L10 can be seen at all. The table is clearly
+#: marked as rebuilt from pega4 and sits under the module one, so a day whose
+#: module rows come from the line's own sheet is not made to look as though
+#: the sheet carried L10 too.
+L10_FROM = "0000-00-00"
 
 
 #: How far back to look before calling a unit new.

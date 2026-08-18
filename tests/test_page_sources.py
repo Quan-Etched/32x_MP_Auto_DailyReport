@@ -21,7 +21,6 @@ EXPECTED = {
     "runs.html": "data/runs_pega.js",
     "ocpruns.html": "data/runs.js",
     "dailyexcel.html": "data/dailyexcel.js",
-    "l10.html": "data/l10daily.js",
     "weekly.html": "data/weekly.js",
     "week.html": "data/weekly.js",
     "flow.html": "data/pega_stations.js",
@@ -30,7 +29,9 @@ EXPECTED = {
 
 #: Addresses that were handed out and must keep resolving.
 REDIRECTS = {"direct.html": "index.html", "directruns.html": "runs.html",
-             "fpy.html": "week.html"}
+             "fpy.html": "week.html",
+             # L10 is a table on the daily tracker now, not a page.
+             "l10.html": "dailyexcel.html"}
 
 
 #: Pages that load more than one bundle, and why.

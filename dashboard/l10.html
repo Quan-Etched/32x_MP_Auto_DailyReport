@@ -2,72 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>L10 daily tracker</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="stations.css">
-  <link rel="stylesheet" href="dailyexcel.css">
+  <title>Moved</title>
+  <!-- L10 is published on the daily tracker now, as its own table under the
+       module stages. Kept as a redirect because the address was handed out. -->
+  <meta http-equiv="refresh" content="0; url=dailyexcel.html">
+  <link rel="canonical" href="dailyexcel.html">
+  <script>
+    (function () {
+      if (location.hash) { location.replace('dailyexcel.html' + location.hash); }
+    })();
+  </script>
 </head>
-<body>
-<div class="wrap">
-
-  <header class="masthead">
-    <h1>L10 tracker</h1>
-    <span class="meta" id="meta"></span>
-    <span class="build" id="build" title="Which build of the analysis produced this page"></span>
-    <span class="spacer"></span>
-    <a class="theme-toggle" href="index.html">← Station yield</a>
-    <a class="theme-toggle" href="dailyexcel.html">← Module tracker</a>
-    <a class="theme-toggle" href="runs.html">Raw runs →</a>
-    <a class="theme-toggle" href="requests.html">Feature requests →</a>
-    <a class="theme-toggle" href="flow.html">Test flow &rarr;</a>
-    <a class="theme-toggle" href="weekly.html">Weekly tracker &rarr;</a>
-    <a class="theme-toggle" href="retest.html">Retests &rarr;</a>
-    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
-  </header>
-
-  <!-- One button per day tab found in the workbook. Built from the bundle
-       rather than written here, so a new tab needs no edit to this file. -->
-  <nav class="stationbar" id="tabbar" aria-label="Day"></nav>
-
-  <div class="banner" id="notice" hidden></div>
-
-  <main id="content">
-    <section class="sheet-summary" id="summary"></section>
-
-    <div class="table-wrap sheet-wrap">
-      <table class="sheet-table" id="sheet-table">
-        <caption id="sheet-caption"></caption>
-        <thead id="sheet-head"></thead>
-        <tbody id="sheet-body"></tbody>
-      </table>
-    </div>
-  </main>
-
-  <footer class="notes">
-    <p id="footer-meta"></p>
-    <p>
-      One row per <strong>chassis</strong> per day, across the four L10 stages.
-      Built entirely from <strong>pega4</strong>, which drives stations
-      <code>pt2_l10_station6</code> and <code>7</code> — there is no hand-kept
-      sheet for L10, so nothing here is the line's own record. pega4 asks for an
-      ESVM login before it will show a run.
-    </p>
-    <p>
-      No Jira column: the module tracker takes its ticket keys from the line's
-      spreadsheet, and L10 has none — an always-empty column would be worse than
-      an absent one. An L10 run tests one chassis rather than eight slots, so a
-      unit's failures are every failing test in its run.
-    </p>
-    <p id="crossref-note"></p>
-    <p id="source-note"></p>
-  </footer>
-
-</div>
-
-<script src="data/l10daily.js"></script>
-<script src="dailysheet.js"></script>
-<script src="theme.js"></script>
-<script src="update.js"></script>
-</body>
+<body><p>L10 moved to <a href="dailyexcel.html">the daily tracker</a>.</p></body>
 </html>

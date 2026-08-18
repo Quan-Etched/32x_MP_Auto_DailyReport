@@ -1247,14 +1247,23 @@ class L10OnTheDailyTrackerTest(unittest.TestCase):
     subject.
     """
 
-    def test_the_start_date_is_the_day_l10_started(self):
-        self.assertEqual(build_dailyexcel.L10_FROM, "2026-08-18")
+    def test_every_published_day_is_looked_at(self):
+        """With no standalone L10 page left, a date floor here would be a
+        floor on where L10 can be seen at all — 08-11, 08-12 and 08-14 all had
+        chassis on pega4 and would simply vanish."""
+        for day in ("2026-08-11", "2026-08-12", "2026-08-14", "2026-08-18"):
+            self.assertGreaterEqual(day, build_dailyexcel.L10_FROM)
 
-    def test_earlier_tabs_are_left_alone(self):
-        """The earlier tabs are the line's own sheet, which has no L10 in it —
-        backfilling would put a table on 08-11 the record never had."""
-        self.assertLess("2026-08-11", build_dailyexcel.L10_FROM)
-        self.assertLess("2026-08-17", build_dailyexcel.L10_FROM)
+    def test_a_day_with_no_l10_runs_gets_no_table(self):
+        """The floor is the data, not the calendar."""
+        from factory import build_l10
+
+        original = build_l10._day
+        try:
+            build_l10._day = lambda day: None
+            self.assertIsNone(build_dailyexcel._l10_for("2026-08-15"))
+        finally:
+            build_l10._day = original
 
     def test_the_l10_tab_is_built_by_the_l10_tracker(self):
         """Imported rather than reimplemented: the stage matching, the pega4

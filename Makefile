@@ -10,7 +10,7 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        dailyexcel requests l10 pega-stations release-source retest fpy weekly weekly-deck archive \
+        dailyexcel requests pega-stations release-source retest fpy weekly weekly-deck archive \
         weekly-snapshot schedule-weekly-install schedule-weekly-uninstall \
         schedule-weekly-status schedule-weekly-install-macos \
         schedule-weekly-uninstall-macos schedule-weekly-status-macos \
@@ -29,7 +29,6 @@ help:
 	@echo "make items [STATION=..]  flatten test cases to numeric test items"
 	@echo "make dailyexcel         compile daily/*.xlsx (MLT/HTT tracker) into the dashboard"
 	@echo "make requests           re-check what we need from other systems"
-	@echo "make l10                build the L10 daily tracker (FAT/SFT/RIN/2U) from pega4"
 	@echo "make schedule-install   install the hourly job (launchd / systemd timer)"
 	@echo "make schedule-weekly-install  install the Sunday 21:00 snapshot job"
 	@echo "make weekly-snapshot    run that snapshot now: collect, deck, archive, publish"
@@ -99,8 +98,6 @@ dailyexcel:
 	$(PY) -m factory.cli dailyexcel
 
 # The L10 daily tracker (FAT, SFT, RIN, 2U) from pega4. Also part of `make build`.
-l10:
-	$(PY) -m factory.cli l10
 
 # Station yield straight from the ESVM controllers, for comparison with the
 # OCP/EOS-sourced page. Also part of `make build`.
@@ -309,7 +306,7 @@ schedule-status-systemd:
 clean:
 	rm -rf data/processed/* dashboard/data/metrics.js dashboard/data/stations.js \
 	       dashboard/data/runs.js dashboard/data/dailyexcel.js \
-	       dashboard/data/requests.js dashboard/data/l10daily.js dashboard/data/pega_stations.js
+	       dashboard/data/requests.js dashboard/data/pega_stations.js
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
 
 # Also drops the cached HTTP responses, forcing a full refetch next collect.

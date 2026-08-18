@@ -374,21 +374,6 @@ def cmd_build(args: argparse.Namespace) -> int:
         len(requests_bundle["requests"]), requests_bundle["openBlocking"],
         requests_path))
 
-    # The L10 tracker, straight from pega4. No workbook behind it, so an
-    # unreachable controller means no page rather than a failed build.
-    from . import build_l10
-    try:
-        l10_bundle = build_l10.build_bundle()
-    except Exception as exc:                              # noqa: BLE001
-        print("L10 tracker skipped ({})".format(exc))
-    else:
-        if l10_bundle["tabs"]:
-            l10_path = build_l10.write_bundle(l10_bundle)
-            print("L10 tracker ({:.0f} KB, {} days) -> {}".format(
-                l10_path.stat().st_size / 1024, len(l10_bundle["tabs"]), l10_path))
-        else:
-            print("L10 tracker skipped (pega4 returned no runs)")
-
     # The line's hand-kept tracker. It has no API behind it, so a repo without
     # the export simply does not get the page — never a failed build.
     from . import build_dailyexcel
@@ -819,23 +804,6 @@ def build_l10_default_days() -> int:
     return build_l10.DEFAULT_DAYS
 
 
-def cmd_l10(args: argparse.Namespace) -> int:
-    """Build the L10 daily tracker (FAT, SFT, RIN, 2U) from pega4."""
-    from . import build_l10
-
-    bundle = build_l10.build_bundle(days=args.days)
-    if not bundle["tabs"]:
-        print("No L10 runs from pega4 in the last {} days.".format(args.days),
-              file=sys.stderr)
-        return 1
-    path = build_l10.write_bundle(bundle)
-    print("L10 tracker ({:.0f} KB, {} days: {}) -> {}".format(
-        path.stat().st_size / 1024, len(bundle["tabs"]),
-        ", ".join("{} x {}".format(t["label"], len(t["rows"])) for t in bundle["tabs"]),
-        path))
-    return 0
-
-
 def cmd_dailyexcel(args: argparse.Namespace) -> int:
     """Publish the module line's hand-kept tracker tabs as a dashboard page."""
     from . import build_dailyexcel
@@ -1106,9 +1074,6 @@ def _build_parser() -> argparse.ArgumentParser:
     fpy.add_argument("--days", type=int, default=None)
     fpy.set_defaults(handler=cmd_fpy)
 
-    l10 = subparsers.add_parser("l10", help="build the L10 daily tracker from pega4")
-    l10.add_argument("--days", type=int, default=build_l10_default_days())
-    l10.set_defaults(handler=cmd_l10)
 
     dailyexcel = subparsers.add_parser(
         "dailyexcel", help="compile the line's daily MLT/HTT tracker tabs"
