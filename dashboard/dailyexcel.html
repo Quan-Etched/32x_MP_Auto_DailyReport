@@ -46,6 +46,22 @@
     <!-- The count mode. A day's yield is read as "how did today's build go",
          and a unit returning from last week answers a different question. -->
     <div class="count-mode" id="count-mode"></div>
+
+    <!-- L10, from the day it started testing. Its own table rather than more
+         columns: a chassis is not a module, one chassis holds many of them,
+         and a row carrying both would have no single subject. -->
+    <section class="l10-block" id="l10-block" hidden>
+      <h2 class="l10-head">L10 <span class="l10-sub" id="l10-sub"></span></h2>
+      <section class="sheet-summary" id="l10-summary"></section>
+      <div class="table-wrap sheet-wrap">
+        <table class="sheet-table" id="l10-table">
+          <caption id="l10-caption"></caption>
+          <thead id="l10-head"></thead>
+          <tbody id="l10-body"></tbody>
+        </table>
+      </div>
+      <div class="count-mode" id="l10-count-mode"></div>
+    </section>
   </main>
 
   <footer class="notes">

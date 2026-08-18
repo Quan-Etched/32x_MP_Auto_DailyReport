@@ -252,6 +252,18 @@ def build_bundle(
                 tabs.append(built)
 
     tabs.sort(key=lambda tab: tab["day"] or "")
+
+    # L10 alongside the module stages, from the day it started testing.
+    #
+    # A second table rather than more columns: a chassis is not a module, the
+    # serials are different lengths and one chassis holds many modules, so a
+    # row carrying both would have no single subject. Same format, same
+    # renderer, its own table under the first.
+    for tab in tabs:
+        if tab.get("day") and tab["day"] >= L10_FROM:
+            l10_tab = _l10_for(tab["day"])
+            if l10_tab:
+                tab["l10"] = l10_tab
     matched = sum(tab["crossref"]["matched"] for tab in tabs)
     total = sum(tab["crossref"]["duts"] for tab in tabs)
 
@@ -309,6 +321,21 @@ def _candidate_days(payload: Dict[str, Any]) -> set:
         days |= {(today - timedelta(days=offset)).strftime("%Y-%m-%d")
                  for offset in range(DERIVE_LIMIT + 1)}
     return days
+
+
+def _l10_for(day: str) -> Optional[Dict[str, Any]]:
+    """That day's L10 stages, built by the L10 tracker's own code.
+
+    Imported rather than reimplemented: the stage matching, the pega4 host and
+    the four-column shape all live there, and a second copy would be a second
+    answer to "did FAT pass today".
+    """
+    from . import build_l10
+
+    try:
+        return build_l10._day(day)
+    except Exception:                                     # noqa: BLE001
+        return None
 
 
 def derived_tab(payload: Dict[str, Any], day: str,
@@ -773,6 +800,14 @@ def _sheet_versions(tab: Dict[str, Any], result_key: str) -> List[Optional[str]]
         return []
     return [(row[position] or {}).get("v") for row in tab.get("rows") or []
             if position < len(row)]
+
+
+#: The first day L10 appears on the module tracker.
+#:
+#: L10 started testing on 2026-08-18, and the tracker's earlier tabs are the
+#: line's own sheet, which has no L10 in it. Backfilling would put a table on
+#: 08-11 that the record it copies never had.
+L10_FROM = "2026-08-18"
 
 
 #: How far back to look before calling a unit new.

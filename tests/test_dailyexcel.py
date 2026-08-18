@@ -1237,3 +1237,54 @@ class SheetOmissionTest(unittest.TestCase):
         finally:
             bd._seen_before = original
         self.assertNotIn("sheetOmits", out)
+
+
+class L10OnTheDailyTrackerTest(unittest.TestCase):
+    """L10 beside the module stages, from the day it started testing.
+
+    A second table rather than more columns: a chassis is not a module, one
+    chassis holds many of them, and a row carrying both would have no single
+    subject.
+    """
+
+    def test_the_start_date_is_the_day_l10_started(self):
+        self.assertEqual(build_dailyexcel.L10_FROM, "2026-08-18")
+
+    def test_earlier_tabs_are_left_alone(self):
+        """The earlier tabs are the line's own sheet, which has no L10 in it —
+        backfilling would put a table on 08-11 the record never had."""
+        self.assertLess("2026-08-11", build_dailyexcel.L10_FROM)
+        self.assertLess("2026-08-17", build_dailyexcel.L10_FROM)
+
+    def test_the_l10_tab_is_built_by_the_l10_tracker(self):
+        """Imported rather than reimplemented: the stage matching, the pega4
+        host and the four-column shape all live there, and a second copy would
+        be a second answer to "did FAT pass today"."""
+        from factory import build_l10
+
+        called = {}
+
+        def fake_day(day):
+            called["day"] = day
+            return {"day": day, "rows": [[{}]], "columns": [], "counts": {}}
+
+        original = build_l10._day
+        try:
+            build_l10._day = fake_day
+            out = build_dailyexcel._l10_for("2026-08-18")
+        finally:
+            build_l10._day = original
+        self.assertEqual(called["day"], "2026-08-18")
+        self.assertEqual(out["day"], "2026-08-18")
+
+    def test_a_day_pega4_cannot_answer_for_is_no_table(self):
+        """An unreachable controller must not fail the module tracker's
+        build; the day simply has no L10 section."""
+        from factory import build_l10
+
+        original = build_l10._day
+        try:
+            build_l10._day = lambda day: (_ for _ in ()).throw(RuntimeError("down"))
+            self.assertIsNone(build_dailyexcel._l10_for("2026-08-18"))
+        finally:
+            build_l10._day = original

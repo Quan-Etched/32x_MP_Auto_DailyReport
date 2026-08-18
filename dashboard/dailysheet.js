@@ -237,8 +237,9 @@
     return seen.length + ' versions in this column';
   }
 
-  function renderSummary(tab, rows) {
-    el.summary.innerHTML = '';
+  function renderSummary(tab, rows, els) {
+    els = els || el;
+    els.summary.innerHTML = '';
 
     /* A derived tab must never be mistaken for the line's own record. It says
      * so before the numbers, not in a footnote under them. */
@@ -249,7 +250,7 @@
        * unreachable — a confident sentence about the wrong machine. */
       var source = from.source || 'eos';
       var viaPega = source.indexOf('pega') === 0;
-      el.summary.appendChild(h('div', { class: 'sheet-tile derived' }, [
+      els.summary.appendChild(h('div', { class: 'sheet-tile derived' }, [
         h('span', { class: 'tile-title', text: viaPega
           ? 'Rebuilt from ' + source + ' \u2014 not a hand-kept sheet'
           : 'Rebuilt from EOS \u2014 not the line\u2019s sheet' }),
@@ -274,7 +275,7 @@
         var at = columnIndex(tab, key);
         return (tab.columns[at] || {}).title || key;
       });
-      el.summary.appendChild(h('div', { class: 'sheet-tile filtered' }, [
+      els.summary.appendChild(h('div', { class: 'sheet-tile filtered' }, [
         h('span', { class: 'tile-title', text: 'Filtered view' }),
         h('strong', { class: 'tile-value',
                       text: rows.length + ' of ' + tab.rows.length }),
@@ -297,7 +298,7 @@
       var other = countMode === 'new' ? entry : (entry.new || entry);
       var otherGraded = other.pass + other.fail;
       var rate = graded ? Math.round((shownCounts.pass / graded) * 1000) / 10 : null;
-      el.summary.appendChild(h('div', { class: 'sheet-tile' }, [
+      els.summary.appendChild(h('div', { class: 'sheet-tile' }, [
         h('span', { class: 'tile-title' }, [
           document.createTextNode(entry.title),
           /* The build on its own line. One line of "MLT Results
@@ -334,7 +335,7 @@
      * rows present, the export is mid-edit or a row was dropped — say so. */
     if (tab.claimedUnits && tab.claimedUnits !== tab.rows.length &&
         rows.length === tab.rows.length) {
-      el.summary.appendChild(h('div', { class: 'sheet-tile warn' }, [
+      els.summary.appendChild(h('div', { class: 'sheet-tile warn' }, [
         h('span', { class: 'tile-title', text: 'Row count' }),
         h('strong', { class: 'tile-value', text: tab.rows.length }),
         h('span', {
@@ -590,7 +591,8 @@
 
   /* ---------------------------------------------------------------- table */
 
-  function renderTable(tab) {
+  function renderTable(tab, els) {
+    els = els || el;
     var columns = tab.columns || [];
     /* Everything the column filters left — the tiles are computed from this,
      * so switching the count mode never changes what the filters selected. */
@@ -661,8 +663,8 @@
         ]));
       }
     });
-    el.head.innerHTML = '';
-    el.head.appendChild(head);
+    els.head.innerHTML = '';
+    els.head.appendChild(head);
 
     /* A column the sheet made wide is a column meant to hold prose — failure
      * test cases, the Jira note. Those wrap; the short ones never do. */
@@ -700,12 +702,12 @@
       });
       body.appendChild(tr);
     });
-    el.body.innerHTML = '';
-    el.body.appendChild(body);
+    els.body.innerHTML = '';
+    els.body.appendChild(body);
 
-    renderSummary(tab, counted);
-    renderCaption(tab, rows.length);
-    renderCountMode(tab, counted.length - rows.length);
+    renderSummary(tab, counted, els);
+    renderCaption(tab, rows.length, els);
+    renderCountMode(tab, counted.length - rows.length, els);
   }
 
   /* The switch, under the table where the rows it is talking about are.
@@ -713,8 +715,9 @@
    * Stated rather than implied: a reader who sees 76.1% needs to know it is
    * 33 of 43 fresh units and not 51 of 67 rows, and the two are different
    * enough to argue about. */
-  function renderCountMode(tab, hidden) {
-    var host = byId('count-mode');
+  function renderCountMode(tab, hidden, els) {
+    els = els || el;
+    var host = byId(els.countMode);
     if (!host) return;
     host.innerHTML = '';
 
@@ -732,7 +735,8 @@
       text: countMode === 'new' ? 'Count all' : 'Count new' });
     button.addEventListener('click', function () {
       countMode = countMode === 'new' ? 'all' : 'new';
-      renderTable(tab);
+      renderTable(tab, els);
+      if (els === el) renderL10(current);
     });
     host.appendChild(button);
 
@@ -781,32 +785,33 @@
     ]));
   }
 
-  function renderCaption(tab, showing) {
+  function renderCaption(tab, showing, els) {
+    els = els || el;
     var total = (tab.rows || []).length;
     var source = tab.derived
       ? (tab.day || tab.label) + ', rebuilt from ' +
         (((tab.derivedFrom || {}).source === 'pega3') ? 'pega3' : 'EOS')
       : (tab.day || tab.label) + ', as recorded by the line';
 
-    el.caption.innerHTML = '';
+    els.caption.innerHTML = '';
     if (showing === total) {
-      el.caption.appendChild(document.createTextNode(
+      els.caption.appendChild(document.createTextNode(
         total + ' units — ' + source));
       return;
     }
 
     /* A filtered table that does not say so is a table someone will screenshot
      * and quote as the day's total. */
-    el.caption.appendChild(h('strong', { class: 'cap-filtered',
+    els.caption.appendChild(h('strong', { class: 'cap-filtered',
       text: showing + ' of ' + total + ' units' }));
-    el.caption.appendChild(document.createTextNode(' — ' + source + ' · '));
+    els.caption.appendChild(document.createTextNode(' — ' + source + ' · '));
     var reset = h('button', { type: 'button', class: 'cap-reset',
                               text: 'clear filters' });
     reset.addEventListener('click', function () {
       view.filters = {};
       renderTable(tab);
     });
-    el.caption.appendChild(reset);
+    els.caption.appendChild(reset);
   }
 
   /* A returning serial, with a link per prior attempt.
@@ -1001,6 +1006,33 @@
 
   /* ------------------------------------------------------------------ wire */
 
+  /* L10 under the module table, from the day it started testing.
+   *
+   * The same renderer, pointed at a second set of elements: the two tables
+   * have to behave identically — the same filters, the same Count all, the
+   * same F1 P2 traces — and a second implementation would drift within a
+   * week. What it does not share is the subject. A chassis is not a module,
+   * one chassis holds many of them, and a row carrying both would have
+   * nothing to be about.
+   */
+  function renderL10(tab) {
+    var block = byId('l10-block');
+    if (!block) return;
+    var l10 = tab && tab.l10;
+    if (!l10 || !(l10.rows || []).length) {
+      block.hidden = true;
+      return;
+    }
+    block.hidden = false;
+    byId('l10-sub').textContent = l10.rows.length + ' chassis · ' +
+      ((l10.derivedFrom || {}).runs || 0) + ' suite runs · pega4';
+    renderTable(l10, {
+      summary: byId('l10-summary'), head: byId('l10-head'),
+      body: byId('l10-body'), caption: byId('l10-caption'),
+      countMode: 'l10-count-mode'
+    });
+  }
+
   function show() {
     var previous = current;
     current = pick(hashDay());
@@ -1014,6 +1046,7 @@
     }
     renderTabs();
     renderTable(current);          /* renders the summary from the same rows */
+    renderL10(current);            /* and L10 under it, where the day has any */
     document.title = 'Daily tracker — ' + (current.day || current.label);
   }
 
@@ -1023,6 +1056,7 @@
     el.head = byId('sheet-head');
     el.body = byId('sheet-body');
     el.caption = byId('sheet-caption');
+    el.countMode = 'count-mode';
 
     if (!TABS.length) {
       var banner = byId('notice');

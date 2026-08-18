@@ -567,3 +567,13 @@ a.rt-att:hover { outline: 1px solid currentColor; }
   color: var(--text-secondary);
 }
 .sheet-tile .tile-other strong { color: var(--text-muted); font-weight: 600; }
+
+/* ------------------------------------------------------------- L10 block */
+
+/* Its own table under the module one, from the day L10 started testing. The
+   heading is what separates the two subjects: a chassis is not a module. */
+.l10-block { margin-top: 34px; padding-top: 20px;
+             border-top: 2px solid var(--border); }
+.l10-head { font-size: 18px; margin: 0 0 4px; }
+.l10-sub { font-size: 12px; font-weight: 400; color: var(--text-muted);
+           margin-left: 8px; }
