@@ -1167,3 +1167,73 @@ class RetestHistoryTest(unittest.TestCase):
     def test_a_short_history_is_not_padded(self):
         self.assertEqual(len(build_dailyexcel._trim_history(
             self.attempts(["pass"]))), 1)
+
+
+class SheetOmissionTest(unittest.TestCase):
+    """Why Count all and Count new agree on a hand-kept tab.
+
+    Because they do. pega3 recorded 59 MLT units on 08-12 and the sheet lists
+    51, and all eight missing ones are units the station had seen before —
+    same shape on 08-11, 100 against 87 with all thirteen omitted returning.
+    The line was already keeping a new-input-only record by hand, so its own
+    tabs cannot show the difference the rebuilt ones do.
+    """
+
+    def test_a_tab_records_what_the_sheet_left_out(self):
+        from factory import build_dailyexcel as bd
+        tab = {
+            "day": "2026-08-12",
+            "columns": bd._with_version_columns([
+                {"key": "A", "title": "Date"}, {"key": "B", "title": "DUT SN"},
+                {"key": "E", "title": "MLT Results"},
+                {"key": "F", "title": "F"}, {"key": "G", "title": "G"},
+                {"key": "H", "title": "HTT Results"},
+                {"key": "I", "title": "I"}, {"key": "J", "title": "J"},
+            ]),
+            "rows": [],
+        }
+        index = {c["key"]: i for i, c in enumerate(tab["columns"])}
+        for dut in ("A", "B"):
+            row = [{} for _ in tab["columns"]]
+            row[index["B"]] = {"v": dut}
+            tab["rows"].append(row)
+
+        units = {"A": {"mlt": {"status": "pass"}},
+                 "B": {"mlt": {"status": "pass"}},
+                 "C": {"mlt": {"status": "fail"}}}   # ran, not on the sheet
+
+        original = bd._seen_before
+        try:
+            bd._seen_before = lambda day, lookback=10: {
+                "mlt": {"C": [{"day": "2026-08-11", "status": "fail",
+                               "url": "http://pega3:3000/x", "suite": "mlt"}]},
+                "htt": {}}
+            out = bd._add_sheet_versions(tab, units)
+        finally:
+            bd._seen_before = original
+
+        self.assertEqual(out["sheetOmits"]["mlt"],
+                         {"units": 1, "returning": 1, "ranThatDay": 3})
+
+    def test_a_tab_that_omits_nothing_carries_no_note(self):
+        from factory import build_dailyexcel as bd
+        tab = {
+            "day": "2026-08-12",
+            "columns": bd._with_version_columns([
+                {"key": "A", "title": "Date"}, {"key": "B", "title": "DUT SN"},
+                {"key": "E", "title": "MLT Results"},
+            ]),
+            "rows": [],
+        }
+        index = {c["key"]: i for i, c in enumerate(tab["columns"])}
+        row = [{} for _ in tab["columns"]]
+        row[index["B"]] = {"v": "A"}
+        tab["rows"].append(row)
+
+        original = bd._seen_before
+        try:
+            bd._seen_before = lambda day, lookback=10: {"mlt": {}, "htt": {}}
+            out = bd._add_sheet_versions(tab, {"A": {"mlt": {"status": "pass"}}})
+        finally:
+            bd._seen_before = original
+        self.assertNotIn("sheetOmits", out)

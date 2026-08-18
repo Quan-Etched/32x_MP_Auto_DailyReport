@@ -632,6 +632,33 @@ def _add_sheet_versions(tab: Dict[str, Any],
                 serial.setdefault("seen", {})[station] = past[-1]["day"]
                 serial.setdefault("history", {})[station] = _trim_history(past)
         serial["new"] = "seen" not in serial
+
+    # What the sheet leaves out, and whether it is the re-runs.
+    #
+    # Asked of 08-12: why do Count all and Count new agree? Because they do —
+    # on a hand-kept tab there is nothing to add. pega3 recorded 59 MLT units
+    # that day and the sheet lists 51, and all eight of the missing ones are
+    # units the station had seen before. Same on 08-11: 100 against 87, and
+    # all thirteen omitted are returning. The line was already keeping a
+    # new-input-only record by hand, so its own tabs cannot show the
+    # difference the derived ones do — and a page that offers a Count all
+    # button on them owes the reader that sentence.
+    omits: Dict[str, Dict[str, int]] = {}
+    on_sheet = {(row[at["B"]].get("v") or "").strip() for row in tab["rows"]}
+    for station, _result_col, _version_col, _title in VERSION_COLUMNS:
+        ran = {dut for dut, unit in units.items() if station in unit}
+        missing = ran - on_sheet
+        if not missing:
+            continue
+        omits[station] = {
+            "units": len(missing),
+            "returning": len([d for d in missing
+                              if history.get(station, {}).get(d)]),
+            "ranThatDay": len(ran),
+        }
+    if omits:
+        tab["sheetOmits"] = omits
+
     tab["counts"] = _counts(tab["rows"], tab["columns"])
     return tab
 

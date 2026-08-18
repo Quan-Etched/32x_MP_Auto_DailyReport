@@ -551,3 +551,10 @@ span.jira-key { color: var(--text-secondary); }
 .rt-att.a-pass { color: var(--sheet-pass-text); background: var(--sheet-pass-bg); }
 .rt-att.a-fail { color: var(--sheet-fail-text); background: var(--sheet-fail-bg); }
 a.rt-att:hover { outline: 1px solid currentColor; }
+
+/* Why both count modes agree on a hand-kept tab. */
+.cm-note.cm-sheet {
+  border-left: 3px solid var(--status-warning);
+  padding-left: 10px;
+  margin-bottom: 6px;
+}

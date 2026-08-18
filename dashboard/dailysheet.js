@@ -714,6 +714,27 @@
     });
     host.appendChild(button);
 
+    /* On a hand-kept tab the two modes agree, and that is worth a sentence
+     * rather than leaving a reader to wonder whether the button works. */
+    var omits = tab.sheetOmits;
+    if (omits && Object.keys(omits).length) {
+      var parts = Object.keys(omits).map(function (station) {
+        var o = omits[station];
+        return station.toUpperCase() + ': ' + o.units + ' of ' + o.ranThatDay +
+          (o.returning === o.units
+            ? ', every one of them a returning unit'
+            : ', ' + o.returning + ' of them returning');
+      });
+      host.appendChild(h('p', { class: 'cm-note cm-sheet' }, [
+        h('strong', { text: 'Both modes agree on this tab.' }),
+        document.createTextNode(
+          ' It is the line\u2019s own sheet, not a rebuild, and the sheet ' +
+          'already leaves the re-runs out — ' + parts.join('; ') +
+          '. So there is nothing for Count all to add: the line was keeping a ' +
+          'new-input record by hand before this page counted one.')
+      ]));
+    }
+
     host.appendChild(h('p', { class: 'cm-note' }, [
       h('strong', { text: countMode === 'new'
         ? 'Counting new input only.' : 'Counting every unit.' }),
