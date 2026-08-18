@@ -558,3 +558,12 @@ a.rt-att:hover { outline: 1px solid currentColor; }
   padding-left: 10px;
   margin-bottom: 6px;
 }
+
+/* The population the tile is not headlining, computed separately and shown
+   beside it — both are wanted daily and neither should need a button press. */
+.sheet-tile .tile-other {
+  margin-top: 5px; padding-top: 5px;
+  border-top: 1px dotted var(--border);
+  color: var(--text-secondary);
+}
+.sheet-tile .tile-other strong { color: var(--text-muted); font-weight: 600; }

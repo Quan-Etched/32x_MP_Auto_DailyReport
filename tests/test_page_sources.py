@@ -150,3 +150,38 @@ class LinkTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RetestColumnTest(unittest.TestCase):
+    """The Retested DUT SN column and its F/P traces.
+
+    It was drawn only in Count all, on the assumption that Count new has no
+    returning units to put in it. A row is kept as new input when it is new at
+    *any* station, so on 08-16 all sixteen shown rows are returning to MLT and
+    fresh to HTT — their earlier attempts existed and the one column that shows
+    them was switched off by the mode.
+    """
+
+    def script(self):
+        return (DASHBOARD / "dailysheet.js").read_text(encoding="utf-8")
+
+    def test_the_column_follows_the_data_not_the_mode(self):
+        text = self.script()
+        self.assertNotIn("var splitSerial = countMode === 'all';", text)
+        self.assertIn("var splitSerial = rows.some(", text)
+
+    def test_the_marks_are_built_from_the_attempt_number(self):
+        """F1 is the first attempt and it failed; the number is the unit's own
+        visit count, so it cannot be the row's position in the cell."""
+        text = self.script()
+        self.assertIn("attempt.status === 'pass' ? 'P' : 'F'", text)
+        self.assertIn("attempt.n", text)
+
+    def test_each_mark_links_to_its_run(self):
+        text = self.script()
+        self.assertIn("href: attempt.url", text)
+
+    def test_both_yields_are_rendered_without_a_button_press(self):
+        """Both populations are wanted daily; neither should be behind a
+        toggle."""
+        self.assertIn("tile-other", self.script())

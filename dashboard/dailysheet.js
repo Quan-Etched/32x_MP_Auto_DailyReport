@@ -289,6 +289,13 @@
       var entry = counts[key];
       var shownCounts = (countMode === 'new' && entry.new) ? entry.new : entry;
       var graded = shownCounts.pass + shownCounts.fail;
+      /* The other population's figure, computed separately and shown beside
+       * this one. Both are wanted daily and neither should need a button
+       * press to read: the headline follows the mode, the second line is
+       * always the other one. */
+      var otherKey = countMode === 'new' ? 'all' : 'new';
+      var other = countMode === 'new' ? entry : (entry.new || entry);
+      var otherGraded = other.pass + other.fail;
       var rate = graded ? Math.round((shownCounts.pass / graded) * 1000) / 10 : null;
       el.summary.appendChild(h('div', { class: 'sheet-tile' }, [
         h('span', { class: 'tile-title' }, [
@@ -312,6 +319,13 @@
           ? 'new input only — ' + entry.returning + ' returning unit' +
             (entry.returning === 1 ? '' : 's') + ' left out'
           : 'every unit, including ' + entry.returning + ' returning' }),
+        h('span', { class: 'tile-sub tile-other' }, [
+          h('strong', { text: otherKey === 'all' ? 'All units: ' : 'New input: ' }),
+          document.createTextNode(otherGraded
+            ? (Math.round((other.pass / otherGraded) * 1000) / 10) + '%  (' +
+              other.pass + ' passed · ' + other.fail + ' failed)'
+            : 'nothing to count')
+        ]),
         releaseOnly(entry)
       ]));
     });
@@ -593,10 +607,18 @@
      * filter the last number is the answer to "how many". */
     head.appendChild(h('th', { scope: 'col', class: 'col-index', text: '#' }));
 
-    /* In Count all, returning serials get a column of their own rather than
-     * sitting in DUT SN looking like fresh material. Only in Count all: in
-     * Count new there are no returning units to put in it. */
-    var splitSerial = countMode === 'all';
+    /* The column follows the data, not the mode.
+     *
+     * It was drawn only in Count all, on the assumption that Count new has no
+     * returning units to put in it. That is wrong: a row is kept as new input
+     * when it is new at *any* station, so on 08-16 all sixteen shown rows are
+     * returning to MLT and fresh to HTT — their earlier attempts existed, and
+     * the one column that shows them was the one the mode had switched off.
+     * Now: if anything on screen has a history, the column is there. */
+    var splitSerial = rows.some(function (row) {
+      var serial = row[columnIndex(tab, 'B')] || {};
+      return !!(serial.seen && Object.keys(serial.seen).length);
+    });
 
     columns.forEach(function (column) {
       var on = !!view.filters[column.key];
@@ -744,7 +766,11 @@
           ' returning unit' + (hidden === 1 ? '' : 's') + ' ' +
           (hidden === 1 ? 'is' : 'are') + ' left out, because a unit that ' +
           'failed last week and is re-run today says whether a fix worked — ' +
-          'not how today’s build went. Press Count all to add them.'
+          'not how today’s build went. Both yields are on every tile either ' +
+          'way. Press Count all to bring the returning units into the table, ' +
+          'where each carries its earlier attempts as F1 P2 — F failed, P ' +
+          'passed, numbered from the unit’s first visit, each one a link to ' +
+          'that run.'
         : ' Every row is in the table and in the figures, new material and ' +
           're-runs together. That is the day’s whole workload, and it is not ' +
           'a build yield: ' + returning + ' of these units had already been ' +
