@@ -130,19 +130,93 @@
    */
   function countsFor(tab, rows) {
     var out = {};
+    var columns = tab.columns || [];
     Object.keys(tab.counts || {}).forEach(function (key) {
       var at = columnIndex(tab, key);
-      var tally = { pass: 0, fail: 0, blank: 0,
-                    title: (tab.counts[key] || {}).title,
-                    sub: subFor(tab, key, rows) };
+      var station = (columns[at] || {}).station;
+      var versionAt = (columns[at + 1] || {}).kind === 'version' ? at + 1 : -1;
+      var serialAt = columnIndex(tab, 'B');
+
+      function tally() { return { pass: 0, fail: 0, blank: 0 }; }
+      var every = tally(), everyRelease = tally();
+      var fresh = tally(), freshRelease = tally();
+      var nonRelease = [], returning = 0;
+
       rows.forEach(function (row) {
         var tone = (row[at] || {}).t;
-        if (tone === 'pass' || tone === 'fail') tally[tone] += 1;
-        else tally.blank += 1;
+        var bucket = (tone === 'pass' || tone === 'fail') ? tone : 'blank';
+        var isNew = !isReturning(row, serialAt, station);
+        if (!isNew && bucket !== 'blank') returning += 1;
+
+        every[bucket] += 1;
+        if (isNew) fresh[bucket] += 1;
+
+        var version = versionAt >= 0 ? (row[versionAt] || {}) : {};
+        var build = version.v || '';
+        if (build && NON_RELEASE.test(build)) {
+          if (nonRelease.indexOf(build) === -1) nonRelease.push(build);
+          /* The unit may still have run a release build earlier the same day;
+           * count that verdict rather than dropping the unit. */
+          var status = version.relStatus;
+          if (status === 'pass' || status === 'fail') {
+            everyRelease[status] += 1;
+            if (isNew) freshRelease[status] += 1;
+          }
+          return;
+        }
+        everyRelease[bucket] += 1;
+        if (isNew) freshRelease[bucket] += 1;
       });
-      out[key] = tally;
+
+      out[key] = {
+        pass: every.pass, fail: every.fail, blank: every.blank,
+        release: everyRelease, new: fresh, newRelease: freshRelease,
+        returning: returning, nonRelease: nonRelease.sort(),
+        lookback: (tab.counts[key] || {}).lookback || 10,
+        title: (tab.counts[key] || {}).title,
+        sub: subFor(tab, key, rows)
+      };
     });
     return out;
+  }
+
+  /* Anything that is not a plain release build. Mirrors NON_RELEASE in
+   * build_dailyexcel.py; the two must agree, and both are one expression. */
+  var NON_RELEASE = /(^|_)debug|_dbg|validation/i;
+
+  function isReturning(row, serialAt, station) {
+    if (serialAt < 0 || !station) return false;
+    var serial = row[serialAt] || {};
+    return !!(serial.seen && serial.seen[station]);
+  }
+
+  /* A row is kept as new input when it is new at *any* station it ran that
+   * day, not every one.
+   *
+   * "Every" was the first rule and it hid units the tiles were counting: on
+   * 08-16 every unit was returning to MLT and thirteen of them were fresh to
+   * HTT, so the table emptied while the HTT tile read 81.2% over thirteen
+   * units nobody could see. The tiles still judge each column on its own —
+   * that same row is excluded from MLT's tally and counted in HTT's — and the
+   * table shows the row because it carries new material somewhere. */
+  function rowIsNew(tab, row) {
+    var serialAt = columnIndex(tab, 'B');
+    if (serialAt < 0) return true;
+    var serial = row[serialAt] || {};
+    var seen = serial.seen || {};
+    var columns = tab.columns || [];
+    var ran = false;
+
+    for (var i = 0; i < columns.length; i++) {
+      var station = columns[i].station;
+      if (!station) continue;
+      var tone = (row[i] || {}).t;
+      if (tone !== 'pass' && tone !== 'fail') continue;
+      ran = true;
+      if (!seen[station]) return true;
+    }
+    /* Nothing graded on this row: there is no returning verdict to leave out. */
+    return !ran;
   }
 
   /* The build line under a heading, over whichever rows are showing: filter to
@@ -504,7 +578,15 @@
 
   function renderTable(tab) {
     var columns = tab.columns || [];
-    var rows = shownRows(tab);
+    /* Everything the column filters left — the tiles are computed from this,
+     * so switching the count mode never changes what the filters selected. */
+    var counted = shownRows(tab);
+    /* What the table draws. New input only by default: the day's question is
+     * how the fresh material did, and a re-run from last week answers a
+     * different one. */
+    var rows = countMode === 'new'
+      ? counted.filter(function (row) { return rowIsNew(tab, row); })
+      : counted;
 
     var head = h('tr', {});
     /* A row number, not a data column: it counts what is showing, so after a
@@ -556,8 +638,6 @@
     rows.forEach(function (row, index) {
       var tr = h('tr', { class: index % 2 ? 'odd' : 'even' });
       tr.appendChild(h('td', { class: 'col-index', text: String(index + 1) }));
-      var serial = row[columnIndex(tab, 'B')] || {};
-      if (countMode === 'new' && !serial.new) tr.className += ' returning';
       row.forEach(function (cell, position) {
         var td = renderCell(cell, columns[position], wraps[position]);
         /* The per-unit build. It is the column that answers "which release was
@@ -573,9 +653,9 @@
     el.body.innerHTML = '';
     el.body.appendChild(body);
 
-    renderSummary(tab, rows);
+    renderSummary(tab, counted);
     renderCaption(tab, rows.length);
-    renderCountMode(tab);
+    renderCountMode(tab, counted.length - rows.length);
   }
 
   /* The switch, under the table where the rows it is talking about are.
@@ -583,25 +663,26 @@
    * Stated rather than implied: a reader who sees 76.1% needs to know it is
    * 33 of 43 fresh units and not 51 of 67 rows, and the two are different
    * enough to argue about. */
-  function renderCountMode(tab) {
+  function renderCountMode(tab, hidden) {
     var host = byId('count-mode');
     if (!host) return;
     host.innerHTML = '';
 
-    var counts = tab.counts || {};
+    var counts = countsFor(tab, shownRows(tab));
     var returning = 0, lookback = 10;
     Object.keys(counts).forEach(function (key) {
       returning = Math.max(returning, counts[key].returning || 0);
       lookback = counts[key].lookback || lookback;
     });
 
+    /* The label is what pressing it does, not what the page is doing. A
+     * button that names the current state reads as a status line, and half
+     * the room presses it expecting the opposite. */
     var button = h('button', { type: 'button', class: 'cm-btn',
-      text: countMode === 'new' ? 'Count all' : 'Count new input only' });
+      text: countMode === 'new' ? 'Count all' : 'Count new' });
     button.addEventListener('click', function () {
       countMode = countMode === 'new' ? 'all' : 'new';
-      renderSummary(tab, shownRows(tab));
-      renderRows(tab);
-      renderCountMode(tab);
+      renderTable(tab);
     });
     host.appendChild(button);
 
@@ -609,18 +690,17 @@
       h('strong', { text: countMode === 'new'
         ? 'Counting new input only.' : 'Counting every unit.' }),
       document.createTextNode(countMode === 'new'
-        ? ' The tiles above count units this station had not seen in the ' +
-          lookback + ' days before this one. ' + returning + ' returning unit' +
-          (returning === 1 ? '' : 's') + ' on this tab ' +
-          (returning === 1 ? 'is' : 'are') + ' shown in the table but left out ' +
-          'of the figures, because a unit that failed last week and is re-run ' +
-          'today says whether a fix worked — not how today’s build went. ' +
-          'Press Count all for the full tally.'
-        : ' The tiles above count every row, new material and re-runs ' +
-          'together. That is the honest total for the day’s work, and it is ' +
-          'not a build yield: ' + returning + ' of these units had already ' +
-          'been through this station within ' + lookback + ' days. Press ' +
-          'Count new input only to see the fresh material on its own.')
+        ? ' The table and the tiles cover units this station had not seen in ' +
+          'the ' + lookback + ' days before this one. ' + hidden +
+          ' returning unit' + (hidden === 1 ? '' : 's') + ' ' +
+          (hidden === 1 ? 'is' : 'are') + ' left out, because a unit that ' +
+          'failed last week and is re-run today says whether a fix worked — ' +
+          'not how today’s build went. Press Count all to add them.'
+        : ' Every row is in the table and in the figures, new material and ' +
+          're-runs together. That is the day’s whole workload, and it is not ' +
+          'a build yield: ' + returning + ' of these units had already been ' +
+          'through this station within ' + lookback + ' days. Press Count ' +
+          'new for the fresh material on its own.')
     ]));
   }
 

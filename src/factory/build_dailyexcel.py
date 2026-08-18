@@ -467,6 +467,9 @@ def _derived_columns(template: Optional[Dict[str, Any]],
         # screen, and it is two facts anyway.
         if key in RESULT_COLUMNS:
             entry["sub"] = versions.get(_station_of_column(key))
+            # Named on the column so the page can look a row's history up by
+            # station rather than re-deriving it from column letters.
+            entry["station"] = _station_of_column(key)
         columns.append(entry)
 
     return _with_version_columns(columns)
@@ -725,6 +728,7 @@ def _reformat_sheet_columns(tab: Dict[str, Any]) -> Dict[str, Any]:
             versions = _sheet_versions(tab, column["key"])
             entry["sub"] = _version_sub(versions) or (
                 found.group(0) if found else None)
+            entry["station"] = _station_of_column(column["key"])
         columns.append(entry)
     tab["columns"] = columns
     if tab.get("rows"):

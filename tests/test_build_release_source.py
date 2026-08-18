@@ -195,3 +195,33 @@ class CommittedCopyTest(unittest.TestCase):
                               dest.read_text(encoding="utf-8"))
             finally:
                 brs.COMMITTED_COPY = original
+
+
+class ManualListTest(unittest.TestCase):
+    """Marked against the hand-compiled list, not merged with it.
+
+    A release this profile finds and that list does not is one that ran
+    without producing the logs the hand count walked; the reverse ran outside
+    its window. Both are findings, and neither survives if the two lists are
+    silently combined.
+    """
+
+    def test_a_release_in_the_hand_list_is_marked(self):
+        self.assertTrue(brs._in_manual_list(               # noqa: SLF001
+            "mlt", "mlt_2026.220.0-git2f1c2f23"))
+        self.assertTrue(brs._in_manual_list(               # noqa: SLF001
+            "htt", "htt_2026.226.0-gitfe7ab71c"))
+
+    def test_a_validation_build_of_a_listed_release_is_marked_too(self):
+        """The hand list names versions, not suite spellings."""
+        self.assertTrue(brs._in_manual_list(               # noqa: SLF001
+            "mlt", "mlt_validation_2026.225.0-gitb937ca2c"))
+
+    def test_a_release_the_hand_list_never_saw_is_not_marked(self):
+        self.assertFalse(brs._in_manual_list(              # noqa: SLF001
+            "mlt", "mlt_2026.209.0-git3fe4de25"))
+
+    def test_stations_do_not_borrow_each_other_s_versions(self):
+        """217 is an HTT release; an MLT 217 would be a different thing."""
+        self.assertFalse(brs._in_manual_list(              # noqa: SLF001
+            "mlt", "mlt_2026.217.0-gitx"))

@@ -293,3 +293,12 @@ tr.clickable th:first-child::after { content: " ›"; color: var(--text-muted); 
 .src-none { color: var(--text-secondary); }
 .src-note { margin-top: 14px; padding-top: 10px;
             border-top: 1px dashed var(--border); }
+
+/* Also present in the hand-compiled release list. Underlined rather than
+   recoloured: it is a provenance note on the name, not a status. */
+.src-name.in-manual {
+  text-decoration: underline;
+  text-decoration-color: var(--accent-solid);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
+}

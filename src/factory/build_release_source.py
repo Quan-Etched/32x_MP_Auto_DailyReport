@@ -58,6 +58,26 @@ SUITE_SOURCE = {
             "rdqs_sweep_training.yaml"),
 }
 
+#: The release list compiled by hand for 10–18 Aug 2026 (the "MLT & HTT
+#: Release Trains" artifact), which read versions out of each run's
+#: ``log.jsonl`` rather than out of the source tree.
+#:
+#: Kept so the two can be compared: a release this profile finds and that list
+#: does not is one that ran without producing the logs the hand count walked,
+#: and the reverse is a release that ran outside this window. Marked on the
+#: page rather than merged, because a hand-compiled list and a generated one
+#: should never become indistinguishable.
+MANUAL_LIST = {
+    "mlt": ("2026.220.0", "2026.225.0"),
+    "htt": ("2026.217.0", "2026.223.0", "2026.224.0", "2026.226.0"),
+}
+
+MANUAL_LIST_SOURCE = ("hand-compiled release trains, 10–18 Aug 2026, "
+                      "read from each run's log.jsonl")
+
+#: The ``2026.225.0`` inside a suite name.
+VERSION = re.compile(r"(\d{4}\.\d+\.\d+)")
+
 #: A suite name's trailing ``-git<sha>``.
 COMMIT = re.compile(r"-git([0-9a-f]{7,40})\b")
 
@@ -245,6 +265,7 @@ def build_bundle(days: int = DEFAULT_DAYS,
             "wrappers": [c["name"] for c in info.get("cases", []) if c["wrapper"]],
             "committedAt": commit_meta.get("date"),
             "subject": commit_meta.get("subject"),
+            "inManualList": _in_manual_list(station, release["suite"]),
         }))
 
     return {
@@ -255,9 +276,16 @@ def build_bundle(days: int = DEFAULT_DAYS,
         "repo": {"path": str(root), "head": _git(root, "rev-parse",
                                                  "--short", "HEAD").strip()},
         "sources": SUITE_SOURCE,
+        "manualList": {"versions": {k: list(v) for k, v in MANUAL_LIST.items()},
+                       "source": MANUAL_LIST_SOURCE},
         "releases": profiled,
         "diffs": _diffs(profiled),
     }
+
+
+def _in_manual_list(station: str, suite: str) -> bool:
+    found = VERSION.search(suite)
+    return bool(found and found.group(1) in MANUAL_LIST.get(station, ()))
 
 
 def _commit_meta(repo: Path, commit: str) -> Dict[str, str]:

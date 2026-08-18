@@ -55,8 +55,18 @@
 
     (DATA.releases || []).forEach(function (release) {
       var card = h('div', { class: 'src-card' });
+      var manual = (DATA.manualList || {}).source || 'the hand-compiled list';
       card.appendChild(h('div', { class: 'src-head' }, [
-        h('strong', { class: 'src-name', text: label(release.suite) }),
+        /* Underlined where the hand-compiled list has it too. Marked rather
+         * than merged: a list somebody wrote and a list a script generated
+         * should never become indistinguishable on the same page. */
+        h('strong', {
+          class: 'src-name' + (release.inManualList ? ' in-manual' : ''),
+          title: release.inManualList
+            ? 'Also in ' + manual
+            : 'Not in ' + manual + ' — it ran outside that window, or ' +
+              'produced no log for it to read'
+        }, [document.createTextNode(label(release.suite))]),
         h('span', { class: 'src-count', text: release.caseCount + ' test cases' })
       ]));
       card.appendChild(h('div', { class: 'src-meta' }, [
@@ -149,7 +159,10 @@
         'sub-suite. ' : '') +
       'Generated where a clone of that repository exists — the dashboard host ' +
       'has none, so this section is built on a laptop and committed. Clone at ' +
-      (repo.head || 'unknown') + '.' }));
+      (repo.head || 'unknown') + '. Underlined releases also appear in ' +
+      ((DATA.manualList || {}).source || 'the hand-compiled list') +
+      ', which read versions out of run logs rather than out of the tree — ' +
+      'kept comparable rather than combined.' }));
   }
 
   /* ------------------------------------------------------------------ run */
