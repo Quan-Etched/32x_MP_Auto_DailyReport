@@ -986,10 +986,10 @@ class ReleaseOnlyCountTest(unittest.TestCase):
     def tab(self, rows):
         columns = build_dailyexcel._with_version_columns([
             {"key": "A", "title": "Date"}, {"key": "B", "title": "DUT SN"},
-            {"key": "E", "title": "MLT Results"},
+            {"key": "E", "title": "MLT Results", "station": "mlt"},
             {"key": "F", "title": "MLT Failure Test Case"},
             {"key": "G", "title": "FI Test Link"},
-            {"key": "H", "title": "HTT Results"},
+            {"key": "H", "title": "HTT Results", "station": "htt"},
             {"key": "I", "title": "HTT Failure"}, {"key": "J", "title": "Link"},
         ])
         index = {c["key"]: i for i, c in enumerate(columns)}
@@ -1044,10 +1044,10 @@ class NewInputCountTest(unittest.TestCase):
     def counts(self, rows):
         columns = build_dailyexcel._with_version_columns([
             {"key": "A", "title": "Date"}, {"key": "B", "title": "DUT SN"},
-            {"key": "E", "title": "MLT Results"},
+            {"key": "E", "title": "MLT Results", "station": "mlt"},
             {"key": "F", "title": "MLT Failure Test Case"},
             {"key": "G", "title": "FI Test Link"},
-            {"key": "H", "title": "HTT Results"},
+            {"key": "H", "title": "HTT Results", "station": "htt"},
             {"key": "I", "title": "HTT Failure"}, {"key": "J", "title": "Link"},
         ])
         index = {c["key"]: i for i, c in enumerate(columns)}
@@ -1084,7 +1084,7 @@ class NewInputCountTest(unittest.TestCase):
         build vs release builds. Four tallies, not three."""
         columns = build_dailyexcel._with_version_columns([
             {"key": "A", "title": "Date"}, {"key": "B", "title": "DUT SN"},
-            {"key": "E", "title": "MLT Results"},
+            {"key": "E", "title": "MLT Results", "station": "mlt"},
         ])
         index = {c["key"]: i for i, c in enumerate(columns)}
         rows = []
@@ -1119,8 +1119,8 @@ class NewInputCountTest(unittest.TestCase):
         and back for a second go at MLT on the same row."""
         columns = build_dailyexcel._with_version_columns([
             {"key": "A", "title": "Date"}, {"key": "B", "title": "DUT SN"},
-            {"key": "E", "title": "MLT Results"},
-            {"key": "H", "title": "HTT Results"},
+            {"key": "E", "title": "MLT Results", "station": "mlt"},
+            {"key": "H", "title": "HTT Results", "station": "htt"},
         ])
         index = {c["key"]: i for i, c in enumerate(columns)}
         row = [{} for _ in columns]
@@ -1185,9 +1185,9 @@ class SheetOmissionTest(unittest.TestCase):
             "day": "2026-08-12",
             "columns": bd._with_version_columns([
                 {"key": "A", "title": "Date"}, {"key": "B", "title": "DUT SN"},
-                {"key": "E", "title": "MLT Results"},
+                {"key": "E", "title": "MLT Results", "station": "mlt"},
                 {"key": "F", "title": "F"}, {"key": "G", "title": "G"},
-                {"key": "H", "title": "HTT Results"},
+                {"key": "H", "title": "HTT Results", "station": "htt"},
                 {"key": "I", "title": "I"}, {"key": "J", "title": "J"},
             ]),
             "rows": [],
@@ -1221,7 +1221,7 @@ class SheetOmissionTest(unittest.TestCase):
             "day": "2026-08-12",
             "columns": bd._with_version_columns([
                 {"key": "A", "title": "Date"}, {"key": "B", "title": "DUT SN"},
-                {"key": "E", "title": "MLT Results"},
+                {"key": "E", "title": "MLT Results", "station": "mlt"},
             ]),
             "rows": [],
         }

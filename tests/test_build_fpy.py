@@ -218,3 +218,65 @@ class CountsOnlyTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExternalYieldTest(unittest.TestCase):
+    """WST and FT, which arrive by message and have nowhere else to come from.
+
+    Kept in a data file a human edits on a Saturday rather than in this
+    module, so updating them is a change to a number and not a patch to a
+    program — and so the figure carries the date and the person who reported
+    it instead of a comment nobody re-reads.
+    """
+
+    def write(self, tmp, payload):
+        import json as _json
+        from pathlib import Path
+        path = Path(tmp) / "external_yields.json"
+        path.write_text(_json.dumps(payload), encoding="utf-8")
+        return path
+
+    def using(self, path):
+        original = build_fpy.EXTERNAL_FILE
+        build_fpy.EXTERNAL_FILE = path
+        self.addCleanup(setattr, build_fpy, "EXTERNAL_FILE", original)
+
+    def test_a_reported_figure_is_read_with_its_provenance(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            self.using(self.write(tmp, {
+                "wst": {"yield": 0.41, "asOf": "2026-08-22",
+                        "source": "Anne, #production-test-eng"},
+                "ft": {"yield": 0.9, "asOf": "2026-08-22", "source": "Anne"}}))
+            out = build_fpy.external()
+        self.assertEqual(out["wst"]["yield"], 0.41)
+        self.assertEqual(out["wst"]["asOf"], "2026-08-22")
+        self.assertIn("Anne", out["wst"]["source"])
+
+    def test_a_missing_file_reports_absence_rather_than_a_stale_number(self):
+        """A figure nobody sent this week must not be shown as this week's.
+        The shape of the page survives; the number does not."""
+        from pathlib import Path
+        self.using(Path("/nonexistent/external_yields.json"))
+        out = build_fpy.external()
+        self.assertIsNone(out["wst"]["yield"])
+        self.assertIn("external_yields.json", out["wst"]["note"])
+
+    def test_a_half_filled_file_only_loses_the_half_that_is_missing(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            self.using(self.write(tmp, {
+                "wst": {"yield": 0.41, "asOf": "2026-08-22", "source": "Anne"}}))
+            out = build_fpy.external()
+        self.assertEqual(out["wst"]["yield"], 0.41)
+        self.assertIsNone(out["ft"]["yield"])
+
+    def test_malformed_json_does_not_take_the_build_down(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "external_yields.json"
+            path.write_text("{ this is not json", encoding="utf-8")
+            self.using(path)
+            out = build_fpy.external()
+        self.assertIsNone(out["ft"]["yield"])

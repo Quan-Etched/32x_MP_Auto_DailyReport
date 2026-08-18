@@ -62,22 +62,46 @@ HISTORY_DAYS = 90
 GRADED = ("pass", "fail", "error")
 
 #: Stages measured elsewhere, carried so the chart is the whole line rather
-#: than the part we happen to collect. Hand-entered, which is why every one
-#: names who reported it and when — and why the page marks them.
-EXTERNAL: Dict[str, Dict[str, Any]] = {
-    "wst": {
-        "yield": 0.353,
-        "source": "Sigurd, reported in #production-test-eng",
-        "asOf": "2026-08-14",
-        "note": "Wafer sort. Reported figure — not collected by this pipeline.",
-    },
-    "ft": {
-        "yield": 0.843,
-        "source": "Sigurd, reported in #production-test-eng",
-        "asOf": "2026-08-14",
-        "note": "Final test. Reported figure — not collected by this pipeline.",
-    },
+#: than the part we happen to collect.
+#:
+#: Read from weekly/external_yields.json, which a human edits — WST and FT are
+#: Sigurd's and arrive by message, so there is nowhere for them to come from
+#: automatically. Keeping them in a data file rather than in this module means
+#: updating them on a Saturday is an edit to a number, not a patch to a
+#: program, and the figure carries the date and the person who reported it.
+EXTERNAL_FILE = config.REPO_ROOT / "weekly" / "external_yields.json"
+
+#: Used when the file is missing, so a fresh checkout still renders the shape
+#: of the page. Marked stale by the same asOf machinery as any other figure.
+EXTERNAL_FALLBACK: Dict[str, Dict[str, Any]] = {
+    "wst": {"yield": None, "source": "not reported", "asOf": None,
+            "note": "Wafer sort. Add it to weekly/external_yields.json."},
+    "ft": {"yield": None, "source": "not reported", "asOf": None,
+           "note": "Final test. Add it to weekly/external_yields.json."},
 }
+
+
+def external() -> Dict[str, Dict[str, Any]]:
+    """The hand-reported yields, or a marked absence."""
+    try:
+        raw = json.loads(EXTERNAL_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return dict(EXTERNAL_FALLBACK)
+
+    out: Dict[str, Dict[str, Any]] = {}
+    for key, default in EXTERNAL_FALLBACK.items():
+        entry = raw.get(key)
+        if not isinstance(entry, dict) or entry.get("yield") is None:
+            out[key] = dict(default)
+            continue
+        out[key] = {
+            "yield": entry.get("yield"),
+            "asOf": entry.get("asOf"),
+            "source": entry.get("source") or "reported",
+            "note": entry.get("note") or "",
+        }
+    return out
+
 
 #: Stations whose repeat runs are a *sequence*, not a retest. VBB provisioning
 #: puts every board through eight suites (PROD_01_vbb_provisioning,
@@ -203,6 +227,7 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
             "measured": True,
         })
 
+    reported = external()
     return {
         "schemaVersion": 1,
         "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
@@ -213,10 +238,10 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
         "source": payload.get("dataSource") or {},
         "rows": rows,
         "external": [
-            dict(EXTERNAL[key], key=key,
+            dict(reported[key], key=key,
                  label=registry.get(key, {}).get("label", key.upper()),
                  measured=False)
-            for key in ("wst", "ft") if key in EXTERNAL
+            for key in ("wst", "ft") if key in reported
         ],
         "totals": _totals(rows, floor),
     }

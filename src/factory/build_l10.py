@@ -44,7 +44,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import config, pega, rootcause, version, xlsx
+from . import build_dailyexcel, config, pega, rootcause, version, xlsx
 
 #: The four L10 stages, in the order the line runs them, with the spellings
 #: pega4 has used for each. ``_\d+`` is a release suffix, not a different stage.
@@ -59,6 +59,11 @@ STAGES = (
 #: directories, ticket-named runs. Same policy as the station registry's.
 ENGINEERING = re.compile(
     r"(_krish|_debug|_out_dir|_SAM|_SMOKE|_etch\d+|^DRY_?RUN|^L10_tests$)", re.IGNORECASE)
+
+#: Stage key -> the station key the rest of the dashboard uses. The tracker
+#: and the station page have to agree on a name or the two never line up.
+STATION_OF = {"fat": "l10_fat", "sft": "l10_sft",
+              "rin": "l10_rin", "2u": "l10_2u"}
 
 #: Days of history to publish. The tracker answers "what happened today and
 #: yesterday"; a month of tabs is what the run table is for.
@@ -134,7 +139,12 @@ def build_bundle(days: int = DEFAULT_DAYS) -> Dict[str, Any]:
 
 
 def _columns() -> List[Dict[str, Any]]:
-    """Date, unit, part, then three columns per stage.
+    """Date, chassis, part, then four columns per stage.
+
+    The same shape as the module tracker — result, version, failure, link —
+    so the two pages read alike and share one renderer and one tally. The
+    version column is what lets a reader tell an L10_FAT_207 run from an
+    L10_FAT one without opening the link.
 
     No Jira column: its keys come from the module line's hand-kept sheet, and
     L10 has no sheet. An always-empty column is worse than an absent one.
@@ -145,17 +155,66 @@ def _columns() -> List[Dict[str, Any]]:
         {"key": "C", "title": "DUT PN", "width": 14.0},
     ]
     index = 3
-    for _key, label, _pattern in STAGES:
-        for suffix, width in (("Results", 11.0), ("Failure Test Case", 34.0),
-                              ("FI Test Link", 10.0)):
-            columns.append({
-                "key": xlsx.column_letters(index),
-                "title": "{} {}".format(label, suffix) if suffix != "FI Test Link"
-                         else "FI Test Link",
-                "width": width,
-            })
-            index += 1
+    for key, label, _pattern in STAGES:
+        station = STATION_OF[key]
+        columns.append({
+            "key": xlsx.column_letters(index), "title": "{} Results".format(label),
+            "width": 11.0, "station": station,
+        })
+        columns.append({
+            "key": xlsx.column_letters(index + 1),
+            "title": "{} Version".format(label), "width": 26.0,
+            "kind": "version", "station": station,
+        })
+        columns.append({
+            "key": xlsx.column_letters(index + 2),
+            "title": "{} Failure Test Case".format(label), "width": 34.0,
+        })
+        columns.append({
+            "key": xlsx.column_letters(index + 3), "title": "FI Test Link",
+            "width": 10.0,
+        })
+        index += 4
     return columns
+
+
+def _seen_before(day: str, lookback: int = build_dailyexcel.NEW_INPUT_LOOKBACK
+                 ) -> Dict[str, Dict[str, List[Dict[str, str]]]]:
+    """Every attempt each L10 stage made on a chassis before ``day``.
+
+    Same rule as the module tracker, so "new input" means the same thing on
+    both pages: a chassis the stage had not seen in the ten days before this
+    one. Keyed by stage rather than by station so the caller can look up with
+    the key it already has.
+    """
+    seen: Dict[str, Dict[str, List[Dict[str, str]]]] = {
+        key: {} for key, _l, _p in STAGES}
+    start = datetime.strptime(day, "%Y-%m-%d").date()
+    for offset in range(lookback, 0, -1):
+        past = (start - timedelta(days=offset)).strftime("%Y-%m-%d")
+        try:
+            listing = pega.day_suite_runs(past, host="pega4")
+        except pega.PegaUnavailable:
+            continue
+        for entry in sorted(listing, key=lambda e: e.get("start_time") or ""):
+            stage = stage_of(entry.get("suite_name"))
+            if not stage:
+                continue
+            run_id = entry.get("suite_run_id") or ""
+            try:
+                detail = pega.suite_run(run_id, host="pega4")
+            except pega.PegaUnavailable:
+                continue
+            for part in pega.participants(detail):
+                if part["status"] not in ("pass", "fail"):
+                    continue
+                seen[stage].setdefault(part["dut"], []).append({
+                    "day": past,
+                    "status": part["status"],
+                    "url": pega.run_url(run_id, part["slot"], host="pega4"),
+                    "suite": entry.get("suite_name") or "",
+                })
+    return seen
 
 
 def _day(day: str) -> Optional[Dict[str, Any]]:
@@ -166,7 +225,7 @@ def _day(day: str) -> Optional[Dict[str, Any]]:
 
     columns = _columns()
     index = {column["key"]: position for position, column in enumerate(columns)}
-    slot_of = {key: xlsx.column_letters(3 + position * 3)
+    slot_of = {key: xlsx.column_letters(3 + position * 4)
                for position, (key, _l, _p) in enumerate(STAGES)}
 
     units: Dict[str, Dict[str, Any]] = {}
@@ -193,6 +252,7 @@ def _day(day: str) -> Optional[Dict[str, Any]]:
             if previous and previous["started"] >= started:
                 continue
             unit[stage] = {
+                "suite": entry.get("suite_name") or "",
                 "status": part["status"],
                 "fail": unit_failures(detail) if part["status"] == "fail" else "",
                 "url": pega.run_url(run_id, part["slot"], host="pega4"),
@@ -208,11 +268,25 @@ def _day(day: str) -> Optional[Dict[str, Any]]:
         bad = any((unit.get(k) or {}).get("status") == "fail" for k, _l, _p in STAGES)
         return (bad, dut)
 
+    history = _seen_before(day)
+
     rows = []
     for dut, unit in sorted(units.items(), key=sort_key):
         row = [{} for _ in columns]
         row[index["A"]] = {"v": day}
-        row[index["B"]] = {"v": dut}
+        serial: Dict[str, Any] = {"v": dut}
+        for key, _label, _pattern in STAGES:
+            if key not in unit:
+                continue
+            past = history.get(key) or {}
+            attempts = past.get(dut) or []
+            if attempts:
+                station = STATION_OF[key]
+                serial.setdefault("seen", {})[station] = attempts[-1]["day"]
+                serial.setdefault("history", {})[station] = \
+                    build_dailyexcel._trim_history(attempts)
+        serial["new"] = "seen" not in serial
+        row[index["B"]] = serial
         if unit.get("pn"):
             row[index["C"]] = {"v": unit["pn"]}
         for key, _label, _pattern in STAGES:
@@ -224,9 +298,10 @@ def _day(day: str) -> Optional[Dict[str, Any]]:
             if got["status"] in ("pass", "fail"):
                 row[offset] = {"v": "Passed" if got["status"] == "pass" else "Failed",
                                "t": got["status"]}
+            row[offset + 1] = {"v": got["suite"]}
             if got["fail"]:
-                row[offset + 1] = {"v": got["fail"]}
-            row[offset + 2] = {"v": got["short"], "h": got["url"]}
+                row[offset + 2] = {"v": got["fail"]}
+            row[offset + 3] = {"v": got["short"], "h": got["url"]}
         rows.append(row)
 
     return {
@@ -249,17 +324,14 @@ def _day(day: str) -> Optional[Dict[str, Any]]:
 
 
 def _counts(rows, columns) -> Dict[str, Any]:
-    """Pass/fail per stage, for the tiles above the table."""
-    counts = {}
-    for position, (key, label, _pattern) in enumerate(STAGES):
-        column = xlsx.column_letters(3 + position * 3)
-        offset = xlsx.column_index(column)
-        tally = {"pass": 0, "fail": 0, "blank": 0}
-        for row in rows:
-            tone = (row[offset] or {}).get("t")
-            tally[tone if tone in tally else "blank"] += 1
-        counts[column] = dict(tally, title="{} Results".format(label))
-    return counts
+    """Pass/fail per stage — the module tracker's tally, reused.
+
+    Shared rather than reimplemented: it produces the new-input and
+    release-only breakdowns the page's Count all button needs, and two copies
+    of that arithmetic would be two chances to count a day differently on two
+    pages of one dashboard.
+    """
+    return build_dailyexcel._counts(rows, columns)
 
 
 def write_bundle(bundle: Dict[str, Any], path: Optional[Path] = None) -> Path:

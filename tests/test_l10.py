@@ -58,13 +58,32 @@ class FailureTest(unittest.TestCase):
 
 
 class ColumnTest(unittest.TestCase):
-    def test_three_columns_per_stage_after_the_unit(self):
-        titles = [c["title"] for c in build_l10._columns()]
+    def test_four_columns_per_stage_after_the_chassis(self):
+        """Result, version, failure, link — the module tracker's shape, so the
+        two pages share a renderer and a tally rather than drifting."""
+        columns = build_l10._columns()
+        titles = [c["title"] for c in columns]
         self.assertEqual(titles[:3], ["Date", "Chassis SN", "DUT PN"])
-        self.assertEqual(len(titles), 3 + 4 * 3)
+        self.assertEqual(len(titles), 3 + 4 * 4)
         self.assertEqual(titles[3], "L10 FAT Results")
-        self.assertEqual(titles[4], "L10 FAT Failure Test Case")
-        self.assertEqual(titles[5], "FI Test Link")
+        self.assertEqual(titles[4], "L10 FAT Version")
+        self.assertEqual(titles[5], "L10 FAT Failure Test Case")
+        self.assertEqual(titles[6], "FI Test Link")
+
+    def test_each_result_column_names_its_station(self):
+        """The tally is header-driven now: a result column with no station is
+        a column the tiles cannot count."""
+        stations = [c.get("station") for c in build_l10._columns()
+                    if c["title"].endswith("Results")]
+        self.assertEqual(stations, ["l10_fat", "l10_sft", "l10_rin", "l10_2u"])
+
+    def test_only_result_columns_are_tallied(self):
+        """A version column names its station so its result column can find
+        it; tallying it too produced four phantom tiles."""
+        columns = build_l10._columns()
+        rows = [[{} for _ in columns]]
+        counts = build_l10._counts(rows, columns)
+        self.assertEqual(sorted(counts), ["D", "H", "L", "P"])
 
     def test_there_is_no_jira_column(self):
         # Its keys come from the module line's sheet; L10 has none, and an
@@ -106,8 +125,8 @@ class DayTest(unittest.TestCase):
         row = tab["rows"][0]
         self.assertEqual(row[1]["v"], "267694410002")
         self.assertEqual(row[3], {"v": "Failed", "t": "fail"})     # FAT
-        self.assertEqual(row[4]["v"], "CheckSystemLogStates")
-        self.assertEqual(row[6], {"v": "Passed", "t": "pass"})     # SFT
+        self.assertEqual(row[5]["v"], "CheckSystemLogStates")      # FAT failure
+        self.assertEqual(row[7], {"v": "Passed", "t": "pass"})     # SFT
 
     def test_engineering_runs_never_reach_the_page(self):
         tab = build_l10._day("2026-08-13")
@@ -116,7 +135,7 @@ class DayTest(unittest.TestCase):
 
     def test_the_link_points_at_pega4(self):
         row = build_l10._day("2026-08-13")["rows"][0]
-        self.assertIn("pega4:3000/suite_run/L10_FAT_run_00a5c0b4", row[5]["h"])
+        self.assertIn("pega4:3000/suite_run/L10_FAT_run_00a5c0b4", row[6]["h"])
 
     def test_a_day_with_no_l10_runs_is_no_tab(self):
         from factory import pega

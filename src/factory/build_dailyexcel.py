@@ -1272,12 +1272,22 @@ def _counts(rows: List[List[Dict[str, Any]]], header: List[Dict[str, Any]]) -> D
     index = {entry["key"]: position for position, entry in enumerate(header)}
     serial_at = index.get("B")
     counts = {}
-    for column in RESULT_COLUMNS:
-        position = index.get(column)
-        if position is None:
+    # Driven by the header rather than by a fixed pair of column letters: the
+    # L10 tracker has four result columns at different letters and wants the
+    # same tallies, and two copies of this arithmetic would be two chances to
+    # count a day differently on two pages.
+    for position, entry in enumerate(header):
+        column = entry["key"]
+        station = entry.get("station")
+        # A version column names its station too, so that a result column can
+        # find its pair — but it holds a build name, not a verdict, and
+        # tallying it produced four phantom tiles on the L10 page.
+        if not station or entry.get("kind") == "version":
             continue
-        station = _station_of_column(column)
-        version_at = index.get(_version_column(station)) if station else None
+        version_at = next(
+            (i for i in range(position + 1, len(header))
+             if header[i].get("kind") == "version"
+             and header[i].get("station", station) == station), None)
 
         def tally():
             return {"pass": 0, "fail": 0, "blank": 0}
@@ -1327,6 +1337,7 @@ def _counts(rows: List[List[Dict[str, Any]]], header: List[Dict[str, Any]]) -> D
                 fresh_release[bucket] += 1
 
         counts[column] = dict(every, title=header[position]["title"],
+                              station=station,
                               sub=header[position].get("sub"),
                               release=every_release,
                               new=fresh,

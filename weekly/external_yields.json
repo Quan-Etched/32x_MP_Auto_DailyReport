@@ -1,0 +1,27 @@
+{
+  "_comment": [
+    "Station yields measured outside this pipeline. Edit this file; nothing",
+    "generates it.",
+    "",
+    "WST and FT are Sigurd's and arrive by message, so they have nowhere to",
+    "come from automatically. Put the week's figures here on Friday or",
+    "Saturday and they appear on the weekly page, the flow chart and the deck",
+    "with the date and the person who reported them attached.",
+    "",
+    "yield: a fraction, not a percent. 0.353 is 35.3%.",
+    "asOf:  the day the figure describes, not the day it was typed.",
+    "source: who said so. It is printed next to the number."
+  ],
+  "wst": {
+    "yield": 0.353,
+    "asOf": "2026-08-14",
+    "source": "Sigurd, reported in #production-test-eng",
+    "note": "Wafer sort."
+  },
+  "ft": {
+    "yield": 0.843,
+    "asOf": "2026-08-14",
+    "source": "Sigurd, reported in #production-test-eng",
+    "note": "Final test."
+  }
+}

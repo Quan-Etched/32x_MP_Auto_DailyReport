@@ -75,6 +75,13 @@ scp .env chuck@chuck-dashboard.usw2.i.etched.com:factory_data_analysis/.env
 rsync -av --progress data/processed/items.sqlite data/processed/fetch_state.json \
   chuck@chuck-dashboard.usw2.i.etched.com:factory_data_analysis/data/processed/
 
+# WEEKENDS: WST and FT come from Sigurd by message and have nowhere to come
+# from automatically. Put the week's figures in weekly/external_yields.json —
+# a fraction, the day it describes, and who reported it — then commit. They
+# appear on the weekly page, the flow chart and the deck with that provenance
+# attached. Leave a figure out and the page says "not reported" rather than
+# showing last week's as though it were this week's.
+
 # One step runs only on a laptop: `make release-source` reads the suite YAML
 # out of a clone of etched-ai/sw at each release's commit, and the box has no
 # such clone (2.4 GB, and no reason to). Run it on the Mac, commit
