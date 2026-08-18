@@ -26,6 +26,17 @@
   var el = {};
   var current = null;
 
+  /* Which units the tiles count.
+   *
+   * 'new' by default: a day's yield is read as "how did today's build go",
+   * and a unit that failed last Monday and is re-run today answers a
+   * different question — whether a fix worked, not how the fresh material is
+   * doing. On 08-16 that distinction is the whole story: the tab reads 87.5%
+   * at MLT and every one of those sixteen units was a returning one, so the
+   * figure is not a build yield at all.
+   */
+  var countMode = 'new';
+
   /* ------------------------------------------------------------------ dom */
 
   function h(tag, attrs, kids) {
@@ -94,7 +105,8 @@
    * back as a correction later.
    */
   function releaseOnly(entry) {
-    var rel = entry.release;
+    var rel = (countMode === 'new' && entry.newRelease)
+      ? entry.newRelease : entry.release;
     if (!rel || !(entry.nonRelease || []).length) return null;
     var graded = rel.pass + rel.fail;
     var rate = graded ? Math.round((rel.pass / graded) * 1000) / 10 + '%' : null;
@@ -201,8 +213,9 @@
     var counts = countsFor(tab, rows);
     Object.keys(counts).forEach(function (key) {
       var entry = counts[key];
-      var graded = entry.pass + entry.fail;
-      var rate = graded ? Math.round((entry.pass / graded) * 1000) / 10 : null;
+      var shownCounts = (countMode === 'new' && entry.new) ? entry.new : entry;
+      var graded = shownCounts.pass + shownCounts.fail;
+      var rate = graded ? Math.round((shownCounts.pass / graded) * 1000) / 10 : null;
       el.summary.appendChild(h('div', { class: 'sheet-tile' }, [
         h('span', { class: 'tile-title' }, [
           document.createTextNode(entry.title),
@@ -213,13 +226,18 @@
         ]),
         h('strong', { class: 'tile-value', text: rate === null ? '—' : rate + '%' }),
         h('span', { class: 'tile-sub' }, [
-          h('span', { class: 'tone-pass', text: entry.pass + ' passed' }),
+          h('span', { class: 'tone-pass', text: shownCounts.pass + ' passed' }),
           h('span', { text: ' · ' }),
-          h('span', { class: 'tone-fail', text: entry.fail + ' failed' }),
-          entry.blank
-            ? h('span', { class: 'tile-blank', text: ' · ' + entry.blank + ' not run' })
+          h('span', { class: 'tone-fail', text: shownCounts.fail + ' failed' }),
+          shownCounts.blank
+            ? h('span', { class: 'tile-blank',
+                          text: ' · ' + shownCounts.blank + ' not run' })
             : null
         ]),
+        h('span', { class: 'tile-sub tile-mode', text: countMode === 'new'
+          ? 'new input only — ' + entry.returning + ' returning unit' +
+            (entry.returning === 1 ? '' : 's') + ' left out'
+          : 'every unit, including ' + entry.returning + ' returning' }),
         releaseOnly(entry)
       ]));
     });
@@ -538,6 +556,8 @@
     rows.forEach(function (row, index) {
       var tr = h('tr', { class: index % 2 ? 'odd' : 'even' });
       tr.appendChild(h('td', { class: 'col-index', text: String(index + 1) }));
+      var serial = row[columnIndex(tab, 'B')] || {};
+      if (countMode === 'new' && !serial.new) tr.className += ' returning';
       row.forEach(function (cell, position) {
         var td = renderCell(cell, columns[position], wraps[position]);
         /* The per-unit build. It is the column that answers "which release was
@@ -555,6 +575,53 @@
 
     renderSummary(tab, rows);
     renderCaption(tab, rows.length);
+    renderCountMode(tab);
+  }
+
+  /* The switch, under the table where the rows it is talking about are.
+   *
+   * Stated rather than implied: a reader who sees 76.1% needs to know it is
+   * 33 of 43 fresh units and not 51 of 67 rows, and the two are different
+   * enough to argue about. */
+  function renderCountMode(tab) {
+    var host = byId('count-mode');
+    if (!host) return;
+    host.innerHTML = '';
+
+    var counts = tab.counts || {};
+    var returning = 0, lookback = 10;
+    Object.keys(counts).forEach(function (key) {
+      returning = Math.max(returning, counts[key].returning || 0);
+      lookback = counts[key].lookback || lookback;
+    });
+
+    var button = h('button', { type: 'button', class: 'cm-btn',
+      text: countMode === 'new' ? 'Count all' : 'Count new input only' });
+    button.addEventListener('click', function () {
+      countMode = countMode === 'new' ? 'all' : 'new';
+      renderSummary(tab, shownRows(tab));
+      renderRows(tab);
+      renderCountMode(tab);
+    });
+    host.appendChild(button);
+
+    host.appendChild(h('p', { class: 'cm-note' }, [
+      h('strong', { text: countMode === 'new'
+        ? 'Counting new input only.' : 'Counting every unit.' }),
+      document.createTextNode(countMode === 'new'
+        ? ' The tiles above count units this station had not seen in the ' +
+          lookback + ' days before this one. ' + returning + ' returning unit' +
+          (returning === 1 ? '' : 's') + ' on this tab ' +
+          (returning === 1 ? 'is' : 'are') + ' shown in the table but left out ' +
+          'of the figures, because a unit that failed last week and is re-run ' +
+          'today says whether a fix worked — not how today’s build went. ' +
+          'Press Count all for the full tally.'
+        : ' The tiles above count every row, new material and re-runs ' +
+          'together. That is the honest total for the day’s work, and it is ' +
+          'not a build yield: ' + returning + ' of these units had already ' +
+          'been through this station within ' + lookback + ' days. Press ' +
+          'Count new input only to see the fresh material on its own.')
+    ]));
   }
 
   function renderCaption(tab, showing) {
@@ -591,6 +658,7 @@
     if (cell.t) classes.push('tone-' + cell.t);
     if (wrap) classes.push('wrap');
     if (column && column.key === 'B') classes.push('serial');
+    if (column && column.key === 'B' && cell.seen) classes.push('was-here');
     td.className = classes.join(' ');
     var value = cell.v == null ? '' : String(cell.v);
 
@@ -623,6 +691,15 @@
     }
 
     td.textContent = value;
+    /* When a returning unit was last at this station. Without it "returning"
+     * is an assertion the reader has to take on trust. */
+    if (column && column.key === 'B' && cell.seen) {
+      var days = Object.keys(cell.seen).map(function (station) {
+        return station.toUpperCase() + ' ' + cell.seen[station];
+      });
+      td.appendChild(h('span', { class: 'seen-when',
+                                 text: 'last here ' + days.join(', ') }));
+    }
     return td;
   }
 

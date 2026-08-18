@@ -612,13 +612,22 @@ def _add_sheet_versions(tab: Dict[str, Any],
         return tab
 
     at = {column["key"]: position for position, column in enumerate(tab["columns"])}
+    # The line's own tabs get the same new-input marking as the rebuilt ones.
+    # Without it every unit on 08-11 and 08-12 reads as fresh material, and the
+    # two halves of the strip would answer the toggle differently.
+    history = _seen_before(tab["day"]) if tab.get("day") else {}
     for row in tab["rows"]:
         dut = (row[at["B"]].get("v") or "").strip()
         unit = units.get(dut) or {}
+        serial = row[at["B"]]
         for station, _result_col, version_col, _title in VERSION_COLUMNS:
             suite = (unit.get(station) or {}).get("suite")
             if suite:
                 row[at[version_col]] = {"v": suite}
+            last = history.get(station, {}).get(dut)
+            if last and (unit.get(station) or suite):
+                serial.setdefault("seen", {})[station] = last
+        serial["new"] = "seen" not in serial
     tab["counts"] = _counts(tab["rows"], tab["columns"])
     return tab
 
@@ -732,6 +741,52 @@ def _sheet_versions(tab: Dict[str, Any], result_key: str) -> List[Optional[str]]
         return []
     return [(row[position] or {}).get("v") for row in tab.get("rows") or []
             if position < len(row)]
+
+
+#: How far back to look before calling a unit new.
+#:
+#: Ten days. A day's yield is normally read as "how did today's build go", and
+#: a unit that failed on Monday and is re-run on Thursday answers a different
+#: question — it says whether a fix worked, not how the fresh material is
+#: doing. Mixing the two moves the number without anything on the line
+#: changing. Ten days is long enough to catch the retest campaigns this line
+#: actually runs and short enough to stay inside what the controllers keep.
+NEW_INPUT_LOOKBACK = 10
+
+
+def _seen_before(day: str, lookback: int = NEW_INPUT_LOOKBACK
+                 ) -> Dict[str, Dict[str, str]]:
+    """Serials each station tested in the days before ``day``.
+
+    Returns station -> {dut: the last day it was seen}, so a row can say not
+    just that a unit is a returning one but when it was here last.
+    """
+    if not pega.enabled():
+        return {"mlt": {}, "htt": {}}
+
+    seen: Dict[str, Dict[str, str]] = {"mlt": {}, "htt": {}}
+    start = datetime.strptime(day, "%Y-%m-%d").date()
+    for offset in range(lookback, 0, -1):
+        past = (start - timedelta(days=offset)).strftime("%Y-%m-%d")
+        try:
+            listing = pega.day_suite_runs(past)
+        except pega.PegaUnavailable:
+            continue
+        for entry in listing:
+            run_id = entry.get("suite_run_id") or ""
+            suite = entry.get("suite_name") or ""
+            station = station_of(run_id, suite)
+            if not station:
+                continue
+            if ENGINEERING.search(run_id) or ENGINEERING.search(suite):
+                continue
+            try:
+                detail = pega.suite_run(run_id)
+            except pega.PegaUnavailable:
+                continue
+            for part in pega.participants(detail):
+                seen[station][part["dut"]] = past
+    return seen
 
 
 def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
@@ -863,11 +918,24 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
         bad = any((unit.get(s) or {}).get("status") == "fail" for s in ("mlt", "htt"))
         return (bad, dut)
 
+    history = _seen_before(day)
+
     rows = []
     for dut, unit in sorted(units.items(), key=sort_key):
         row = [{} for _ in columns]
         row[index["A"]] = {"v": day}
-        row[index["B"]] = {"v": dut}
+        # The serial carries whether the line had seen it before, and when.
+        # A day's yield is read as "how did today's build go", and a unit
+        # returning from Monday answers a different question.
+        serial: Dict[str, Any] = {"v": dut}
+        for station, _result, _fail, _link in DERIVED_STATIONS:
+            if station not in unit:
+                continue
+            last = history.get(station, {}).get(dut)
+            if last:
+                serial.setdefault("seen", {})[station] = last
+        serial["new"] = "seen" not in serial
+        row[index["B"]] = serial
         if unit.get("asic"):
             row[index["C"]] = {"v": unit["asic"]}
         if unit.get("pn"):
@@ -1145,6 +1213,7 @@ def _counts(rows: List[List[Dict[str, Any]]], header: List[Dict[str, Any]]) -> D
     both and says which is which.
     """
     index = {entry["key"]: position for position, entry in enumerate(header)}
+    serial_at = index.get("B")
     counts = {}
     for column in RESULT_COLUMNS:
         position = index.get(column)
@@ -1153,15 +1222,34 @@ def _counts(rows: List[List[Dict[str, Any]]], header: List[Dict[str, Any]]) -> D
         station = _station_of_column(column)
         version_at = index.get(_version_column(station)) if station else None
 
-        tally = {"pass": 0, "fail": 0, "blank": 0}
-        release = {"pass": 0, "fail": 0, "blank": 0}
+        def tally():
+            return {"pass": 0, "fail": 0, "blank": 0}
+
+        # Four tallies, from two independent questions the page has to keep
+        # apart: everything the station ran versus release builds only, and
+        # every unit versus new input only. Collapsing either pair would put a
+        # number on screen that answers a question nobody asked.
+        every, every_release = tally(), tally()
+        fresh, fresh_release = tally(), tally()
         non_release: List[str] = []
+        returning = 0
 
         for row in rows:
             cell = row[position] if position < len(row) else {}
             tone = cell.get("t")
-            bucket = tone if tone in tally else "blank"
-            tally[bucket] += 1
+            bucket = tone if tone in tally() else "blank"
+
+            serial = (row[serial_at] or {}) if (
+                serial_at is not None and serial_at < len(row)) else {}
+            # New at *this* station: a unit can be new to HTT and returning to
+            # MLT on the same row, and the columns are counted separately.
+            is_new = not (serial.get("seen") or {}).get(station)
+            if not is_new and bucket != "blank":
+                returning += 1
+
+            every[bucket] += 1
+            if is_new:
+                fresh[bucket] += 1
 
             version = (row[version_at] or {}) if (
                 version_at is not None and version_at < len(row)) else {}
@@ -1173,13 +1261,21 @@ def _counts(rows: List[List[Dict[str, Any]]], header: List[Dict[str, Any]]) -> D
                 # day. Count that verdict rather than dropping the unit.
                 status = version.get("relStatus")
                 if status in ("pass", "fail"):
-                    release[status] += 1
+                    every_release[status] += 1
+                    if is_new:
+                        fresh_release[status] += 1
                 continue
-            release[bucket] += 1
+            every_release[bucket] += 1
+            if is_new:
+                fresh_release[bucket] += 1
 
-        counts[column] = dict(tally, title=header[position]["title"],
+        counts[column] = dict(every, title=header[position]["title"],
                               sub=header[position].get("sub"),
-                              release=release,
+                              release=every_release,
+                              new=fresh,
+                              newRelease=fresh_release,
+                              returning=returning,
+                              lookback=NEW_INPUT_LOOKBACK,
                               nonRelease=sorted(non_release))
     return counts
 

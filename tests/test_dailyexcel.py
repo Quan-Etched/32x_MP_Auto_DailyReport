@@ -1030,3 +1030,103 @@ class ReleaseOnlyCountTest(unittest.TestCase):
         counts = self.tab([("C", "fail", "mlt_validation_2026.225.0-gitx")])
         self.assertEqual(counts["release"]["pass"] + counts["release"]["fail"], 0)
         self.assertEqual(counts["fail"], 1)
+
+
+class NewInputCountTest(unittest.TestCase):
+    """New material counted apart from re-runs.
+
+    A day's yield is read as "how did today's build go", and a unit that
+    failed last Monday and is re-run today answers a different question. On
+    08-16 the tab reads 87.5% at MLT and every one of those sixteen units had
+    been through the station before, so the figure is not a build yield at all.
+    """
+
+    def counts(self, rows):
+        columns = build_dailyexcel._with_version_columns([
+            {"key": "A", "title": "Date"}, {"key": "B", "title": "DUT SN"},
+            {"key": "E", "title": "MLT Results"},
+            {"key": "F", "title": "MLT Failure Test Case"},
+            {"key": "G", "title": "FI Test Link"},
+            {"key": "H", "title": "HTT Results"},
+            {"key": "I", "title": "HTT Failure"}, {"key": "J", "title": "Link"},
+        ])
+        index = {c["key"]: i for i, c in enumerate(columns)}
+        built = []
+        for dut, verdict, seen in rows:
+            row = [{} for _ in columns]
+            serial = {"v": dut, "new": not seen}
+            if seen:
+                serial["seen"] = {"mlt": seen}
+            row[index["B"]] = serial
+            row[index["E"]] = {"v": verdict.title(), "t": verdict}
+            row[index["Ev"]] = {"v": "mlt_2026.220.0-gitabc"}
+            built.append(row)
+        return build_dailyexcel._counts(built, columns)["E"]
+
+    def test_returning_units_are_counted_out_of_the_new_tally(self):
+        counts = self.counts([("A", "pass", None), ("B", "fail", None),
+                              ("C", "pass", "2026-08-12")])
+        self.assertEqual((counts["pass"], counts["fail"]), (2, 1))
+        self.assertEqual((counts["new"]["pass"], counts["new"]["fail"]), (1, 1))
+        self.assertEqual(counts["returning"], 1)
+
+    def test_a_day_of_only_returning_units_has_no_new_yield(self):
+        """The 08-16 case: 87.5% over sixteen units, none of them fresh.
+        The new tally must be empty rather than repeating the full one."""
+        counts = self.counts([("A", "pass", "2026-08-10"),
+                              ("B", "pass", "2026-08-11")])
+        self.assertEqual((counts["pass"], counts["fail"]), (2, 0))
+        self.assertEqual(counts["new"]["pass"] + counts["new"]["fail"], 0)
+        self.assertEqual(counts["returning"], 2)
+
+    def test_new_and_release_filters_compose(self):
+        """Two independent questions — every unit vs new input, and every
+        build vs release builds. Four tallies, not three."""
+        columns = build_dailyexcel._with_version_columns([
+            {"key": "A", "title": "Date"}, {"key": "B", "title": "DUT SN"},
+            {"key": "E", "title": "MLT Results"},
+        ])
+        index = {c["key"]: i for i, c in enumerate(columns)}
+        rows = []
+        for dut, verdict, seen, build in (
+                ("A", "pass", None, "mlt_2026.220.0-gitabc"),
+                ("B", "fail", None, "mlt_validation_2026.225.0-gitx"),
+                ("C", "pass", "2026-08-12", "mlt_2026.220.0-gitabc")):
+            row = [{} for _ in columns]
+            serial = {"v": dut, "new": not seen}
+            if seen:
+                serial["seen"] = {"mlt": seen}
+            row[index["B"]] = serial
+            row[index["E"]] = {"v": verdict.title(), "t": verdict}
+            row[index["Ev"]] = {"v": build}
+            rows.append(row)
+        counts = build_dailyexcel._counts(rows, columns)["E"]
+        self.assertEqual((counts["pass"], counts["fail"]), (2, 1))
+        self.assertEqual((counts["new"]["pass"], counts["new"]["fail"]), (1, 1))
+        self.assertEqual((counts["release"]["pass"], counts["release"]["fail"]),
+                         (2, 0))
+        self.assertEqual(
+            (counts["newRelease"]["pass"], counts["newRelease"]["fail"]), (1, 0))
+
+    def test_the_lookback_is_published_with_the_counts(self):
+        """The page states the window in prose; it must read it rather than
+        name a number that can drift from the one used."""
+        counts = self.counts([("A", "pass", None)])
+        self.assertEqual(counts["lookback"], build_dailyexcel.NEW_INPUT_LOOKBACK)
+
+    def test_a_unit_new_to_one_station_can_be_returning_at_another(self):
+        """The columns are counted separately: a module can be fresh to HTT
+        and back for a second go at MLT on the same row."""
+        columns = build_dailyexcel._with_version_columns([
+            {"key": "A", "title": "Date"}, {"key": "B", "title": "DUT SN"},
+            {"key": "E", "title": "MLT Results"},
+            {"key": "H", "title": "HTT Results"},
+        ])
+        index = {c["key"]: i for i, c in enumerate(columns)}
+        row = [{} for _ in columns]
+        row[index["B"]] = {"v": "A", "new": False, "seen": {"mlt": "2026-08-12"}}
+        row[index["E"]] = {"v": "Passed", "t": "pass"}
+        row[index["H"]] = {"v": "Passed", "t": "pass"}
+        counts = build_dailyexcel._counts([row], columns)
+        self.assertEqual(counts["E"]["new"]["pass"], 0)
+        self.assertEqual(counts["H"]["new"]["pass"], 1)

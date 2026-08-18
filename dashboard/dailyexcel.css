@@ -503,3 +503,27 @@ span.jira-key { color: var(--text-secondary); }
 }
 
 .sheet-tile .tile-release strong { color: var(--text-primary); }
+
+/* ------------------------------------------------------ new input vs all */
+
+.count-mode { display: flex; align-items: flex-start; gap: 14px;
+              margin: 14px 0 4px; flex-wrap: wrap; }
+.cm-btn {
+  flex: none; padding: 7px 16px; border-radius: var(--radius);
+  border: 1px solid var(--accent-solid); background: transparent;
+  color: var(--accent-solid); font: inherit; font-size: 13px; cursor: pointer;
+}
+.cm-btn:hover { background: var(--hover-wash); }
+.cm-note { margin: 0; max-width: 86ch; font-size: 12px;
+           color: var(--text-secondary); line-height: 1.55; }
+.cm-note strong { color: var(--text-primary); }
+
+/* A row the tiles are not counting. Shown, not hidden — it is part of the
+   day's work, and hiding it would make the table disagree with the line. */
+.sheet-table tr.returning td { opacity: 0.55; }
+.sheet-table tr.returning:hover td { opacity: 1; }
+.seen-when { display: block; font-size: 10px; color: var(--status-warning);
+             font-style: italic; }
+
+/* Which population the tile counted. */
+.sheet-tile .tile-mode { color: var(--text-muted); font-style: italic; }
