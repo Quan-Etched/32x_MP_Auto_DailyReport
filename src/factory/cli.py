@@ -421,8 +421,12 @@ def cmd_build(args: argparse.Namespace) -> int:
     from . import build_release_source as _brs
     try:
         _brs.repo_path()
-    except _brs.RepoUnavailable as exc:
-        print("Release source skipped ({})".format(str(exc)[:90]))
+    except _brs.RepoUnavailable:
+        # No clone here, so publish the copy a laptop committed.
+        installed = _brs.install_committed()
+        print("Release source from the committed copy -> {}".format(installed)
+              if installed else
+              "Release source skipped (no sw clone and no committed copy)")
     else:
         try:
             rs_path = _brs.write_bundle(_brs.build_bundle())

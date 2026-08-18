@@ -149,3 +149,49 @@ class RepoTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CommittedCopyTest(unittest.TestCase):
+    """The one generated file the dashboard host cannot generate.
+
+    dashboard/data/ is gitignored and excluded from the deploy rsync, so a
+    bundle written only there never reaches the box — the section would be
+    permanently empty on the published site and full on the laptop, which is
+    the worst of both. A copy lives outside that directory, is committed, and
+    is installed at build time.
+    """
+
+    def test_the_copy_lives_outside_the_generated_directory(self):
+        from factory import config
+        self.assertNotIn(str(config.DASHBOARD_DATA_DIR),
+                         str(brs.COMMITTED_COPY))
+
+    def test_installing_with_no_copy_reports_nothing_rather_than_failing(self):
+        """The honest outcome on a fresh checkout that has never profiled."""
+        import tempfile
+        from pathlib import Path
+        original = brs.COMMITTED_COPY
+        try:
+            brs.COMMITTED_COPY = Path(tempfile.gettempdir()) / "no-such-rs.js"
+            if brs.COMMITTED_COPY.exists():
+                brs.COMMITTED_COPY.unlink()
+            self.assertIsNone(brs.install_committed())
+        finally:
+            brs.COMMITTED_COPY = original
+
+    def test_installing_writes_what_the_page_loads(self):
+        import tempfile
+        from pathlib import Path
+        original = brs.COMMITTED_COPY
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                brs.COMMITTED_COPY = Path(tmp) / "committed.js"
+                brs.COMMITTED_COPY.write_text(
+                    "window.__FACTORY_RELEASE_SOURCE__ = {\"releases\":[]};\n",
+                    encoding="utf-8")
+                dest = Path(tmp) / "out" / "release_source.js"
+                self.assertEqual(brs.install_committed(dest), dest)
+                self.assertIn("__FACTORY_RELEASE_SOURCE__",
+                              dest.read_text(encoding="utf-8"))
+            finally:
+                brs.COMMITTED_COPY = original
