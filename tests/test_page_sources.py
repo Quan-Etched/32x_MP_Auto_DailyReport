@@ -33,6 +33,14 @@ REDIRECTS = {"direct.html": "index.html", "directruns.html": "runs.html",
              "fpy.html": "week.html"}
 
 
+#: Pages that load more than one bundle, and why.
+MULTI = {
+    # The releases page hosts two analyses of the same releases: one built
+    # from test logs, one from the source tree they were built from.
+    "releases.html": ["data/release_source.js", "data/releases.js"],
+}
+
+
 def data_scripts(name):
     text = (DASHBOARD / name).read_text(encoding="utf-8")
     return re.findall(r'src="(data/[a-z0-9_]+\.js)"', text)
@@ -43,6 +51,11 @@ class PageSourceTest(unittest.TestCase):
         for page, bundle in EXPECTED.items():
             with self.subTest(page=page):
                 self.assertEqual(data_scripts(page), [bundle])
+
+    def test_pages_that_host_two_analyses_load_both(self):
+        for page, bundles in MULTI.items():
+            with self.subTest(page=page):
+                self.assertEqual(sorted(data_scripts(page)), sorted(bundles))
 
     def test_the_default_view_is_the_controllers(self):
         """The landing page is the one whose numbers the daily tracker agrees

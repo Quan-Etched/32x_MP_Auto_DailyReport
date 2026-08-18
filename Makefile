@@ -10,7 +10,7 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        dailyexcel requests l10 pega-stations retest fpy weekly weekly-deck archive \
+        dailyexcel requests l10 pega-stations release-source retest fpy weekly weekly-deck archive \
         weekly-snapshot schedule-weekly-install schedule-weekly-uninstall \
         schedule-weekly-status schedule-weekly-install-macos \
         schedule-weekly-uninstall-macos schedule-weekly-status-macos \
@@ -109,6 +109,12 @@ pega-stations:
 
 # Mark each run as a new build or a retest, with what a returning unit failed
 # last time. Also part of `make build`.
+# Profile each release's test cases from the sw source tree. Needs a clone of
+# etched-ai/sw (FACTORY_SW_REPO, default ~/project/sw), so it runs on a laptop
+# and the bundle it writes is committed for the box to publish.
+release-source:
+	$(PY) -m factory.cli release-source
+
 # Retests split from new builds, in the line's own Retest-tab format.
 retest:
 	$(PY) -m factory.cli retest

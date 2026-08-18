@@ -414,6 +414,23 @@ def cmd_build(args: argparse.Namespace) -> int:
         except Exception as exc:                          # noqa: BLE001
             print("FPY summary skipped ({})".format(exc))
 
+    # What each release contains, from the sw source tree. Only possible where
+    # a clone of that repository exists, which the dashboard host has no reason
+    # to carry — so the bundle is generated on a laptop and committed, and this
+    # step reports that it was skipped rather than failing the build.
+    from . import build_release_source as _brs
+    try:
+        _brs.repo_path()
+    except _brs.RepoUnavailable as exc:
+        print("Release source skipped ({})".format(str(exc)[:90]))
+    else:
+        try:
+            rs_path = _brs.write_bundle(_brs.build_bundle())
+            print("Release source ({:.0f} KB) -> {}".format(
+                rs_path.stat().st_size / 1024, rs_path))
+        except Exception as exc:                          # noqa: BLE001
+            print("Release source skipped ({})".format(exc))
+
     # Retests, split from new builds. Straight from pega3 rather than from the
     # collected payload, because it must agree with the daily tracker — which
     # keeps validation and debug builds that pega_collect drops.
@@ -681,6 +698,37 @@ def cmd_archive(args: argparse.Namespace) -> int:
     for path in written:
         print("  {:>7} KB  {}".format(int(path.stat().st_size / 1024) or "<1",
                                       path))
+    return 0
+
+
+def cmd_release_source(args: argparse.Namespace) -> int:
+    """What each release contains, read from the source it was built from."""
+    from pathlib import Path as _Path
+
+    from . import build_release_source as brs
+
+    try:
+        repo = brs.repo_path(args.repo)
+    except brs.RepoUnavailable as exc:
+        print("No sw clone: {}".format(exc), file=sys.stderr)
+        return 1
+
+    bundle = brs.build_bundle(days=args.days or brs.DEFAULT_DAYS, repo=repo)
+    if not bundle["releases"]:
+        print("No releases ran in the window.", file=sys.stderr)
+        return 1
+    path = brs.write_bundle(bundle)
+    print("Release source ({:.0f} KB, {} releases) -> {}".format(
+        path.stat().st_size / 1024, len(bundle["releases"]), path))
+    for release in bundle["releases"]:
+        print("  {:<46} {:>3} cases  {:>3} runs  {}{}".format(
+            release["suite"][:46], release["caseCount"], release["runs"],
+            release.get("committedAt") or "",
+            "  [{}]".format(release["error"]) if release.get("error") else ""))
+    for diff in bundle["diffs"]:
+        print("  {} -> {}: +{} -{}".format(
+            diff["from"][:34], diff["to"][:34],
+            len(diff["added"]), len(diff["dropped"])))
     return 0
 
 
@@ -1033,6 +1081,14 @@ def _build_parser() -> argparse.ArgumentParser:
                          help="archive the week in progress rather than the "
                               "most recent completed one")
     archive.set_defaults(handler=cmd_archive)
+
+    relsrc = subparsers.add_parser(
+        "release-source",
+        help="profile each release's test cases from the sw source tree")
+    relsrc.add_argument("--days", type=int, default=None)
+    relsrc.add_argument("--repo", default=None,
+                        help="path to a clone of etched-ai/sw")
+    relsrc.set_defaults(handler=cmd_release_source)
 
     retest = subparsers.add_parser(
         "retest", help="retests split from new builds, in the line's own format")

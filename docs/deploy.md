@@ -75,6 +75,12 @@ scp .env chuck@chuck-dashboard.usw2.i.etched.com:factory_data_analysis/.env
 rsync -av --progress data/processed/items.sqlite data/processed/fetch_state.json \
   chuck@chuck-dashboard.usw2.i.etched.com:factory_data_analysis/data/processed/
 
+# One step runs only on a laptop: `make release-source` reads the suite YAML
+# out of a clone of etched-ai/sw at each release's commit, and the box has no
+# such clone (2.4 GB, and no reason to). Run it on the Mac, commit
+# dashboard/data/release_source.js, and the box publishes what it finds. The
+# box's own `make build` prints "Release source skipped" and carries on.
+
 # The pages, and which source each one is:
 #   index.html   station yield from the controllers  <- the default
 #   ocp.html     the same page from OCP Logs         <- second opinion

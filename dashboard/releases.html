@@ -73,6 +73,21 @@
       <div class="table-wrap" id="table-releases"></div>
     </section>
 
+    <!-- SOURCE FORMAT: the same releases read from the sw tree they were built
+         from, rather than from the logs they produced. A test case added and
+         never reached, or removed and so never seen again, leaves no trace in
+         a log — "it stopped failing" and "it stopped running" look identical
+         from the outside. -->
+    <section class="card full src-view" id="src-view" style="margin-top:26px">
+      <div class="card-head">
+        <div>
+          <h2>What each release contains <span class="src-tag">from source</span></h2>
+          <p class="sub" id="src-sub"></p>
+        </div>
+      </div>
+      <div id="src-body"></div>
+    </section>
+
   </main>
 
   <footer class="notes">
@@ -103,7 +118,9 @@
 </section>
 
 <script src="data/releases.js"></script>
+<script src="data/release_source.js"></script>
 <script src="releases.js"></script>
+<script src="releasesrc.js"></script>
 <script src="update.js"></script>
 </body>
 </html>
