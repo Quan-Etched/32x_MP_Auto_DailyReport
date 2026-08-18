@@ -30,6 +30,8 @@
     is and is not measured here.
   </p>
 
+  <div class="flow-combined" id="combined" hidden></div>
+
   <div class="flow-legend" id="legend"></div>
 
   <div class="flow-canvas" id="canvas">
@@ -41,8 +43,8 @@
     <p id="footer-meta"></p>
     <p>
       Redrawn from the line's own flowchart (updated 15 Aug 2026) with the
-      stages this dashboard measures joined to it. The yields are the last 30
-      days from the station controllers — pega2 for VBB, pega3 for the module
+      stages this dashboard measures joined to it. The yields are the last
+      <span id="window-days">7</span> days from the station controllers — pega2 for VBB, pega3 for the module
       stations, pega4 for L10, pega5 for L11 — counted one row per unit, not
       one per fixture. WST, FT and SLT sit with Sigurd and are not collected
       here; their boxes say so rather than showing a blank.

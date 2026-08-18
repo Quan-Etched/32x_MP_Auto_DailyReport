@@ -203,8 +203,25 @@
 
     var hasSub = rows.some(function (r) { return r.sub; });
     var width = Math.max(plot.clientWidth || 520, 320);
-    var height = hasSub ? 300 : 276;
-    var margin = { top: 24, right: 12, bottom: hasSub ? 48 : 34, left: 44 };
+
+    /* Release names are long — CHECK_vbb_setup_validate_token_PROD is thirty
+     * five characters over a band a fifth as wide — so centred horizontal
+     * labels printed straight over each other and the axis became a smear.
+     * Where they do not fit, they are turned and the chart is given the room
+     * to turn them in. */
+    var longest = rows.reduce(function (n, r) {
+      return Math.max(n, String(r.label || '').length);
+    }, 0);
+    var bandGuess = (width - 56) / Math.max(1, rows.length);
+    var tilt = longest * 6.1 > bandGuess;
+    var LABEL_CAP = 30;
+    var tiltRoom = tilt ? Math.min(96, Math.min(longest, LABEL_CAP) * 4.6) : 0;
+
+    var height = (hasSub ? 300 : 276) + tiltRoom;
+    var margin = {
+      top: 24, right: 12, left: 44,
+      bottom: (hasSub ? 48 : 34) + tiltRoom
+    };
     var innerW = width - margin.left - margin.right;
     var innerH = height - margin.top - margin.bottom;
 
@@ -236,7 +253,9 @@
     });
     svg.appendChild(highlight);
 
-    var labelEvery = Math.max(1, Math.ceil((rows.length * 34) / innerW));
+    /* Turned labels need only their own line width, so every bar can keep its
+     * name; upright ones still get thinned out. */
+    var labelEvery = tilt ? 1 : Math.max(1, Math.ceil((rows.length * 34) / innerW));
 
     rows.forEach(function (row, i) {
       var x = margin.left + i * band + (band - barW) / 2;
@@ -273,15 +292,35 @@
       }
 
       if (i % labelEvery === 0) {
-        svg.appendChild(s('text', {
-          class: 'tick', x: margin.left + i * band + band / 2, y: height - (hasSub ? 30 : 14),
-          'text-anchor': 'middle', text: row.label
-        }));
+        var cx = margin.left + i * band + band / 2;
+        var full = String(row.label || '');
+        var shown = full.length > LABEL_CAP
+          ? full.slice(0, LABEL_CAP - 1) + '\u2026' : full;
+        var ly = tilt ? (margin.top + innerH + 14) : height - (hasSub ? 30 : 14);
+        var label = s('text', {
+          class: 'tick', x: cx, y: ly,
+          'text-anchor': tilt ? 'end' : 'middle', text: shown
+        });
+        if (tilt) {
+          label.setAttribute('transform', 'rotate(-40 ' + cx + ' ' + ly + ')');
+        }
+        /* Truncated names keep the whole string on hover, so shortening the
+         * axis never costs the reader the identity of a release. */
+        if (shown !== full) {
+          label.appendChild(s('title', { text: full }));
+        }
+        svg.appendChild(label);
+
         if (row.sub) {
-          svg.appendChild(s('text', {
-            class: 'x-sub', x: margin.left + i * band + band / 2, y: height - 16,
-            'text-anchor': 'middle', text: row.sub
-          }));
+          var sy = tilt ? (margin.top + innerH + 26) : height - 16;
+          var sub = s('text', {
+            class: 'x-sub', x: cx, y: sy,
+            'text-anchor': tilt ? 'end' : 'middle', text: row.sub
+          });
+          if (tilt) {
+            sub.setAttribute('transform', 'rotate(-40 ' + cx + ' ' + sy + ')');
+          }
+          svg.appendChild(sub);
         }
       }
     });
@@ -349,8 +388,22 @@
 
     var hasSub = rows.some(function (r) { return r.sub; });
     var width = Math.max(plot.clientWidth || 520, 320);
-    var height = hasSub ? 300 : 276;
-    var margin = { top: 26, right: 18, bottom: hasSub ? 48 : 34, left: 46 };
+
+    /* Same problem as the bar chart: a release name is far wider than the
+     * space between two points, so every label landed on its neighbours. */
+    var longest = rows.reduce(function (n, r) {
+      return Math.max(n, String(r.label || '').length);
+    }, 0);
+    var stepGuess = (width - 64) / Math.max(1, rows.length);
+    var tilt = longest * 6.1 > stepGuess;
+    var LABEL_CAP = 30;
+    var tiltRoom = tilt ? Math.min(96, Math.min(longest, LABEL_CAP) * 4.6) : 0;
+
+    var height = (hasSub ? 300 : 276) + tiltRoom;
+    var margin = {
+      top: 26, right: 18, left: 46,
+      bottom: (hasSub ? 48 : 34) + tiltRoom
+    };
     var innerW = width - margin.left - margin.right;
     var innerH = height - margin.top - margin.bottom;
 
@@ -396,7 +449,7 @@
       });
     }
 
-    var labelEvery = Math.max(1, Math.ceil((rows.length * 44) / innerW));
+    var labelEvery = tilt ? 1 : Math.max(1, Math.ceil((rows.length * 44) / innerW));
 
     rows.forEach(function (row, i) {
       if (row.fpy === null || row.fpy === undefined) return;
@@ -416,14 +469,27 @@
 
     rows.forEach(function (row, i) {
       if (i % labelEvery !== 0) return;
-      svg.appendChild(s('text', {
-        class: 'tick', x: xAt(i), y: height - (hasSub ? 30 : 14),
-        'text-anchor': 'middle', text: row.label
-      }));
+      var cx = xAt(i);
+      var full = String(row.label || '');
+      var shown = full.length > LABEL_CAP
+        ? full.slice(0, LABEL_CAP - 1) + '\u2026' : full;
+      var ly = tilt ? (margin.top + innerH + 14) : height - (hasSub ? 30 : 14);
+      var label = s('text', {
+        class: 'tick', x: cx, y: ly,
+        'text-anchor': tilt ? 'end' : 'middle', text: shown
+      });
+      if (tilt) label.setAttribute('transform', 'rotate(-40 ' + cx + ' ' + ly + ')');
+      if (shown !== full) label.appendChild(s('title', { text: full }));
+      svg.appendChild(label);
+
       if (row.sub) {
-        svg.appendChild(s('text', {
-          class: 'x-sub', x: xAt(i), y: height - 16, 'text-anchor': 'middle', text: row.sub
-        }));
+        var sy = tilt ? (margin.top + innerH + 26) : height - 16;
+        var sub = s('text', {
+          class: 'x-sub', x: cx, y: sy,
+          'text-anchor': tilt ? 'end' : 'middle', text: row.sub
+        });
+        if (tilt) sub.setAttribute('transform', 'rotate(-40 ' + cx + ' ' + sy + ')');
+        svg.appendChild(sub);
       }
     });
 

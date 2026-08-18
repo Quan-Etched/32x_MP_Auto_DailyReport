@@ -378,19 +378,28 @@ def headline(slide, data, week, x):
     thin = [t["label"] for t in (totals.get("excludedThin") or [])]
     counts = [row["label"] for row in week["rows"] if row.get("countsOnly")]
 
-    textbox(slide, x, Inches(1.42), Inches(2.20), Inches(1.0),
-            [[("Rolled first-pass", {"size": 10, "color": MUTE})],
+    # Two yields, which is what the room asks for: each module stage on its
+    # own, and the product of the two — the headline, because nobody
+    # multiplies two percentages in their head.
+    by_key = {row["key"]: row for row in week["rows"]}
+    mlt, htt = by_key.get("mlt") or {}, by_key.get("htt") or {}
+    textbox(slide, x, Inches(1.42), Inches(2.20), Inches(1.25),
+            [[("L6 combined  (MLT × HTT)", {"size": 10, "color": MUTE})],
              [(pct(totals["rolledFpy"]), {"size": 26, "bold": True, "color": ACC})],
-             [(" × ".join(totals["rolledOver"]), {"size": 9, "color": MUTE})]],
+             [("MLT {}   ·   HTT {}".format(pct(mlt.get("fpy")),
+                                            pct(htt.get("fpy"))),
+               {"size": 10, "color": MUTE})],
+             [("a module's chance of clearing both first time",
+               {"size": 9, "color": MUTE})]],
             space=1)
-    textbox(slide, x, Inches(2.72), Inches(2.20), Inches(1.0),
+    textbox(slide, x, Inches(2.95), Inches(2.20), Inches(1.0),
             [[("Through the line", {"size": 10, "color": MUTE})],
              [("{} units".format(sum(r["units"] for r in week["rows"])),
                {"size": 18, "bold": True})],
              [("{} runs across {} steps".format(
                  sum(r["runs"] for r in week["rows"]), len(week["rows"])),
                {"size": 9, "color": MUTE})]], space=1)
-    textbox(slide, x, Inches(3.85), Inches(2.20), Inches(2.9),
+    textbox(slide, x, Inches(4.05), Inches(2.20), Inches(2.7),
             [[("Reading the numbers", {"size": 10, "bold": True, "color": MUTE})],
              [("A percentage is a first-pass yield: units that passed at their "
                "first attempt that week.", {"size": 8.5})],

@@ -24,12 +24,19 @@
   var STATIONS = window.__FACTORY_STATIONS__ || {};
 
   /* Lanes, left to right, exactly as the line's chart reads. */
+  /* The photo is what the lane is *of*. Four of the five have one, because
+   * four of the five are a thing you can hold or walk up to; the 2U/4U lane
+   * is an assembly step, and inventing a picture for it would be decoration. */
   var LANES = [
-    { key: 'asic', title: 'ASIC',            owner: '@Sigurd' },
-    { key: 'l6',   title: 'PCBA L6',         owner: '@Pega' },
+    { key: 'asic', title: 'ASIC',            owner: '@Sigurd',
+      img: 'img/asic.png',       alt: 'Sohu ASIC package' },
+    { key: 'l6',   title: 'PCBA L6',         owner: '@Pega',
+      img: 'img/pcba.png',       alt: 'Sohu module board' },
     { key: 'fatp', title: 'FATP L10 2U/4U',  owner: '' },
-    { key: 'l106', title: 'FATP L10 6U',     owner: '' },
-    { key: 'l11',  title: 'Rack L11',        owner: '' }
+    { key: 'l106', title: 'FATP L10 6U',     owner: '',
+      img: 'img/chassis-6u.png', alt: '6U chassis' },
+    { key: 'l11',  title: 'Rack L11',        owner: '',
+      img: 'img/rack.png',       alt: 'Rack' }
   ];
 
   /* One entry per box.
@@ -150,6 +157,10 @@
     el.lanes.innerHTML = '';
     LANES.forEach(function (lane) {
       var column = h('div', { class: 'lane' });
+      column.appendChild(h('div', { class: 'lane-photo' }, [
+        lane.img ? h('img', { src: lane.img, alt: lane.alt, loading: 'lazy' })
+                 : null
+      ]));
       column.appendChild(h('div', { class: 'lane-head' }, [
         lane.owner ? h('span', { class: 'lane-owner', text: lane.owner }) : null,
         h('span', { class: 'lane-title', text: lane.title })
@@ -213,6 +224,35 @@
 
     boxes[node.id] = box;
     return box;
+  }
+
+  /* The two yields the line is asked for.
+   *
+   * Per-step is what each station did; the product of MLT and HTT is what a
+   * module's chance of clearing L6 first time actually is, and it is the
+   * number nobody computes in their head: two stages in the sixties and
+   * fifties feel like a sixty-something line and are a thirty-something one.
+   */
+  function combined() {
+    var mlt = summary('mlt'), htt = summary('htt');
+    if (!mlt || !htt || !mlt.runs || !htt.runs) return null;
+    var a = mlt.passRate, b = htt.passRate;
+    if (a == null || b == null) return null;
+    return { rate: a * b, mlt: a, htt: b };
+  }
+
+  function renderCombined() {
+    var both = combined();
+    var host = byId('combined');
+    if (!host) return;
+    host.innerHTML = '';
+    if (!both) { host.hidden = true; return; }
+    host.hidden = false;
+    host.appendChild(h('span', { class: 'cb-k', text: 'L6 combined' }));
+    host.appendChild(h('strong', { class: 'cb-v', text: pct(both.rate) }));
+    host.appendChild(h('span', { class: 'cb-s', text:
+      'MLT ' + pct(both.mlt) + ' × HTT ' + pct(both.htt) +
+      ' — a module\u2019s chance of clearing both first time' }));
   }
 
   /* ----------------------------------------------------------------- wires */
@@ -335,13 +375,19 @@
     el.lanes = byId('lanes');
     el.legend = byId('legend');
 
-    var window30 = STATIONS.window || {};
-    byId('meta').textContent = window30.from
-      ? 'yields from ' + window30.from + ' to ' + window30.to +
-        (window30.days ? ' \u00b7 ' + window30.days + ' days' : '')
+    var win = STATIONS.window || {};
+    byId('meta').textContent = win.from
+      ? 'yields from ' + win.from + ' to ' + win.to +
+        (win.days ? ' \u00b7 ' + win.days + ' days' : '')
       : 'flow only — no station data loaded';
 
+    /* The prose said "last 30 days" while the bundle moved to 7. Read the
+       number rather than restate it, so the two cannot drift again. */
+    var days = byId('window-days');
+    if (days) days.textContent = win.days ? String(win.days) : '—';
+
     renderLanes();
+    renderCombined();
     renderLegend();
     renderBuild();
     drawWires();
