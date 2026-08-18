@@ -627,9 +627,10 @@ def _add_sheet_versions(tab: Dict[str, Any],
             suite = (unit.get(station) or {}).get("suite")
             if suite:
                 row[at[version_col]] = {"v": suite}
-            last = history.get(station, {}).get(dut)
-            if last and (unit.get(station) or suite):
-                serial.setdefault("seen", {})[station] = last
+            past = history.get(station, {}).get(dut) or []
+            if past and (unit.get(station) or suite):
+                serial.setdefault("seen", {})[station] = past[-1]["day"]
+                serial.setdefault("history", {})[station] = _trim_history(past)
         serial["new"] = "seen" not in serial
     tab["counts"] = _counts(tab["rows"], tab["columns"])
     return tab
@@ -758,17 +759,24 @@ def _sheet_versions(tab: Dict[str, Any], result_key: str) -> List[Optional[str]]
 NEW_INPUT_LOOKBACK = 10
 
 
-def _seen_before(day: str, lookback: int = NEW_INPUT_LOOKBACK
-                 ) -> Dict[str, Dict[str, str]]:
-    """Serials each station tested in the days before ``day``.
+#: How many prior attempts a returning serial carries. Enough to show a
+#: campaign, bounded so a unit re-run twenty times does not carry the tab.
+HISTORY_LIMIT = 8
 
-    Returns station -> {dut: the last day it was seen}, so a row can say not
-    just that a unit is a returning one but when it was here last.
+
+def _seen_before(day: str, lookback: int = NEW_INPUT_LOOKBACK
+                 ) -> Dict[str, Dict[str, List[Dict[str, str]]]]:
+    """Every attempt each station made on a serial before ``day``.
+
+    Station -> {dut: [{day, status, url}, …]} in time order. The dates alone
+    would say a unit is a returning one; the attempts say what happened on
+    each visit and link to it, which is what makes "F1 P2" on the row
+    checkable rather than a claim.
     """
     if not pega.enabled():
         return {"mlt": {}, "htt": {}}
 
-    seen: Dict[str, Dict[str, str]] = {"mlt": {}, "htt": {}}
+    seen: Dict[str, Dict[str, List[Dict[str, str]]]] = {"mlt": {}, "htt": {}}
     start = datetime.strptime(day, "%Y-%m-%d").date()
     for offset in range(lookback, 0, -1):
         past = (start - timedelta(days=offset)).strftime("%Y-%m-%d")
@@ -776,7 +784,7 @@ def _seen_before(day: str, lookback: int = NEW_INPUT_LOOKBACK
             listing = pega.day_suite_runs(past)
         except pega.PegaUnavailable:
             continue
-        for entry in listing:
+        for entry in sorted(listing, key=lambda e: e.get("start_time") or ""):
             run_id = entry.get("suite_run_id") or ""
             suite = entry.get("suite_name") or ""
             station = station_of(run_id, suite)
@@ -789,8 +797,25 @@ def _seen_before(day: str, lookback: int = NEW_INPUT_LOOKBACK
             except pega.PegaUnavailable:
                 continue
             for part in pega.participants(detail):
-                seen[station][part["dut"]] = past
+                if part["status"] not in ("pass", "fail"):
+                    continue
+                seen[station].setdefault(part["dut"], []).append({
+                    "day": past,
+                    "status": part["status"],
+                    "url": pega.run_url(run_id, part["slot"]),
+                    "suite": suite,
+                })
     return seen
+
+
+def _trim_history(past: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+    """The last few attempts, numbered from the unit's first.
+
+    Numbered before trimming: "F7" has to mean the seventh attempt, not the
+    seventh of the ones that fit.
+    """
+    numbered = [dict(item, n=index + 1) for index, item in enumerate(past)]
+    return numbered[-HISTORY_LIMIT:]
 
 
 def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
@@ -935,9 +960,10 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
         for station, _result, _fail, _link in DERIVED_STATIONS:
             if station not in unit:
                 continue
-            last = history.get(station, {}).get(dut)
-            if last:
-                serial.setdefault("seen", {})[station] = last
+            past = history.get(station, {}).get(dut) or []
+            if past:
+                serial.setdefault("seen", {})[station] = past[-1]["day"]
+                serial.setdefault("history", {})[station] = _trim_history(past)
         serial["new"] = "seen" not in serial
         row[index["B"]] = serial
         if unit.get("asic"):

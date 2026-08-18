@@ -527,3 +527,27 @@ span.jira-key { color: var(--text-secondary); }
 
 /* Which population the tile counted. */
 .sheet-tile .tile-mode { color: var(--text-muted); font-style: italic; }
+
+/* ------------------------------------------------------ retested serials */
+
+/* In Count all a returning serial gets its own column, so the day's fresh
+   material and its re-runs separate without the reader parsing a serial. */
+.sheet-table th.col-retested { min-width: 210px; }
+.sheet-table td.serial.retested { white-space: nowrap; }
+.rt-serial { display: block;
+             font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.rt-line { display: block; margin-top: 2px; }
+.rt-station { font-size: 10px; color: var(--text-muted); margin-right: 4px;
+              letter-spacing: 0.03em; }
+
+/* F1 is the first attempt and it failed; P2 is the second and it passed.
+   Each opens that run on the controller. */
+.rt-att {
+  display: inline-block; margin-right: 3px; padding: 0 4px;
+  border-radius: 3px; font-size: 10.5px; font-weight: 700;
+  font-variant-numeric: tabular-nums; text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.rt-att.a-pass { color: var(--sheet-pass-text); background: var(--sheet-pass-bg); }
+.rt-att.a-fail { color: var(--sheet-fail-text); background: var(--sheet-fail-bg); }
+a.rt-att:hover { outline: 1px solid currentColor; }

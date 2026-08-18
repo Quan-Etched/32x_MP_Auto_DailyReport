@@ -1130,3 +1130,40 @@ class NewInputCountTest(unittest.TestCase):
         counts = build_dailyexcel._counts([row], columns)
         self.assertEqual(counts["E"]["new"]["pass"], 0)
         self.assertEqual(counts["H"]["new"]["pass"], 1)
+
+
+class RetestHistoryTest(unittest.TestCase):
+    """The attempts behind a returning serial.
+
+    "F1 P2" on a row is only worth printing if each mark opens the run it
+    names. The numbering is the unit's own attempt count, so F7 means the
+    seventh visit — not the seventh of the ones that fit in the cell.
+    """
+
+    def attempts(self, statuses, day="2026-08-12"):
+        return [{"day": day, "status": s, "url": "http://pega3:3000/x%d" % i,
+                 "suite": "mlt_2026.220.0-gitabc"}
+                for i, s in enumerate(statuses)]
+
+    def test_attempts_are_numbered_from_the_units_first(self):
+        trimmed = build_dailyexcel._trim_history(self.attempts(["fail", "pass"]))
+        self.assertEqual([(a["n"], a["status"]) for a in trimmed],
+                         [(1, "fail"), (2, "pass")])
+
+    def test_numbering_survives_the_trim(self):
+        """A unit re-run twenty times must not have its ninth attempt
+        relabelled as its first."""
+        many = self.attempts(["fail"] * 20)
+        trimmed = build_dailyexcel._trim_history(many)
+        self.assertEqual(len(trimmed), build_dailyexcel.HISTORY_LIMIT)
+        self.assertEqual(trimmed[-1]["n"], 20)
+        self.assertEqual(trimmed[0]["n"],
+                         20 - build_dailyexcel.HISTORY_LIMIT + 1)
+
+    def test_every_attempt_keeps_its_own_link(self):
+        trimmed = build_dailyexcel._trim_history(self.attempts(["fail", "pass"]))
+        self.assertEqual(len({a["url"] for a in trimmed}), 2)
+
+    def test_a_short_history_is_not_padded(self):
+        self.assertEqual(len(build_dailyexcel._trim_history(
+            self.attempts(["pass"]))), 1)

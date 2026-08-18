@@ -593,6 +593,11 @@
      * filter the last number is the answer to "how many". */
     head.appendChild(h('th', { scope: 'col', class: 'col-index', text: '#' }));
 
+    /* In Count all, returning serials get a column of their own rather than
+     * sitting in DUT SN looking like fresh material. Only in Count all: in
+     * Count new there are no returning units to put in it. */
+    var splitSerial = countMode === 'all';
+
     columns.forEach(function (column) {
       var on = !!view.filters[column.key];
       var sorted = view.sort && view.sort.key === column.key;
@@ -624,6 +629,15 @@
         cell.style.minWidth = Math.round(column.width * 7 + 12) + 'px';
       }
       head.appendChild(cell);
+      if (splitSerial && column.key === 'B') {
+        head.appendChild(h('th', { scope: 'col', class: 'col-retested' }, [
+          h('span', { class: 'col-head' }, [
+            h('span', { class: 'col-name', text: 'Retested DUT SN' })
+          ]),
+          h('span', { class: 'col-build',
+                      text: 'seen at this station before today' })
+        ]));
+      }
     });
     el.head.innerHTML = '';
     el.head.appendChild(head);
@@ -639,7 +653,21 @@
       var tr = h('tr', { class: index % 2 ? 'odd' : 'even' });
       tr.appendChild(h('td', { class: 'col-index', text: String(index + 1) }));
       row.forEach(function (cell, position) {
-        var td = renderCell(cell, columns[position], wraps[position]);
+        var column = columns[position];
+        if (splitSerial && column && column.key === 'B') {
+          /* One serial, two columns: a returning unit lands in the second and
+           * leaves the first empty, so the eye can separate the day's fresh
+           * material from its re-runs without reading a single serial. */
+          var returning = !!(cell.seen && Object.keys(cell.seen).length);
+          tr.appendChild(returning
+            ? h('td', { class: 'serial' })
+            : renderCell(cell, column, wraps[position]));
+          tr.appendChild(returning
+            ? retestedCell(cell)
+            : h('td', { class: 'serial retested' }));
+          return;
+        }
+        var td = renderCell(cell, column, wraps[position]);
         /* The per-unit build. It is the column that answers "which release was
          * this unit actually on", so it reads as data, not as prose. */
         if ((columns[position] || {}).kind) {
@@ -699,8 +727,10 @@
         : ' Every row is in the table and in the figures, new material and ' +
           're-runs together. That is the day’s whole workload, and it is not ' +
           'a build yield: ' + returning + ' of these units had already been ' +
-          'through this station within ' + lookback + ' days. Press Count ' +
-          'new for the fresh material on its own.')
+          'through this station within ' + lookback + ' days, and they sit ' +
+          'in their own Retested DUT SN column with a link per earlier ' +
+          'attempt — F1 is the first attempt and it failed, P2 the second ' +
+          'and it passed. Press Count new for the fresh material on its own.')
     ]));
   }
 
@@ -730,6 +760,41 @@
       renderTable(tab);
     });
     el.caption.appendChild(reset);
+  }
+
+  /* A returning serial, with a link per prior attempt.
+   *
+   * F1 is the first attempt and it failed; P2 is the second and it passed.
+   * The letter is the verdict and the number is which attempt, counted from
+   * the unit's first — so F7 means the seventh, not the seventh of the ones
+   * that fit on the row. Each opens that run on the controller, which is what
+   * makes "this unit has been here four times" checkable rather than a claim.
+   */
+  function retestedCell(cell) {
+    var td = h('td', { class: 'serial retested' });
+    td.appendChild(h('span', { class: 'rt-serial', text: cell.v || '' }));
+
+    var history = cell.history || {};
+    Object.keys(history).forEach(function (station) {
+      var line = h('span', { class: 'rt-line' });
+      line.appendChild(h('span', { class: 'rt-station',
+                                   text: station.toUpperCase() }));
+      history[station].forEach(function (attempt) {
+        var mark = (attempt.status === 'pass' ? 'P' : 'F') + attempt.n;
+        var chip = attempt.url
+          ? h('a', { class: 'rt-att a-' + attempt.status, href: attempt.url,
+                     target: '_blank', rel: 'noopener noreferrer',
+                     title: attempt.day + ' · ' + attempt.status + ' · ' +
+                            (attempt.suite || '') +
+                            '  (pega3 asks for an ESVM login)' })
+          : h('span', { class: 'rt-att a-' + attempt.status,
+                        title: attempt.day + ' · ' + attempt.status });
+        chip.appendChild(document.createTextNode(mark));
+        line.appendChild(chip);
+      });
+      td.appendChild(line);
+    });
+    return td;
   }
 
   function renderCell(cell, column, wrap) {
