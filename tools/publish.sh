@@ -103,7 +103,11 @@ if [ -n "${FACTORY_WEB_ROOT:-}" ]; then
     # directory: files created inside the web root inherit its SELinux context,
     # while a directory moved in from $HOME would keep the home context and
     # nginx would serve 403s.
-    if ! rsync -a --delete --exclude '.git' "$REPO/dashboard/" "$FACTORY_WEB_ROOT/"; then
+    # --chmod is not cosmetic: nginx runs its workers as `nginx`, and a source
+    # file that arrived mode 600 (an image dragged off a laptop, say) copies
+    # through as 600 and serves a 403 while every page around it is fine.
+    if ! rsync -a --delete --chmod=D755,F644 --exclude '.git' \
+        "$REPO/dashboard/" "$FACTORY_WEB_ROOT/"; then
         echo "publish: copy to $FACTORY_WEB_ROOT failed" >&2
         exit 1
     fi
