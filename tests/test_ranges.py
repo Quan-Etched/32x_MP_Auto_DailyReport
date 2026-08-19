@@ -98,8 +98,25 @@ class WeekChartsTest(unittest.TestCase):
         return build_weekly._charts(self.payload(), "2026-08-10", "2026-08-16")
 
     def test_the_week_is_frozen_to_its_own_days(self):
-        days = [row["day"] for row in self.charts()["daily"]]
-        self.assertEqual(days, ["2026-08-10", "2026-08-12", "2026-08-16"])
+        """Monday to Sunday and nothing either side. The fixture has runs on
+        08-07 and 08-18 precisely so a chart that was not frozen would show
+        them."""
+        rows = self.charts()["daily"]
+        days = [row["day"] for row in rows]
+        self.assertEqual(days[0], "2026-08-10")
+        self.assertEqual(days[-1], "2026-08-16")
+        self.assertEqual(len(days), 7)
+        self.assertNotIn("2026-08-07", days)
+        self.assertNotIn("2026-08-18", days)
+
+    def test_only_the_days_inside_it_carry_runs(self):
+        """The padding is zeroes, not a way to smuggle a neighbour in."""
+        counted = {row["day"]: row["runs"] for row in self.charts()["daily"]}
+        self.assertEqual(counted["2026-08-10"], 1)
+        self.assertEqual(counted["2026-08-12"], 1)
+        self.assertEqual(counted["2026-08-16"], 1)
+        self.assertEqual(counted["2026-08-11"], 0)
+        self.assertEqual(sum(counted.values()), 3)
 
     def test_the_three_shapes_the_charts_need_are_all_there(self):
         charts = self.charts()
@@ -126,3 +143,83 @@ class WeekChartsTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ExternalYieldWeekTest(unittest.TestCase):
+    """A hand-reported figure belongs to the week it describes.
+
+    WST and FT arrive from Sigurd as one number with the day it is about, and
+    that number was attached to every window the builder ran over — so the week
+    of 06-08, before the line existed, published WST 35.3% and FT 84.3% beside
+    a row of dashes.
+    """
+
+    ENTRY = {"yield": 0.353, "asOf": "2026-08-14",
+             "source": "Sigurd", "note": "Wafer sort."}
+
+    def test_the_week_it_describes_keeps_the_figure(self):
+        from factory import build_fpy
+        got = build_fpy._external_in(self.ENTRY, "2026-08-10", "2026-08-16")
+        self.assertEqual(got["yield"], 0.353)
+
+    def test_every_other_week_shows_no_figure(self):
+        from factory import build_fpy
+        for start, end in (("2026-06-08", "2026-06-14"),
+                           ("2026-08-17", "2026-08-23"),
+                           ("2026-08-03", "2026-08-09")):
+            with self.subTest(week=start):
+                got = build_fpy._external_in(self.ENTRY, start, end)
+                self.assertIsNone(got["yield"])
+
+    def test_a_week_without_the_figure_says_where_it_went(self):
+        """The row stays — the step exists and an absent row would read as
+        "there is no WST" rather than "nobody reported one"."""
+        from factory import build_fpy
+        got = build_fpy._external_in(self.ENTRY, "2026-06-08", "2026-06-14")
+        self.assertIn("2026-08-14", got["note"])
+        self.assertEqual(got["source"], "not reported for this week")
+
+    def test_an_already_absent_figure_is_left_alone(self):
+        from factory import build_fpy
+        blank = {"yield": None, "asOf": None, "source": "not reported",
+                 "note": "Wafer sort."}
+        self.assertEqual(build_fpy._external_in(blank, "2026-06-08", "2026-06-14"),
+                         blank)
+
+
+class WeekIsSevenDaysTest(unittest.TestCase):
+    """Monday to Sunday, including the ones nothing ran on.
+
+    The chart drew five bars for a seven-day week because the weekend had no
+    runs and the aggregation only emits days it saw. Five bars is a chart of
+    the working week, and it made two weeks incomparable at a glance.
+    """
+
+    def rows(self):
+        return [{"day": "2026-08-10", "runs": 3, "pass": 3, "fail": 0,
+                 "abort": 0, "graded": 3, "fpyPass": 3, "fpyTotal": 3,
+                 "fpy": 1.0, "thin": True, "units": 3, "perUnit": True}]
+
+    def test_a_full_week_is_seven_columns(self):
+        got = build_weekly._every_day(self.rows(), "2026-08-10", "2026-08-16", True)
+        self.assertEqual(len(got), 7)
+        self.assertEqual(got[0]["day"], "2026-08-10")
+        self.assertEqual(got[-1]["day"], "2026-08-16")
+
+    def test_a_padded_day_is_a_real_zero_not_a_zero_yield(self):
+        """No first attempts is not a yield of nought — the trend line skips
+        the day instead of diving to the floor and back."""
+        got = build_weekly._every_day(self.rows(), "2026-08-10", "2026-08-16", True)
+        weekend = [row for row in got if row["day"] == "2026-08-15"][0]
+        self.assertEqual(weekend["runs"], 0)
+        self.assertIsNone(weekend["fpy"])
+
+    def test_the_running_week_stops_at_today(self):
+        """Days that have not happened are not drawn as empty ones."""
+        got = build_weekly._every_day(self.rows(), "2026-08-10", "2026-08-12", True)
+        self.assertEqual([r["day"] for r in got],
+                         ["2026-08-10", "2026-08-11", "2026-08-12"])
+
+    def test_the_days_that_had_runs_are_untouched(self):
+        got = build_weekly._every_day(self.rows(), "2026-08-10", "2026-08-16", True)
+        self.assertEqual(got[0], self.rows()[0])

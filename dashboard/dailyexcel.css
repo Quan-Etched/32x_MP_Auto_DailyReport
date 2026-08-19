@@ -675,3 +675,137 @@ a.rt-att:hover { outline: 1px solid currentColor; }
   margin-left: 5px; font-size: 11px; font-variant-numeric: tabular-nums;
   color: var(--text-muted); cursor: help;
 }
+
+/* ---------------------------------------------------------- day calendar */
+
+/* Picking a day used to be a strip of buttons, one per day that had data.
+   That says nothing about where a day sits in the month, and a day the line
+   did not work was invisible — the strip simply did not draw it. A month grid
+   puts every day on screen and lets the empty ones read as empty. */
+
+.daycal {
+  margin: 4px 0 18px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+}
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.cal-title { font-size: 20px; font-weight: 400; margin: 0; }
+.cal-title strong { font-weight: 700; }
+
+.cal-nav { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+
+.cal-step,
+.cal-today {
+  font: inherit;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.cal-step { width: 30px; height: 28px; font-size: 16px; line-height: 1; padding: 0; }
+.cal-today { height: 28px; padding: 0 14px; font-size: 12px; }
+
+.cal-step:hover:not(:disabled),
+.cal-today:hover:not(:disabled) { background: var(--hover-wash); color: var(--text-primary); }
+.cal-step:disabled,
+.cal-today:disabled { opacity: 0.35; cursor: default; }
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.cal-dow {
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+}
+
+/* Every day is the same box whether or not it can be clicked, so the grid
+   stays a grid and the eye can count weeks down a column. */
+.cal-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 2px;
+  min-height: 52px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.cal-pad { min-height: 0; border: 0; }
+.cal-n { font-size: 14px; font-variant-numeric: tabular-nums; }
+
+/* A day the tracker has. The only kind that is a button. */
+button.cal-cell.has-data {
+  cursor: pointer;
+  color: var(--text-primary);
+  border-color: var(--border);
+  background: var(--surface-1);
+}
+
+button.cal-cell.has-data:hover { background: var(--hover-wash); }
+button.cal-cell.has-data:focus-visible {
+  outline: 2px solid var(--accent-solid);
+  outline-offset: 1px;
+}
+
+/* The day being shown below. */
+button.cal-cell.is-on {
+  border-color: var(--accent-solid);
+  box-shadow: inset 0 0 0 1px var(--accent-solid);
+}
+
+button.cal-cell.is-on .cal-n { font-weight: 700; color: var(--accent-solid); }
+
+/* How many units that day carries — the thing the old strip printed, kept. */
+.cal-units {
+  font-size: 10.5px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A day the line kept by hand rather than one this repo rebuilt. */
+.cal-sheet {
+  position: absolute;
+  left: 8px;
+  top: 10px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--status-warning);
+}
+
+/* Three ways a day can have nothing, and they do not mean the same thing:
+   still to come, before the tracker starts, or the line did not test. All
+   unclickable; the tooltip on each says which. Future days are faintest —
+   there is nothing there to want. */
+.cal-cell.is-empty { color: var(--text-muted); background: var(--sheet-zebra); }
+.cal-cell.is-before { color: var(--text-muted); opacity: 0.45; }
+.cal-cell.is-future { color: var(--text-muted); opacity: 0.3; }
+
+@media (max-width: 620px) {
+  .cal-cell { min-height: 42px; padding: 4px; align-items: center; }
+  .cal-units, .cal-sheet { display: none; }
+}

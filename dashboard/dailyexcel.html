@@ -25,9 +25,11 @@
     <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
   </header>
 
-  <!-- One button per day tab found in the workbook. Built from the bundle
-       rather than written here, so a new tab needs no edit to this file. -->
-  <nav class="stationbar" id="tabbar" aria-label="Day"></nav>
+  <!-- Pick a day from a month, not from a strip of buttons.
+       The strip listed only the days that had data, in one line, which said
+       nothing about where they sat in the month or which days were missing.
+       Built from the bundle, so a new tab needs no edit to this file. -->
+  <nav class="daycal" id="daycal" aria-label="Day"></nav>
 
   <div class="banner" id="notice" hidden></div>
 

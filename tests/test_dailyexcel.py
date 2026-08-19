@@ -451,11 +451,36 @@ class DerivedTabTest(NoPega, unittest.TestCase):
         self.assertTrue(tabs[1]["derived"])
         self.assertFalse(tabs[0].get("derived", False))
 
-    def test_a_day_the_sheet_skipped_is_left_alone(self):
-        # Earlier than the newest real tab: the line chose not to track it, and
-        # backfilling would compete with its record rather than extend it.
+    def test_a_day_before_the_sheet_begins_is_derived(self):
+        """The sheet has no opinion about a day it does not reach.
+
+        This used to be left alone under "only days after the newest real tab",
+        which conflated two different things — a hole between two tabs, which
+        the line chose, and the days before the first tab, which they simply
+        have not covered. The calendar made the difference visible: eight days
+        with runs on pega3 sat greyed as though the line had been idle."""
         tabs = self.build([self.run_at(self.EARLIER)])["tabs"]
-        self.assertEqual([t["day"] for t in tabs], ["2026-08-12"])
+        self.assertEqual([t["day"] for t in tabs], ["2026-08-10", "2026-08-12"])
+        self.assertTrue(tabs[0]["derived"])
+        self.assertFalse(tabs[1].get("derived", False))
+
+    def test_a_hole_between_two_real_tabs_is_still_left_alone(self):
+        """The half of the old rule that was doing work. A day the line skipped
+        between two days it did keep is their decision, and backfilling it would
+        compete with their record rather than extend it."""
+        derivable = build_dailyexcel._derivable
+        self.assertFalse(derivable("2026-08-12", "2026-08-11", "2026-08-14"))
+        self.assertTrue(derivable("2026-08-15", "2026-08-11", "2026-08-14"))
+        self.assertTrue(derivable("2026-08-05", "2026-08-11", "2026-08-14"))
+
+    def test_nothing_before_the_floor_is_derived(self):
+        """Before it there is bring-up, not a line to report on."""
+        self.assertFalse(
+            build_dailyexcel._derivable("2026-07-31", "2026-08-11", "2026-08-14"))
+        self.assertFalse(build_dailyexcel._derivable("2026-07-31", "", ""))
+
+    def test_an_empty_workbook_puts_no_day_out_of_range(self):
+        self.assertTrue(build_dailyexcel._derivable("2026-08-05", "", ""))
 
     def test_derive_can_be_switched_off(self):
         tabs = self.build([self.run_at(self.LATER)], derive=False)["tabs"]

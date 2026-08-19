@@ -120,8 +120,14 @@
                                text: pct(item['yield']) }));
       tr.appendChild(h('td', { class: 'n', text: '—' }));
       tr.appendChild(h('td', { class: 'n', text: '—' }));
-      tr.appendChild(h('td', { class: 'fails',
-        text: 'reported ' + item.asOf + ', not collected here' }));
+      /* Two different sentences, because they are two different facts. A week
+       * that has the figure says when it was for; a week that does not says so
+       * and points at the one that does — the number used to be printed on
+       * every week regardless, so a June row carried August's yield. */
+      tr.appendChild(h('td', { class: 'fails', text: item['yield'] == null
+        ? (item.asOf ? 'not reported for this week · last figure ' + item.asOf
+                     : 'not reported')
+        : 'reported ' + item.asOf + ', not collected here' }));
       body.appendChild(tr);
     });
 

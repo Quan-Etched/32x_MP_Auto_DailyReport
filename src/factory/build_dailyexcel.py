@@ -83,6 +83,20 @@ DEFAULT_DIR = config.REPO_ROOT / "daily"
 #: covers a working week's tail with room for the empty day.
 DERIVE_LIMIT = 5
 
+#: The earliest day the tracker rebuilds, and the first day its calendar shows.
+#:
+#: The page picks a day from a month grid now, and a grid makes the gaps
+#: visible in a way the old strip of buttons did not: 08-03 sat there greyed
+#: out as though the line had not tested, when pega3 has eleven runs for it and
+#: the only reason there was no tab is that DERIVE_LIMIT kept the last five
+#: days and nothing older. A calendar that shows a month has to be able to
+#: answer for the month.
+#:
+#: 08-01 is the same floor the station page uses: the first day the line
+#: produced. Before it there is bring-up, and a tracker tab for a day the line
+#: was still being built would be a day of debugging filed as production.
+DAILY_FROM = "2026-08-01"
+
 #: The stations the tracker covers, and the column pair each one fills.
 DERIVED_STATIONS = (("mlt", "E", "F", "G"), ("htt", "H", "I", "J"))
 
@@ -241,12 +255,11 @@ def build_bundle(
     # line's own record wins wherever it exists.
     if derive:
         have = {tab["day"] for tab in tabs if tab["day"]}
-        # Only days *after* the newest real tab. A day the sheet skipped is the
-        # line's decision, not a gap to fill; a day it has not reached yet is.
         newest = max(have) if have else ""
-        candidates = sorted(_candidate_days(payload or {}) - have)
-        candidates = [day for day in candidates if day > newest]
-        for day in candidates[-DERIVE_LIMIT:]:
+        oldest = min(have) if have else ""
+        candidates = [day for day in sorted(_candidate_days(payload or {}) - have)
+                      if _derivable(day, oldest, newest)]
+        for day in candidates:
             newest_real = next((tab for tab in reversed(tabs)
                                 if not tab.get("derived")), None)
             built = (_pega_tab(day, newest_real)
@@ -334,6 +347,33 @@ def _serial_heading(tab: Dict[str, Any]) -> None:
                 column["title"] = SERIAL_HEADING
 
 
+
+def _derivable(day: str, oldest: str, newest: str) -> bool:
+    """Whether a day the workbook does not have may be rebuilt from pega3.
+
+    Outside the sheet's own range, never inside it.
+
+    The rule was "only days after the newest real tab", and half its reason is
+    sound: a hole *between* two tabs is the line deciding not to track that day,
+    and filling it would compete with their record rather than extend it. But
+    the same test also excluded every day *before* the workbook's first tab,
+    which is a different thing — the sheet has no opinion about 08-05, it simply
+    does not begin until 08-11.
+
+    Nobody noticed while the day picker was a strip of buttons that drew only
+    the days it had. On a month grid those days sit in the open, greyed as
+    though the line had been idle, and pega3 has runs for eight of them.
+
+    So: after the newest real tab, or before the oldest one, and never before
+    the floor. ``oldest``/``newest`` empty means the workbook has no day tabs at
+    all, and then every day is outside its range.
+    """
+    if day < DAILY_FROM:
+        return False
+    if not oldest or not newest:
+        return True
+    return day > newest or day < oldest
+
 def _candidate_days(payload: Dict[str, Any]) -> set:
     """Which days to try to rebuild.
 
@@ -355,9 +395,15 @@ def _candidate_days(payload: Dict[str, Any]) -> set:
             and run.get("stationKey") in ("mlt", "htt")} - {None}
 
     if pega.enabled():
+        # Every day from the floor to today. It was the last DERIVE_LIMIT days,
+        # which is why the calendar had a fortnight of grey cells that looked
+        # like idle days and were really unbuilt ones.
         today = datetime.now(timezone.utc).date()
-        days |= {(today - timedelta(days=offset)).strftime("%Y-%m-%d")
-                 for offset in range(DERIVE_LIMIT + 1)}
+        first = datetime.strptime(DAILY_FROM, "%Y-%m-%d").date()
+        day = first
+        while day <= today:
+            days.add(day.strftime("%Y-%m-%d"))
+            day += timedelta(days=1)
     return days
 
 

@@ -375,3 +375,38 @@ class WeekChartOrderTest(unittest.TestCase):
         text = (DASHBOARD / "index.html").read_text(encoding="utf-8")
         self.assertIn('id="rangebar"', text)
         self.assertLess(text.index('id="rangebar"'), text.index('id="stationbar"'))
+
+
+class DayCalendarTest(unittest.TestCase):
+    """Picking a day from a month, not from a strip of buttons.
+
+    The strip listed only days that had data, in one line. It said nothing
+    about where a day sat in the month, and a day with no tab was invisible
+    because the strip simply did not draw it.
+    """
+
+    def script(self):
+        return (DASHBOARD / "dailysheet.js").read_text(encoding="utf-8")
+
+    def test_the_page_hosts_a_calendar_not_a_tab_strip(self):
+        page = (DASHBOARD / "dailyexcel.html").read_text(encoding="utf-8")
+        self.assertIn('id="daycal"', page)
+        self.assertNotIn('id="tabbar"', page)
+
+    def test_it_starts_where_the_line_started(self):
+        self.assertIn("var CAL_FLOOR = '2026-08-01';", self.script())
+
+    def test_a_day_with_no_tab_is_not_a_control_at_all(self):
+        """A disabled button is a control that failed; a day the line did not
+        work is not a control. It renders as a span."""
+        text = self.script()
+        self.assertIn("if (!tab) {", text)
+        self.assertIn("return h('span', {", text)
+
+    def test_the_three_kinds_of_nothing_are_told_apart(self):
+        """Still to come, before the tracker starts, and the line did not test
+        are different facts and the cell says which."""
+        text = self.script()
+        for kind in ("is-future", "is-before", "is-empty"):
+            with self.subTest(kind=kind):
+                self.assertIn(kind, text)

@@ -65,29 +65,169 @@
     return TABS.length ? TABS[TABS.length - 1] : null;   /* newest by default */
   }
 
-  /* ------------------------------------------------------------------ tabs */
+  /* -------------------------------------------------------------- calendar */
+
+  /* Pick a day from a month.
+   *
+   * It was a strip of buttons, one per day that had data. That is a fine
+   * control for four days and a poor one for a quarter: it says nothing about
+   * where a day sits in the month, and a missing day is invisible because the
+   * strip simply does not draw it — 08-13 and 08-16 are absent from the
+   * tracker and nothing on the page said so. A month grid puts every day on
+   * screen and lets the empty ones be seen as empty.
+   *
+   * Days with a tab are clickable. Everything else is not, and there are three
+   * reasons a day might not be, which the cell distinguishes because they mean
+   * different things: it is in the future, it is before the line started, or
+   * the line simply did not test that day.
+   */
+
+  //: The first day the tracker can show. Before this there is no line to
+  //: report on, and a calendar that pages back into July would offer months of
+  //: empty grid. Matches RANGE_FLOOR on the station page.
+  var CAL_FLOOR = '2026-08-01';
+
+  var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+                'August', 'September', 'October', 'November', 'December'];
+
+  /* The month on screen. Not the selected day's month necessarily — a reader
+   * can page away from it and back without losing the selection. */
+  var calMonth = null;
+
+  function iso(y, m, d) {
+    return y + '-' + (m < 9 ? '0' : '') + (m + 1) + '-' + (d < 10 ? '0' : '') + d;
+  }
+
+  /* Today in the same terms the tabs use. Local, because "is this day still to
+   * come" is a question about the reader's calendar, not about UTC. */
+  function todayKey() {
+    var now = new Date();
+    return iso(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
+  function tabFor(day) {
+    for (var i = 0; i < TABS.length; i++) if (TABS[i].day === day) return TABS[i];
+    return null;
+  }
 
   function renderTabs() {
-    el.tabbar.innerHTML = '';
-    TABS.forEach(function (tab) {
-      var active = current && tab.day === current.day;
-      /* Same markup the station bar uses — button + .n count — so the two
-       * navigations look and behave alike rather than merely similar. */
-      var button = h('button', {
-        type: 'button',
-        'aria-pressed': active ? 'true' : 'false'
-      }, [
-        document.createTextNode(tab.label),
-        h('span', { class: 'n', text: tab.derived
-          ? tab.rows.length + ' units · ' +
-            (((tab.derivedFrom || {}).source === 'pega3') ? 'pega3' : 'derived')
-          : tab.rows.length + ' units' })
-      ]);
-      button.addEventListener('click', function () {
-        location.hash = 'day=' + tab.day;
-      });
-      el.tabbar.appendChild(button);
+    var host = byId('daycal');
+    if (!host) return;
+    if (!calMonth) {
+      var anchor = (current && current.day) || todayKey();
+      calMonth = { y: +anchor.slice(0, 4), m: +anchor.slice(5, 7) - 1 };
+    }
+    host.innerHTML = '';
+
+    var today = todayKey();
+    var floorY = +CAL_FLOOR.slice(0, 4), floorM = +CAL_FLOOR.slice(5, 7) - 1;
+    var atFloor = calMonth.y === floorY && calMonth.m === floorM;
+    var atToday = calMonth.y === +today.slice(0, 4) &&
+                  calMonth.m === +today.slice(5, 7) - 1;
+
+    /* ---- head: month, and the three ways to move ---- */
+    var head = h('div', { class: 'cal-head' }, [
+      h('h2', { class: 'cal-title' }, [
+        h('strong', { text: MONTHS[calMonth.m] }),
+        document.createTextNode(' ' + calMonth.y)
+      ])
+    ]);
+    var nav = h('div', { class: 'cal-nav' });
+    nav.appendChild(calStep('\u2039', 'Previous month', atFloor, -1));
+    var todayBtn = h('button', { type: 'button', class: 'cal-today',
+                                 text: 'Today' });
+    todayBtn.disabled = atToday;
+    todayBtn.addEventListener('click', function () {
+      calMonth = { y: +today.slice(0, 4), m: +today.slice(5, 7) - 1 };
+      renderTabs();
     });
+    nav.appendChild(todayBtn);
+    nav.appendChild(calStep('\u203a', 'Next month', atToday, 1));
+    head.appendChild(nav);
+    host.appendChild(head);
+
+    /* ---- grid ---- */
+    var grid = h('div', { class: 'cal-grid', role: 'grid' });
+    DOW.forEach(function (name) {
+      grid.appendChild(h('span', { class: 'cal-dow', text: name }));
+    });
+
+    var first = new Date(calMonth.y, calMonth.m, 1);
+    var lead = first.getDay();
+    var length = new Date(calMonth.y, calMonth.m + 1, 0).getDate();
+    for (var blank = 0; blank < lead; blank++) {
+      grid.appendChild(h('span', { class: 'cal-cell cal-pad' }));
+    }
+
+    for (var d = 1; d <= length; d++) {
+      var key = iso(calMonth.y, calMonth.m, d);
+      grid.appendChild(calCell(key, d, today));
+    }
+    host.appendChild(grid);
+  }
+
+  function calStep(glyph, label, disabled, delta) {
+    var btn = h('button', { type: 'button', class: 'cal-step',
+                            'aria-label': label, title: label, text: glyph });
+    btn.disabled = !!disabled;
+    btn.addEventListener('click', function () {
+      var m = calMonth.m + delta, y = calMonth.y;
+      if (m < 0) { m = 11; y -= 1; }
+      if (m > 11) { m = 0; y += 1; }
+      calMonth = { y: y, m: m };
+      renderTabs();
+    });
+    return btn;
+  }
+
+  /* One day. Clickable only when there is a tab behind it — and when there is
+   * not, the cell says which kind of nothing it is. */
+  function calCell(key, number, today) {
+    var tab = tabFor(key);
+    var future = key > today;
+    var before = key < CAL_FLOOR;
+    var classes = ['cal-cell'];
+    var why = '';
+
+    if (tab) {
+      classes.push('has-data');
+      if (current && current.day === key) classes.push('is-on');
+    } else if (future) {
+      classes.push('is-future');
+      why = 'Not yet — ' + key;
+    } else if (before) {
+      classes.push('is-before');
+      why = 'Before the tracker starts (' + CAL_FLOOR + ')';
+    } else {
+      classes.push('is-empty');
+      why = 'No runs recorded on ' + key;
+    }
+
+    if (!tab) {
+      /* A span, not a disabled button. A disabled button is still a control
+       * that failed; a day the line did not work is not a control at all. */
+      return h('span', {
+        class: classes.join(' '), title: why, 'aria-disabled': 'true'
+      }, [h('span', { class: 'cal-n', text: String(number) })]);
+    }
+
+    var units = tab.rows.length;
+    var cell = h('button', {
+      type: 'button', class: classes.join(' '),
+      'aria-pressed': (current && current.day === key) ? 'true' : 'false',
+      title: key + ' — ' + units + ' unit' + (units === 1 ? '' : 's') +
+             (tab.derived ? ', rebuilt from the controllers'
+                          : ', from the line\u2019s own sheet')
+    }, [
+      h('span', { class: 'cal-n', text: String(number) }),
+      h('span', { class: 'cal-units', text: units + 'u' }),
+      /* A day the line kept by hand reads differently from one this repo
+       * rebuilt, and the dot is the whole difference at a glance. */
+      tab.derived ? null : h('span', { class: 'cal-sheet', title: 'the line\u2019s own sheet' })
+    ]);
+    cell.addEventListener('click', function () { location.hash = 'day=' + key; });
+    return cell;
   }
 
   /* --------------------------------------------------------------- summary */
@@ -1259,7 +1399,6 @@
   }
 
   function init() {
-    el.tabbar = byId('tabbar');
     el.summary = byId('summary');
     el.head = byId('sheet-head');
     el.body = byId('sheet-body');

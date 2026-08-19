@@ -238,7 +238,7 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
         "source": payload.get("dataSource") or {},
         "rows": rows,
         "external": [
-            dict(reported[key], key=key,
+            dict(_external_in(reported[key], start, end), key=key,
                  label=registry.get(key, {}).get("label", key.upper()),
                  measured=False)
             for key in ("wst", "ft") if key in reported
@@ -246,6 +246,40 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
         "totals": _totals(rows, floor),
     }
 
+
+
+def _external_in(entry: Dict[str, Any], start: str, end: str) -> Dict[str, Any]:
+    """A hand-reported figure, but only on the week it describes.
+
+    WST and FT arrive from Sigurd as one number with the day it is about. That
+    number was being attached to every window this builder ran over, so the
+    week of 06-08 — a week with no runs at all, before the line existed —
+    published WST 35.3% and FT 84.3% beside a row of dashes. A figure that
+    appears on every week is not a weekly figure; it is one week's number
+    wearing eleven other weeks' labels, and somebody was going to quote June's.
+
+    ``asOf`` is the day the figure describes, which is exactly the test: inside
+    this Monday-to-Sunday it is this week's, outside it is not. Weeks that are
+    not it still carry the row — the step exists, it is part of the line, and
+    an absent row would read as "there is no WST" rather than "nobody reported
+    one" — but the yield is None and the note says when the last figure was
+    for, so a reader can go and find it.
+    """
+    if entry.get("yield") is None:
+        return dict(entry)                       # already a marked absence
+
+    as_of = entry.get("asOf")
+    if as_of and start <= as_of <= end:
+        return dict(entry)
+
+    note = (entry.get("note") or "").strip()
+    when = ("Last reported for {}.".format(as_of) if as_of
+            else "The reported figure carries no date.")
+    return dict(entry, **{
+        "yield": None,
+        "source": "not reported for this week",
+        "note": (note + " " + when).strip(),
+    })
 
 def _top_failures(runs: List[Dict[str, Any]], limit: int = 5) -> List[Dict[str, Any]]:
     """What actually failed, leaves only.

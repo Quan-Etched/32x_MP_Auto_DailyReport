@@ -161,13 +161,46 @@ def _charts(payload: Dict[str, Any], start: str, end: str) -> Optional[Dict[str,
 
     view = build_stations._view(classified, tz_name, per_unit, tz_name)
     return {
-        "daily": view["daily"],
+        "daily": _every_day(view["daily"], start, end, per_unit),
         "releases": view["releases"],
         "pareto": view["pareto"],
         "firstFailure": view["firstFailure"],
         "runs": len(classified),
     }
 
+
+
+def _every_day(rows: List[Dict[str, Any]], start: str, end: str,
+               per_unit: bool) -> List[Dict[str, Any]]:
+    """One column per calendar day of the week, not per day that had runs.
+
+    The chart drew five bars for a Monday-to-Sunday week, because Saturday and
+    Sunday had no runs and the aggregation only emits days it saw. Five bars
+    labelled Mon to Fri is a chart of the working week; the week is seven days,
+    and a weekend with nothing on it is a fact about the week rather than a gap
+    to close up. It also made two weeks incomparable at a glance — five bars
+    beside seven, same width, different meaning.
+
+    A padded day is a real zero: nothing ran. ``fpy`` stays None rather than
+    becoming 0%, because no first attempts is not a yield of nought, and the
+    trend line skips it instead of diving to the floor and back.
+
+    The range is start..end, and for the week still running that is Monday to
+    today — days that have not happened yet are not drawn as empty ones.
+    """
+    seen = {row["day"]: row for row in rows}
+    out: List[Dict[str, Any]] = []
+    day = datetime.strptime(start, "%Y-%m-%d").date()
+    last = datetime.strptime(end, "%Y-%m-%d").date()
+    while day <= last:
+        key = day.strftime("%Y-%m-%d")
+        out.append(seen.get(key) or {
+            "day": key, "runs": 0, "pass": 0, "fail": 0, "abort": 0,
+            "graded": 0, "fpyPass": 0, "fpyTotal": 0, "fpy": None,
+            "thin": True, "units": 0, "perUnit": per_unit,
+        })
+        day += timedelta(days=1)
+    return out
 
 def _unit_rows(payload: Dict[str, Any], start: str, end: str) -> List[Dict[str, Any]]:
     """Every unit run in the window: serial, release, verdict, and the log.
