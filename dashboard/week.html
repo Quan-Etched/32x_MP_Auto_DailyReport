@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Week — Yield and Source Data</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="stations.css">
   <link rel="stylesheet" href="weekly.css">
 </head>
 <body>
@@ -43,6 +44,74 @@
     </table>
   </div>
 
+  <!-- This week's charts, before the source rows because they are the shape of
+       the week and the rows are the evidence for it.
+
+       Frozen: Monday to Sunday of this week and nothing else. The station page
+       draws the same three over a rolling window, which is the right thing
+       there and the wrong thing here — a figure quoted off a week's page on
+       Monday has to still be there on Friday. Drawn by charts.js, the same
+       code the station page uses, so a hollow marker means the same thing on
+       both. -->
+  <section class="wk-charts" id="charts" hidden>
+    <h2>This week <span class="wk-charts-sub" id="charts-sub"></span></h2>
+
+    <div class="wk-grid">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h3>Pass / fail / abort by day</h3>
+            <p class="sub">Runs counted on the day they started</p>
+          </div>
+        </div>
+        <div class="legend" id="legend-wk-mix"></div>
+        <div class="plot" id="plot-wk-mix"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h3>First-pass yield by day</h3>
+            <p class="sub">Hollow marker = thin sample (&lt;5 graded first attempts)</p>
+          </div>
+        </div>
+        <div class="plot" id="plot-wk-fpy"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h3>Pass / fail / abort by software release</h3>
+            <p class="sub">Release &middot; date range tested within this week</p>
+          </div>
+        </div>
+        <div class="legend" id="legend-wk-rel"></div>
+        <div class="plot" id="plot-wk-rel"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <h3>First-pass yield by software release</h3>
+            <p class="sub">Hollow marker = thin sample</p>
+          </div>
+        </div>
+        <div class="plot" id="plot-wk-relfpy"></div>
+      </div>
+    </div>
+
+    <div class="card wk-wide">
+      <div class="card-head">
+          <div>
+            <h3>Top yield hits &mdash; failure Pareto by root-cause area</h3>
+            <p class="sub">Every failing test occurrence this week, bucketed by root-cause area</p>
+          </div>
+        </div>
+      <div class="legend" id="legend-wk-pareto"></div>
+      <div class="plot" id="plot-wk-pareto"></div>
+    </div>
+  </section>
+
   <!-- The point of the page: the rows behind every number above. -->
   <section class="wk-source">
     <h2>Source data — every unit run this week</h2>
@@ -73,6 +142,7 @@
 </div>
 
 <script src="data/weekly.js"></script>
+<script src="charts.js"></script>
 <script src="week.js"></script>
 <script src="theme.js"></script>
 <script src="update.js"></script>

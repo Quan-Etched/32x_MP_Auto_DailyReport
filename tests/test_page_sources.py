@@ -321,3 +321,57 @@ class TableZoomTest(unittest.TestCase):
         """Somebody who found the level at which their day fits on one screen
         should not have to find it again every morning."""
         self.assertIn("factory.daily.zoom", self.script())
+
+
+class SharedChartsTest(unittest.TestCase):
+    """The chart library both pages draw with.
+
+    The renderers lived inside stations.js while one page used them. The weekly
+    page now draws the same three over one frozen week, and two copies of a
+    chart is two answers to "what does a hollow marker mean".
+    """
+
+    def read(self, name):
+        return (DASHBOARD / name).read_text(encoding="utf-8")
+
+    def test_every_page_that_charts_loads_the_library_first(self):
+        """charts.js defines window.FactoryCharts; a page that loaded it after
+        its own script would find nothing there."""
+        for page, user in (("index.html", "stations.js"),
+                           ("ocp.html", "stations.js"),
+                           ("week.html", "week.js")):
+            with self.subTest(page=page):
+                text = self.read(page)
+                self.assertIn('src="charts.js"', text)
+                self.assertLess(text.index('src="charts.js"'),
+                                text.index('src="%s"' % user))
+
+    def test_the_library_knows_nothing_about_either_page(self):
+        """No DATA, no state, no refs. That separation is what made the
+        extraction a move rather than a rewrite, and what keeps it one."""
+        text = self.read("charts.js")
+        for leak in ("__FACTORY_STATIONS__", "__FACTORY_WEEKLY__",
+                     "state.", "refs.", "runsHref", "drill("):
+            with self.subTest(leak=leak):
+                self.assertNotIn(leak, text)
+
+    def test_the_renderers_are_not_also_still_in_stations(self):
+        """Two copies would drift. stations.js aliases them instead."""
+        text = self.read("stations.js")
+        self.assertNotIn("function renderMix(", text)
+        self.assertNotIn("function renderPareto(", text)
+        self.assertIn("var C = window.FactoryCharts", text)
+
+
+class WeekChartOrderTest(unittest.TestCase):
+    """This week's shape above the rows that evidence it."""
+
+    def test_the_charts_come_before_the_source_rows(self):
+        text = (DASHBOARD / "week.html").read_text(encoding="utf-8")
+        self.assertIn('id="charts"', text)
+        self.assertLess(text.index('id="charts"'), text.index('wk-source'))
+
+    def test_the_station_page_offers_a_range(self):
+        text = (DASHBOARD / "index.html").read_text(encoding="utf-8")
+        self.assertIn('id="rangebar"', text)
+        self.assertLess(text.index('id="rangebar"'), text.index('id="stationbar"'))

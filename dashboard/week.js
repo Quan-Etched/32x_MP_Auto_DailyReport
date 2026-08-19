@@ -297,6 +297,73 @@
     }
   }
 
+  /* This week's charts, drawn by the same code the station page uses.
+   *
+   * The rows are aggregated on the build side and frozen to Monday–Sunday, so
+   * nothing here decides what a week contains — see build_weekly._charts. This
+   * maps those rows into the shapes charts.js draws and nothing more.
+   *
+   * Hidden rather than empty when a week has no runs: an early week with four
+   * blank plots reads as a broken page, and "there was nothing that week" is
+   * better said by the steps table above, which says it in words. */
+  function renderCharts(week) {
+    var host = byId('charts');
+    if (!host) return;
+    var C = window.FactoryCharts;
+    var charts = week.charts;
+    if (!C || !charts || !(charts.daily || []).length) {
+      host.hidden = true;
+      return;
+    }
+    host.hidden = false;
+
+    byId('charts-sub').textContent =
+      week.from + ' → ' + week.to + '  ·  ' + charts.runs + ' unit runs' +
+      (week.partial ? '  ·  still running' : '');
+
+    var dayRows = (charts.daily || []).map(function (r) {
+      return {
+        label: C.fmtDayShort(r.day), sub: '', heading: r.day,
+        pass: r.pass, fail: r.fail, abort: r.abort, total: r.runs,
+        fpy: r.fpy, fpyPass: r.fpyPass, fpyTotal: r.fpyTotal, thin: r.thin, raw: r
+      };
+    });
+
+    var relRows = (charts.releases || []).map(function (r) {
+      return {
+        label: r.release, sub: C.fmtRange(r.firstDay, r.lastDay), heading: r.release,
+        pass: r.pass, fail: r.fail, abort: r.abort, total: r.runs,
+        fpy: r.fpy, fpyPass: r.fpyPass, fpyTotal: r.fpyTotal, thin: r.thin, raw: r
+      };
+    });
+
+    C.renderLegend(byId('legend-wk-mix'), C.MIX_SERIES);
+    C.renderLegend(byId('legend-wk-rel'), C.MIX_SERIES);
+    C.renderLegend(byId('legend-wk-pareto'), [
+      { key: 'fails', label: 'fails', color: 'var(--accent-solid)' },
+      { key: 'cum', label: 'cumulative %', color: 'var(--text-primary)' }
+    ]);
+
+    /* No onSelect. The station page drills from a bar into runs.html filtered
+     * by station; here the rows behind every one of these bars are already on
+     * the page, in the source table below. A click that navigated away from
+     * the evidence would be a worse answer than scrolling to it. */
+    C.renderMix(byId('plot-wk-mix'), dayRows, {
+      ariaLabel: 'Pass, fail and abort counts per day this week'
+    });
+    C.renderTrend(byId('plot-wk-fpy'), dayRows, {
+      ariaLabel: 'First-pass yield per day this week'
+    });
+    C.renderMix(byId('plot-wk-rel'), relRows, {
+      ariaLabel: 'Pass, fail and abort counts per software release this week',
+      axisTitle: 'RELEASE · DATE RANGE TESTED'
+    });
+    C.renderTrend(byId('plot-wk-relfpy'), relRows, {
+      ariaLabel: 'First-pass yield per software release this week'
+    });
+    C.renderPareto(byId('plot-wk-pareto'), charts.pareto || []);
+  }
+
   function show() {
     var next = pick(hashWeek());
     if (!next) return;
@@ -315,6 +382,7 @@
 
     renderBar();
     renderTiles(current);
+    renderCharts(current);
     renderSteps(current);
     renderFilters(current);
     renderUnits(current);

@@ -40,7 +40,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import build_fpy, config, pega, stations, version
+from . import build_fpy, build_stations, config, daily, pega, stations, version
 
 #: Weeks published. A quarter, which is as far back as the controllers' detail
 #: goes once the archive under weekly/ is doing its job.
@@ -121,6 +121,51 @@ def _week(payload: Dict[str, Any], monday: date, end: date, sunday: date,
         "external": inner["external"],
         "hasDetail": detail,
         "units": _unit_rows(payload, start_s, end_s) if detail else [],
+        # The three charts the station page draws, frozen to this week.
+        "charts": _charts(payload, start_s, end_s) if detail else None,
+    }
+
+
+def _charts(payload: Dict[str, Any], start: str, end: str) -> Optional[Dict[str, Any]]:
+    """Pass/fail by day, yield by release and the failure Pareto, for this week
+    alone.
+
+    WHY THE STATION PAGE'S OWN AGGREGATION, NOT A SECOND ONE
+    ``build_stations._view`` already turns a list of runs into exactly these
+    three shapes, and the shared chart code already draws them. Writing a
+    weekly variant would be a second answer to "what is first-pass yield" and a
+    second place for a hollow-marker rule to drift. The only difference here is
+    which runs go in: Monday to Sunday of this week, and nothing else.
+
+    Frozen is the point. The station page's charts move with a rolling window,
+    so last week's page would quietly re-render as this week's data arrived and
+    a figure quoted on Monday would not be there on Friday. A week is a closed
+    period; these are the runs that fell inside it.
+    """
+    tz_name = ("UTC" if payload.get("source") == "pega"
+               else payload.get("timezone", config.timezone_name()))
+    per_unit = payload.get("source") == "pega"
+    runs = [run for run in payload.get("runs") or []
+            if run.get("startTs")
+            and start <= daily.day_key(run["startTs"], tz_name) <= end]
+    if not runs:
+        return None
+
+    # The unclassified tail and the engineering runs are excluded here for the
+    # same reason the station page excludes them from "All stations": neither
+    # is a line stage, and letting them into a weekly yield would move it
+    # without anything on the line having changed.
+    off_line = (stations.UNCLASSIFIED, stations.ENGINEERING)
+    classified = [run for run in runs
+                  if (run.get("stationKey") or stations.UNCLASSIFIED) not in off_line]
+
+    view = build_stations._view(classified, tz_name, per_unit, tz_name)
+    return {
+        "daily": view["daily"],
+        "releases": view["releases"],
+        "pareto": view["pareto"],
+        "firstFailure": view["firstFailure"],
+        "runs": len(classified),
     }
 
 

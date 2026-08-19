@@ -314,7 +314,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         print("Pega stations skipped ({})".format(exc))
     else:
         if pega_payload["runs"]:
-            pega_bundle = build_stations.build_bundle(
+            pega_bundle = build_stations.build_ranged_bundle(
                 pega_payload, pega_collect.fetch_state(pega_payload))
             pega_path = build_stations.write_bundle(
                 pega_bundle, config.DASHBOARD_DATA_DIR / "pega_stations.js")
@@ -323,7 +323,7 @@ def cmd_build(args: argparse.Namespace) -> int:
         else:
             print("Pega stations skipped (controllers returned nothing)")
 
-    stations_bundle = build_stations.build_bundle(payload, state)
+    stations_bundle = build_stations.build_ranged_bundle(payload, state)
     # Both pages now exist, so the difference between them can be measured
     # rather than described. It goes on the EOS page, which is the one a reader
     # lands on and the one whose numbers get challenged.
@@ -789,7 +789,7 @@ def cmd_pega_stations(args: argparse.Namespace) -> int:
             payload["levelErrors"] or "nothing in the window"), file=sys.stderr)
         return 1
 
-    bundle = build_stations.build_bundle(payload, pega_collect.fetch_state(payload))
+    bundle = build_stations.build_ranged_bundle(payload, pega_collect.fetch_state(payload))
     path = build_stations.write_bundle(
         bundle, config.DASHBOARD_DATA_DIR / "pega_stations.js")
     print("Pega stations ({:.0f} KB, {} unit runs) -> {}".format(

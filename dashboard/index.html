@@ -31,6 +31,13 @@
 
   <div class="banner" id="notice" hidden></div>
 
+  <!-- How much history every chart below covers. Seven days is the default
+       because the page is read to answer "how is the line doing this week",
+       and a month-long average hides the week inside it. All reaches back to
+       the first day the line produced. Built from the bundle rather than
+       written here, so the floor date and the label cannot drift apart. -->
+  <nav class="rangebar" id="rangebar" aria-label="Time range"></nav>
+
   <nav class="stationbar" id="stationbar" aria-label="Station"></nav>
 
   <div class="station-note" id="station-note" hidden></div>
@@ -149,6 +156,7 @@
 </div>
 
 <script src="data/pega_stations.js"></script>
+<script src="charts.js"></script>
 <script src="stations.js"></script>
 <script src="update.js"></script>
 </body>

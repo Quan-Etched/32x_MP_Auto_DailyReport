@@ -103,3 +103,53 @@
 .wk-more-btn:hover { background: var(--hover-wash); }
 
 .notes .src { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+
+/* --------------------------------------------------------- this week's charts */
+
+/* Above the source rows: the shape of the week first, the evidence for it
+   second. The plot and card styles come from stations.css, which this page now
+   loads — the charts are the station page's, drawn over one frozen week. */
+.wk-charts { margin: 26px 0 30px; }
+
+.wk-charts h2 {
+  font-size: 18px;
+  margin: 0 0 12px;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Which days the charts above are actually about. A week's page is quoted from
+   and the dates have to travel with the numbers. */
+.wk-charts-sub {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.wk-grid {
+  display: grid;
+  /* Two up, not auto-fit. auto-fit at minmax(420px) gives three columns on a
+     wide screen and leaves the fourth card alone on a row of its own, which
+     reads as a missing chart rather than as a pair of pairs. */
+  grid-template-columns: repeat(auto-fit, minmax(560px, 1fr));
+  gap: 14px;
+}
+
+/* The Pareto is one long axis of root-cause areas, so it gets the full width
+   rather than half of a two-column grid. */
+.wk-wide { margin-top: 14px; }
+
+@media (max-width: 900px) {
+  .wk-grid { grid-template-columns: 1fr; }
+}
+
+/* The card titles are h3 here and h2 on the station page — the week page
+   already spends its h2 on the section heading. Same size either way, so the
+   two pages' cards read alike. */
+.wk-charts .card-head h3 {
+  font-size: 15px;
+  margin: 0 0 2px;
+}

@@ -41,6 +41,27 @@ RETEST_DETAIL_LIMIT = 60
 #: that. Trimmed here instead, at the point of reporting.
 WINDOW_DAYS = 7
 
+#: The other range the page offers: everything since the line started.
+#:
+#: A floor date rather than "all of it". The controllers keep ninety days and
+#: the earliest of those are bring-up — pega3's first module runs are 08-01, and
+#: what sits behind that is a fortnight of a line being built. A range labelled
+#: "All" that reached into it would put commissioning into the same bar as
+#: production and answer a question nobody asked.
+#:
+#: Seven days stays the default, for the reason above: the page is read to
+#: answer "how is the line doing this week", and a month-long average hides the
+#: week inside it. The wider range is there for the question the default cannot
+#: answer — whether this week is better or worse than the last three.
+RANGE_FLOOR = "2026-08-01"
+
+#: What the page's range control offers. Emitted rather than written into the
+#: script so the floor above and the label a reader sees cannot drift apart.
+RANGES = [
+    {"key": "7d", "label": "7 days", "note": "default"},
+    {"key": "all", "label": "All", "note": "since " + RANGE_FLOOR},
+]
+
 
 def _trim(runs: List[Dict[str, Any]], tz_name: str,
           days: int = WINDOW_DAYS) -> List[Dict[str, Any]]:
@@ -169,6 +190,60 @@ def build_bundle(
         "views": views,
         "fetch": fetchstate.summary(state or {}),
     }
+
+
+def build_ranged_bundle(payload: Dict[str, Any],
+                        state: Optional[Dict[str, Any]] = None,
+                        floor: str = RANGE_FLOOR) -> Dict[str, Any]:
+    """The 7-day bundle, with a second set of views covering everything since
+    ``floor`` carried alongside it.
+
+    WHY TWO PRECOMPUTED SETS RATHER THAN ONE AND A CLIENT-SIDE FILTER
+    A view is not a list of days that can be sliced. It carries per-release
+    aggregates and a failure Pareto, and neither can be re-derived from the
+    daily rows a narrower slice would leave — you cannot recover which release
+    a failure belonged to from a bar chart of days. The page would have to ship
+    every run and re-aggregate in the browser, which is a different and much
+    larger change. Two ranges, each aggregated once here, is the honest shape.
+
+    ``views`` stays the 7-day set so that everything already reading it — the
+    flow page's links, the cross-source comparison — keeps its meaning without
+    knowing this exists. The wider set is additive.
+
+    Station run counts are per-range too: the chips read "MLT 293" over seven
+    days and something larger over the month, and a chip that disagreed with
+    the chart under it would be the first thing anyone noticed.
+    """
+    # The same day basis the trim uses, not a string slice of startTs — it is
+    # an epoch integer on the controller side, and the controllers cut their
+    # days in UTC while EOS cuts them factory-local. Getting this wrong would
+    # move the floor by a day on one source and not the other.
+    tz_name = ("UTC" if payload.get("source") == "pega"
+               else payload.get("timezone", config.timezone_name()))
+    floored = dict(payload)
+    floored["runs"] = [run for run in payload.get("runs") or []
+                       if run.get("startTs")
+                       and daily.day_key(run["startTs"], tz_name) >= floor]
+
+    # The floor applies to BOTH ranges, not only to the wide one.
+    #
+    # It was only on the wide one, and that let "All" show less than "7 days".
+    # The default keeps the last seven days *that have data*, so on a line with
+    # a quiet fortnight it reaches back past the floor and picks up bring-up
+    # that "All" is defined to exclude — a range called All showing fewer runs
+    # than the one inside it. Flooring first makes the wide range a superset of
+    # the default by construction, which is the only relationship between them
+    # anybody would guess.
+    bundle = build_bundle(floored, state, WINDOW_DAYS)
+    # window_days=0 disables the trim: the floor has already decided how far
+    # back this reaches, and a second cut would silently narrow it.
+    full = build_bundle(floored, state, 0)
+
+    bundle["ranges"] = {"default": "7d", "floor": floor, "options": RANGES}
+    bundle["viewsAll"] = full["views"]
+    bundle["stationsAll"] = full["stations"]
+    bundle["windowAll"] = full["window"]
+    return bundle
 
 
 def _blocking_error(entry: Dict[str, Any], level_errors: Dict[str, str]) -> Optional[str]:
