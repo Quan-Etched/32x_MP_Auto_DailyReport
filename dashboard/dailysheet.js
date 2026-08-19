@@ -144,7 +144,8 @@
 
       rows.forEach(function (row) {
         var tone = (row[at] || {}).t;
-        var bucket = (tone === 'pass' || tone === 'fail') ? tone : 'blank';
+        var bucket = (tone === 'pass' || tone === 'fail' || tone === 'abort')
+          ? tone : 'blank';
         var isNew = !isReturning(row, serialAt, station);
         if (!isNew && bucket !== 'blank') returning += 1;
 
@@ -311,6 +312,12 @@
           h('span', { class: 'tone-pass', text: shownCounts.pass + ' passed' }),
           h('span', { text: ' · ' }),
           h('span', { class: 'tone-fail', text: shownCounts.fail + ' failed' }),
+          /* Aborted before "not run", because they are opposite claims: one
+             rack tried and gave up, the other never started. */
+          shownCounts.abort
+            ? h('span', { class: 'tone-abort',
+                          text: ' · ' + shownCounts.abort + ' aborted' })
+            : null,
           shownCounts.blank
             ? h('span', { class: 'tile-blank',
                           text: ' · ' + shownCounts.blank + ' not run' })
@@ -736,7 +743,7 @@
     button.addEventListener('click', function () {
       countMode = countMode === 'new' ? 'all' : 'new';
       renderTable(tab, els);
-      if (els === el) renderL10(current);
+      if (els === el) { renderL10(current); renderL11(current); }
     });
     host.appendChild(button);
 
@@ -888,6 +895,18 @@
     }
 
     td.textContent = value;
+
+    /* How many times the rack went through this stage today. L11 is retried
+     * hard during bring-up — six attempts on one rack in an afternoon — and a
+     * cell showing only the last verdict makes that look like one quiet
+     * test. Only L11 sets it. */
+    if (cell.tries > 1) {
+      td.appendChild(h('span', {
+        class: 'tries', title: cell.tries + ' attempts at this stage today; ' +
+                               'the verdict shown is the last one'
+      }, [document.createTextNode('\u00d7' + cell.tries)]));
+    }
+
     /* When a returning unit was last at this station. Without it "returning"
      * is an assertion the reader has to take on trust. */
     if (column && column.key === 'B' && cell.seen) {
@@ -1033,6 +1052,27 @@
     });
   }
 
+  /* L11 under L10, from the day the line asked for it. Third table, third
+   * subject: a module, a chassis, a rack. */
+  function renderL11(tab) {
+    var block = byId('l11-block');
+    if (!block) return;
+    var l11 = tab && tab.l11;
+    if (!l11 || !(l11.rows || []).length) {
+      block.hidden = true;
+      return;
+    }
+    block.hidden = false;
+    byId('l11-sub').textContent = l11.rows.length + ' rack' +
+      (l11.rows.length === 1 ? '' : 's') + ' · ' +
+      ((l11.derivedFrom || {}).runs || 0) + ' suite runs · pega5';
+    renderTable(l11, {
+      summary: byId('l11-summary'), head: byId('l11-head'),
+      body: byId('l11-body'), caption: byId('l11-caption'),
+      countMode: 'l11-count-mode'
+    });
+  }
+
   function show() {
     var previous = current;
     current = pick(hashDay());
@@ -1047,6 +1087,7 @@
     renderTabs();
     renderTable(current);          /* renders the summary from the same rows */
     renderL10(current);            /* and L10 under it, where the day has any */
+    renderL11(current);            /* and L11 under that */
     document.title = 'Daily tracker — ' + (current.day || current.label);
   }
 

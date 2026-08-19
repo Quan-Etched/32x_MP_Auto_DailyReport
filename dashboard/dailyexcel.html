@@ -61,14 +61,41 @@
       </div>
       <div class="count-mode" id="l10-count-mode"></div>
     </section>
+
+    <!-- L11, from 08-17. Third table, third subject: one rack is four 6U
+         chassis, each holding many modules, so it can no more share a row with
+         L10 than L10 can with a module. -->
+    <section class="l10-block" id="l11-block" hidden>
+      <h2 class="l10-head">L11 <span class="l10-sub" id="l11-sub"></span></h2>
+      <section class="sheet-summary" id="l11-summary"></section>
+      <div class="table-wrap sheet-wrap">
+        <table class="sheet-table" id="l11-table">
+          <caption id="l11-caption"></caption>
+          <thead id="l11-head"></thead>
+          <tbody id="l11-body"></tbody>
+        </table>
+      </div>
+      <div class="count-mode" id="l11-count-mode"></div>
+    </section>
   </main>
 
   <footer class="notes">
     <p id="footer-meta"></p>
     <p>
-      A faithful copy of the module line's own tracker tab — the line's
-      judgement of what passed, not a re-derivation from the API. Test links go
-      to <strong>pega3</strong>, which asks for an ESVM login first.
+      The top table is a faithful copy of the module line's own tracker tab —
+      the line's judgement of what passed, not a re-derivation from the API.
+      The <strong>L10</strong> and <strong>L11</strong> tables under it have no
+      such sheet behind them; they are rebuilt from the controllers, and each
+      says so above its columns. Test links go to <strong>pega3</strong>,
+      <strong>pega4</strong> and <strong>pega5</strong> respectively, all of
+      which ask for an ESVM login first.
+    </p>
+    <p>
+      L11 is still in bring-up, and its table shows two things the others do
+      not. <strong>Aborted</strong> is counted apart from "not run": a rack
+      that tried for an hour and gave up is not a rack that never started.
+      And <strong>×n</strong> beside a verdict is how many times that stage ran
+      on that rack today — the verdict shown is the last of them.
     </p>
     <p>
       There is no OCP Logs column because OCP has no per-run URL: its RUNS tab

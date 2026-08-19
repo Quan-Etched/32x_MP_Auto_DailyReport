@@ -131,7 +131,14 @@ DEBUG_BUILD = re.compile(r"((^|_)debug|_dbg)", re.IGNORECASE)
 #: somebody reads a validation campaign as the day's line yield. Asked about
 #: exactly that: "we're sure the data here doesn't have any potential errors
 #: like accidentally including validation runs?"
-NON_RELEASE = re.compile(r"((^|_)debug|_dbg|validation)", re.IGNORECASE)
+#:
+#: ``kamil_`` is here for L11: every provisioning run pega5 has is
+#: ``kamil_L11_provisioning_rms_pdu_cdu``. A name in a suite name means a
+#: bring-up run, not a release — the same claim ``debug`` makes — so it is
+#: counted and flagged rather than dropped. It cannot collide with a module
+#: suite, which are all ``mlt_``/``htt_`` prefixed.
+NON_RELEASE = re.compile(
+    r"((^|_)debug|_dbg|validation|(^|_)kamil_)", re.IGNORECASE)
 
 #: Which module station a pega3 suite belongs to.
 #:
@@ -253,17 +260,22 @@ def build_bundle(
 
     tabs.sort(key=lambda tab: tab["day"] or "")
 
-    # L10 alongside the module stages, from the day it started testing.
+    # A table each rather than more columns: the serials are different
+    # lengths, one chassis holds many modules and one rack holds four chassis,
+    # so a row carrying all three would have no single subject. Same format,
+    # same renderer, stacked.
     #
-    # A second table rather than more columns: a chassis is not a module, the
-    # serials are different lengths and one chassis holds many modules, so a
-    # row carrying both would have no single subject. Same format, same
-    # renderer, its own table under the first.
+    # L10 alongside the module stages, and L11 under that. Three tables, three
+    # subjects: a module, a chassis, a rack. One row cannot carry all three.
     for tab in tabs:
         if tab.get("day") and tab["day"] >= L10_FROM:
             l10_tab = _l10_for(tab["day"])
             if l10_tab:
                 tab["l10"] = l10_tab
+        if tab.get("day") and tab["day"] >= L11_FROM:
+            l11_tab = _l11_for(tab["day"])
+            if l11_tab:
+                tab["l11"] = l11_tab
     matched = sum(tab["crossref"]["matched"] for tab in tabs)
     total = sum(tab["crossref"]["duts"] for tab in tabs)
 
@@ -334,6 +346,20 @@ def _l10_for(day: str) -> Optional[Dict[str, Any]]:
 
     try:
         return build_l10._day(day)
+    except Exception:                                     # noqa: BLE001
+        return None
+
+
+def _l11_for(day: str) -> Optional[Dict[str, Any]]:
+    """That day's L11 stages, built by the L11 tracker's own code.
+
+    Same arrangement as [_l10_for]: the stage matching, the pega5 host and the
+    aborted-is-an-outcome rule live in that module.
+    """
+    from . import build_l11
+
+    try:
+        return build_l11._day(day)
     except Exception:                                     # noqa: BLE001
         return None
 
@@ -810,6 +836,13 @@ def _sheet_versions(tab: Dict[str, Any], result_key: str) -> List[Optional[str]]
 #: module rows come from the line's own sheet is not made to look as though
 #: the sheet carried L10 too.
 L10_FROM = "0000-00-00"
+
+#: The earliest day L11 is looked for. Unlike L10 this one has a floor, and it
+#: is the day the line asked for it: before 08-17 pega5's rows are the rack
+#: bring-up that predates L11 being a tracked stage, and back-filling them
+#: would put a fortnight of debugging into the daily record as though it were
+#: production testing.
+L11_FROM = "2026-08-17"
 
 
 #: How far back to look before calling a unit new.
@@ -1327,7 +1360,11 @@ def _counts(rows: List[List[Dict[str, Any]]], header: List[Dict[str, Any]]) -> D
              and header[i].get("station", station) == station), None)
 
         def tally():
-            return {"pass": 0, "fail": 0, "blank": 0}
+            # `abort` is its own bucket, not part of `blank`. It only ever
+            # fills on L11, where a third of runs end without a verdict, and
+            # folding it into blank made the tile say "not run" about a rack
+            # that ran for an hour and gave up.
+            return {"pass": 0, "fail": 0, "abort": 0, "blank": 0}
 
         # Four tallies, from two independent questions the page has to keep
         # apart: everything the station ran versus release builds only, and
@@ -1341,7 +1378,7 @@ def _counts(rows: List[List[Dict[str, Any]]], header: List[Dict[str, Any]]) -> D
         for row in rows:
             cell = row[position] if position < len(row) else {}
             tone = cell.get("t")
-            bucket = tone if tone in tally() else "blank"
+            bucket = tone if tone in ("pass", "fail", "abort") else "blank"
 
             serial = (row[serial_at] or {}) if (
                 serial_at is not None and serial_at < len(row)) else {}

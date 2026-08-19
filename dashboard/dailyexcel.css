@@ -17,6 +17,8 @@
   --sheet-pass-text: #065f46;
   --sheet-fail-bg:   #fee2e2;
   --sheet-fail-text: #991b1b;
+  --sheet-abort-bg:   #fef3c7;
+  --sheet-abort-text: #8a5a00;
   --sheet-link:      #1d4ed8;
   --sheet-zebra:     rgba(11, 11, 11, 0.025);
   --sheet-rule:      rgba(11, 11, 11, 0.09);
@@ -33,6 +35,8 @@
     --sheet-pass-text: #6ee7b7;
     --sheet-fail-bg:   rgba(153, 27, 27, 0.32);
     --sheet-fail-text: #fca5a5;
+    --sheet-abort-bg:   rgba(138, 90, 0, 0.34);
+    --sheet-abort-text: #fcd34d;
     --sheet-link:      #7aa7e8;
     --sheet-zebra:     rgba(255, 255, 255, 0.030);
     --sheet-rule:      rgba(255, 255, 255, 0.10);
@@ -46,6 +50,8 @@
   --sheet-pass-text: #6ee7b7;
   --sheet-fail-bg:   rgba(153, 27, 27, 0.32);
   --sheet-fail-text: #fca5a5;
+  --sheet-abort-bg:   rgba(138, 90, 0, 0.34);
+  --sheet-abort-text: #fcd34d;
   --sheet-link:      #7aa7e8;
   --sheet-zebra:     rgba(255, 255, 255, 0.030);
   --sheet-rule:      rgba(255, 255, 255, 0.10);
@@ -577,3 +583,22 @@ a.rt-att:hover { outline: 1px solid currentColor; }
 .l10-head { font-size: 18px; margin: 0 0 4px; }
 .l10-sub { font-size: 12px; font-weight: 400; color: var(--text-muted);
            margin-left: 8px; }
+
+/* ------------------------------------------------- aborted, and retries */
+
+/* An aborted run is not a failed one and not an absent one: the rack tried and
+   never reached a verdict. Amber rather than red, and never the same as an
+   empty cell — on L11 during bring-up that distinction is most of the story. */
+.tone-abort {
+  background: var(--sheet-abort-bg);
+  color: var(--sheet-abort-text);
+  font-weight: 600;
+}
+.sheet-summary .tone-abort { color: var(--sheet-abort-text); background: none; }
+
+/* "×3" beside a verdict: the stage ran three times on this unit today and this
+   is the last of them. */
+.tries {
+  margin-left: 5px; font-size: 11px; font-variant-numeric: tabular-nums;
+  color: var(--text-muted); cursor: help;
+}
