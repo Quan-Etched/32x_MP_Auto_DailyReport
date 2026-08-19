@@ -1297,3 +1297,46 @@ class L10OnTheDailyTrackerTest(unittest.TestCase):
             self.assertIsNone(build_dailyexcel._l10_for("2026-08-18"))
         finally:
             build_l10._day = original
+
+
+class SerialHeadingTest(unittest.TestCase):
+    """Every daily table heads its serial column ``SN``.
+
+    Each was naming its own subject there — "DUT SN" over modules, "Chassis SN"
+    over L10, "Rack SN" over L11 — which made one column at three levels look
+    like three different things. The subject is stated above each table, where
+    it belongs.
+
+    The module table is the one that cannot be fixed at its source: its titles
+    come from the line's workbook, so the override happens after the tabs are
+    assembled and the workbook reader stays a faithful reader.
+    """
+
+    def tab(self, title):
+        return {"columns": [{"key": "A", "title": "Date"},
+                            {"key": "B", "title": title},
+                            {"key": "C", "title": "DUT PN"}]}
+
+    def test_a_sheet_heading_is_overridden(self):
+        tab = self.tab("DUT SN")
+        build_dailyexcel._serial_heading(tab)
+        self.assertEqual(tab["columns"][1]["title"], "SN")
+
+    def test_the_two_tables_underneath_are_covered_too(self):
+        tab = self.tab("DUT SN")
+        tab["l10"] = self.tab("Chassis SN")
+        tab["l11"] = self.tab("Rack SN")
+        build_dailyexcel._serial_heading(tab)
+        for table in (tab, tab["l10"], tab["l11"]):
+            self.assertEqual(table["columns"][1]["title"], "SN")
+
+    def test_no_other_column_is_touched(self):
+        tab = self.tab("DUT SN")
+        build_dailyexcel._serial_heading(tab)
+        self.assertEqual([c["title"] for c in tab["columns"]],
+                         ["Date", "SN", "DUT PN"])
+
+    def test_a_tab_with_no_l10_or_l11_is_fine(self):
+        tab = self.tab("DUT SN")
+        build_dailyexcel._serial_heading(tab)          # must not raise
+        self.assertEqual(tab["columns"][1]["title"], "SN")

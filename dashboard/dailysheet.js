@@ -191,33 +191,27 @@
     return !!(serial.seen && serial.seen[station]);
   }
 
-  /* A row is kept as new input when it is new at *any* station it ran that
-   * day, not every one.
+  /* Count new means completely new: no attempt at any station, anywhere in the
+   * lookback window.
    *
-   * "Every" was the first rule and it hid units the tiles were counting: on
-   * 08-16 every unit was returning to MLT and thirteen of them were fresh to
-   * HTT, so the table emptied while the HTT tile read 81.2% over thirteen
-   * units nobody could see. The tiles still judge each column on its own —
-   * that same row is excluded from MLT's tally and counted in HTT's — and the
-   * table shows the row because it carries new material somewhere. */
+   * The rule was "new at *any* station it ran that day", which kept a unit
+   * that was returning to MLT and fresh to HTT. That unit then sat in Count
+   * new carrying its MLT attempts in the Test History column — and a mode the
+   * line reads as "today's fresh material" is not fresh material if the rows
+   * in it have a history. One F1 on screen makes the whole population suspect,
+   * which is the opposite of what the mode is for.
+   *
+   * The cost is real. The tiles judge each column on its own and are computed
+   * from the unfiltered rows, so a day can headline an HTT yield over units
+   * this table no longer lists: 08-16 showed 16 rows under the old rule and
+   * shows none under this one. That is not a bug to fix by loosening the rule
+   * back — the caption says how many were left out, the note under the table
+   * says why, and Count all still shows every one of them. */
   function rowIsNew(tab, row) {
     var serialAt = columnIndex(tab, 'B');
     if (serialAt < 0) return true;
     var serial = row[serialAt] || {};
-    var seen = serial.seen || {};
-    var columns = tab.columns || [];
-    var ran = false;
-
-    for (var i = 0; i < columns.length; i++) {
-      var station = columns[i].station;
-      if (!station) continue;
-      var tone = (row[i] || {}).t;
-      if (tone !== 'pass' && tone !== 'fail') continue;
-      ran = true;
-      if (!seen[station]) return true;
-    }
-    /* Nothing graded on this row: there is no returning verdict to leave out. */
-    return !ran;
+    return !Object.keys(serial.seen || {}).length;
   }
 
   /* The build line under a heading, over whichever rows are showing: filter to
@@ -242,32 +236,15 @@
     els = els || el;
     els.summary.innerHTML = '';
 
-    /* A derived tab must never be mistaken for the line's own record. It says
-     * so before the numbers, not in a footnote under them. */
-    if (tab.derived) {
-      var from = tab.derivedFrom || {};
-      /* Name the controller that actually answered. Hard-coding pega3 here
-       * told the L10 page, which is built from pega4, that pega3 had been
-       * unreachable — a confident sentence about the wrong machine. */
-      var source = from.source || 'eos';
-      var viaPega = source.indexOf('pega') === 0;
-      els.summary.appendChild(h('div', { class: 'sheet-tile derived' }, [
-        h('span', { class: 'tile-title', text: viaPega
-          ? 'Rebuilt from ' + source + ' \u2014 not a hand-kept sheet'
-          : 'Rebuilt from EOS \u2014 not the line\u2019s sheet' }),
-        h('strong', { class: 'tile-value', text: from.runs + ' suite runs' }),
-        h('span', { class: 'tile-sub', text: viaPega
-          ? source + ' drives these stations, so it knows every unit by name ' +
-            'and every test case that failed on it.'
-          : 'The controller was unreachable, so this is graded from the ' +
-            'per-chip test names in EOS. That gives verdicts but not serials.' }),
-        /* "No HTT today" and "HTT ran five times and every one was a debug
-         * bundle" are different facts, and an empty column says the first
-         * while meaning the second. */
-        excludedNote(from),
-        debugNote(from)
-      ]));
-    }
+    /* Nothing about provenance here. The tile that used to open a derived
+     * tab — first with its suite-run count, then with the caveats that
+     * outlived it — is gone: the count answered no question anyone asks,
+     * and each caveat is already said closer to the numbers it qualifies.
+     * releaseOnly() prints the non-release builds on the station tile that
+     * counted them, which is where a reader is looking when it matters, and
+     * renderCaption names the source under every table. The strip now opens
+     * on the yields. */
+
     /* The tiles below now describe the filtered set, so the filter has to be
      * visible beside them. A 100% tile with no note is the screenshot that
      * gets quoted as the day's yield. */
@@ -308,21 +285,36 @@
           entry.sub ? h('span', { class: 'tile-build', text: entry.sub }) : null
         ]),
         h('strong', { class: 'tile-value', text: rate === null ? '—' : rate + '%' }),
-        h('span', { class: 'tile-sub' }, [
+        /* Passed and failed alone on the first line under the rate. They are
+         * what the tile is read for, and they used to share a line with the
+         * not-run count, the mode note and the other population's figure —
+         * four facts reflowing into one grey paragraph in which the two that
+         * matter were the hardest to pick out. Everything else sits below now,
+         * one fact per line. */
+        h('span', { class: 'tile-sub tile-verdicts' }, [
           h('span', { class: 'tone-pass', text: shownCounts.pass + ' passed' }),
           h('span', { text: ' · ' }),
-          h('span', { class: 'tone-fail', text: shownCounts.fail + ' failed' }),
-          /* Aborted before "not run", because they are opposite claims: one
-             rack tried and gave up, the other never started. */
-          shownCounts.abort
-            ? h('span', { class: 'tone-abort',
-                          text: ' · ' + shownCounts.abort + ' aborted' })
-            : null,
-          shownCounts.blank
-            ? h('span', { class: 'tile-blank',
-                          text: ' · ' + shownCounts.blank + ' not run' })
-            : null
+          h('span', { class: 'tone-fail', text: shownCounts.fail + ' failed' })
         ]),
+        /* Aborted before "not run", because they are opposite claims: one rack
+           tried and gave up, the other never started. Both are the absence of a
+           verdict, so they share a line under the verdicts — and the line is
+           dropped rather than left empty when there is neither. */
+        (shownCounts.abort || shownCounts.blank)
+          ? h('span', { class: 'tile-sub tile-unrun' }, [
+              shownCounts.abort
+                ? h('span', { class: 'tone-abort',
+                              text: shownCounts.abort + ' aborted' })
+                : null,
+              (shownCounts.abort && shownCounts.blank)
+                ? h('span', { text: ' · ' })
+                : null,
+              shownCounts.blank
+                ? h('span', { class: 'tile-blank',
+                              text: shownCounts.blank + ' not run' })
+                : null
+            ])
+          : null,
         h('span', { class: 'tile-sub tile-mode', text: countMode === 'new'
           ? 'new input only — ' + entry.returning + ' returning unit' +
             (entry.returning === 1 ? '' : 's') + ' left out'
@@ -353,34 +345,6 @@
     }
   }
 
-  /* Counted, but a day whose only HTT was a debug bundle reads very
-   * differently from a normal day. The version column already names the build
-   * per row; this puts it where the yield tile is, which is where the number
-   * gets read from. */
-  function debugNote(from) {
-    var builds = from.debugBuilds || {};
-    var stations = Object.keys(builds);
-    if (!stations.length) return null;
-    var parts = stations.map(function (key) {
-      return key.toUpperCase() + ': ' + builds[key].join(', ');
-    });
-    return h('span', { class: 'tile-sub tile-debug',
-      text: 'Counted, and not a release build — ' + parts.join(' · ') +
-            '. Filter the version column to see release-only numbers.' });
-  }
-
-  function excludedNote(from) {
-    var excluded = from.excluded || {};
-    var stations = Object.keys(excluded);
-    if (!stations.length) return null;
-    var parts = stations.map(function (key) {
-      return key.toUpperCase() + ': ' + excluded[key].join(', ');
-    });
-    return h('span', { class: 'tile-sub tile-excluded',
-      text: 'Engineering runs left out of this tab — ' + parts.join(' · ') +
-            '. They ran on the line; they are not line units.' });
-  }
-
   /* ----------------------------------------------------------------- table */
 
   /* Which rows are showing, and why.
@@ -392,6 +356,13 @@
    * empty — Excel does the same, and the alternative reads as a broken filter.
    */
   var view = { filters: {}, sort: null };
+
+  /* Whether the table being drawn right now has a Test History column, so the
+   * DUT SN cell knows not to repeat what that column already says. Set by
+   * renderTable before its rows are built and read by renderCell inside the
+   * same synchronous pass — the three tables on the page each set it for their
+   * own rows. */
+  var historyColumn = false;
 
   function textOf(cell) {
     return cell && cell.v != null ? String(cell.v) : '';
@@ -624,10 +595,11 @@
      * returning to MLT and fresh to HTT — their earlier attempts existed, and
      * the one column that shows them was the one the mode had switched off.
      * Now: if anything on screen has a history, the column is there. */
-    var splitSerial = rows.some(function (row) {
+    var showHistory = rows.some(function (row) {
       var serial = row[columnIndex(tab, 'B')] || {};
-      return !!(serial.seen && Object.keys(serial.seen).length);
+      return !!(serial.history && Object.keys(serial.history).length);
     });
+    historyColumn = showHistory;
 
     columns.forEach(function (column) {
       var on = !!view.filters[column.key];
@@ -660,13 +632,13 @@
         cell.style.minWidth = Math.round(column.width * 7 + 12) + 'px';
       }
       head.appendChild(cell);
-      if (splitSerial && column.key === 'B') {
-        head.appendChild(h('th', { scope: 'col', class: 'col-retested' }, [
+      if (showHistory && column.key === 'B') {
+        head.appendChild(h('th', { scope: 'col', class: 'col-history' }, [
           h('span', { class: 'col-head' }, [
-            h('span', { class: 'col-name', text: 'Retested DUT SN' })
+            h('span', { class: 'col-name', text: 'Test History' })
           ]),
           h('span', { class: 'col-build',
-                      text: 'seen at this station before today' })
+                      text: 'earlier attempts at this station' })
         ]));
       }
     });
@@ -685,17 +657,17 @@
       tr.appendChild(h('td', { class: 'col-index', text: String(index + 1) }));
       row.forEach(function (cell, position) {
         var column = columns[position];
-        if (splitSerial && column && column.key === 'B') {
-          /* One serial, two columns: a returning unit lands in the second and
-           * leaves the first empty, so the eye can separate the day's fresh
-           * material from its re-runs without reading a single serial. */
-          var returning = !!(cell.seen && Object.keys(cell.seen).length);
-          tr.appendChild(returning
-            ? h('td', { class: 'serial' })
-            : renderCell(cell, column, wraps[position]));
-          tr.appendChild(returning
-            ? retestedCell(cell)
-            : h('td', { class: 'serial retested' }));
+        if (showHistory && column && column.key === 'B') {
+          /* One serial, one column — always.
+           *
+           * The serial used to move into a second column when the unit was a
+           * returning one, which put the day's units under two headings: to
+           * read "which units ran today" you had to scan down both, and the
+           * DUT SN column sat empty on every returning row. Now DUT SN holds
+           * every serial in both count modes, and the column beside it holds
+           * what varies — the attempts that unit already made here. */
+          tr.appendChild(renderCell(cell, column, wraps[position]));
+          tr.appendChild(historyCell(cell));
           return;
         }
         var td = renderCell(cell, column, wraps[position]);
@@ -772,23 +744,24 @@
       h('strong', { text: countMode === 'new'
         ? 'Counting new input only.' : 'Counting every unit.' }),
       document.createTextNode(countMode === 'new'
-        ? ' The table and the tiles cover units this station had not seen in ' +
-          'the ' + lookback + ' days before this one. ' + hidden +
-          ' returning unit' + (hidden === 1 ? '' : 's') + ' ' +
+        ? ' The table is units with no earlier attempt at any station in the ' +
+          'previous ' + lookback + ' days — completely new material, so every ' +
+          'Test History cell in it is empty. ' + hidden + ' unit' +
+          (hidden === 1 ? '' : 's') + ' with a history ' +
           (hidden === 1 ? 'is' : 'are') + ' left out, because a unit that ' +
           'failed last week and is re-run today says whether a fix worked — ' +
-          'not how today’s build went. Both yields are on every tile either ' +
-          'way. Press Count all to bring the returning units into the table, ' +
-          'where each carries its earlier attempts as F1 P2 — F failed, P ' +
-          'passed, numbered from the unit’s first visit, each one a link to ' +
-          'that run.'
+          'not how today’s build went. The tiles still judge each column on ' +
+          'its own and carry both yields, so a tile can count a unit this ' +
+          'table leaves out. Press Count all to see them, each with its ' +
+          'earlier attempts as F1 P2 — F failed, P passed, numbered from the ' +
+          'unit’s first visit, each one a link to that run.'
         : ' Every row is in the table and in the figures, new material and ' +
           're-runs together. That is the day’s whole workload, and it is not ' +
           'a build yield: ' + returning + ' of these units had already been ' +
-          'through this station within ' + lookback + ' days, and they sit ' +
-          'in their own Retested DUT SN column with a link per earlier ' +
-          'attempt — F1 is the first attempt and it failed, P2 the second ' +
-          'and it passed. Press Count new for the fresh material on its own.')
+          'through this station within ' + lookback + ' days, and the Test ' +
+          'History column beside each serial links every earlier attempt — ' +
+          'F1 is the first attempt and it failed, P2 the second and it ' +
+          'passed. Press Count new for the fresh material on its own.')
     ]));
   }
 
@@ -821,18 +794,20 @@
     els.caption.appendChild(reset);
   }
 
-  /* A returning serial, with a link per prior attempt.
+  /* What this unit already did here, one link per prior attempt.
    *
    * F1 is the first attempt and it failed; P2 is the second and it passed.
    * The letter is the verdict and the number is which attempt, counted from
    * the unit's first — so F7 means the seventh, not the seventh of the ones
    * that fit on the row. Each opens that run on the controller, which is what
    * makes "this unit has been here four times" checkable rather than a claim.
+   *
+   * Empty for a unit on its first visit. The cell is a blank, not a dash: a
+   * dash would read as a missing value, and "no earlier attempt" is the
+   * ordinary case, not a gap.
    */
-  function retestedCell(cell) {
-    var td = h('td', { class: 'serial retested' });
-    td.appendChild(h('span', { class: 'rt-serial', text: cell.v || '' }));
-
+  function historyCell(cell) {
+    var td = h('td', { class: 'history' });
     var history = cell.history || {};
     Object.keys(history).forEach(function (station) {
       var line = h('span', { class: 'rt-line' });
@@ -851,6 +826,13 @@
         chip.appendChild(document.createTextNode(mark));
         line.appendChild(chip);
       });
+      /* The date of the last of them, in the open. The chips carry it in a
+       * tooltip, and "when was this unit last here" is the question the
+       * column is most often read for — too common to make anyone hover. */
+      var last = history[station][history[station].length - 1];
+      if (last && last.day) {
+        line.appendChild(h('span', { class: 'rt-when', text: last.day }));
+      }
       td.appendChild(line);
     });
     return td;
@@ -908,8 +890,13 @@
     }
 
     /* When a returning unit was last at this station. Without it "returning"
-     * is an assertion the reader has to take on trust. */
-    if (column && column.key === 'B' && cell.seen) {
+     * is an assertion the reader has to take on trust.
+     *
+     * Not here when the Test History column is drawn: it stands immediately
+     * to the right carrying the same station and the same date, and printing
+     * it twice buys nothing while making DUT SN something other than a column
+     * of serials. */
+    if (column && column.key === 'B' && cell.seen && !historyColumn) {
       var days = Object.keys(cell.seen).map(function (station) {
         return station.toUpperCase() + ' ' + cell.seen[station];
       });
@@ -1043,8 +1030,10 @@
       return;
     }
     block.hidden = false;
-    byId('l10-sub').textContent = l10.rows.length + ' chassis · ' +
-      ((l10.derivedFrom || {}).runs || 0) + ' suite runs · pega4';
+    /* Chassis and controller. The suite-run count that used to sit between
+     * them is gone here for the same reason it left the tile above: it is
+     * not how anyone reads a day. */
+    byId('l10-sub').textContent = l10.rows.length + ' chassis · pega4';
     renderTable(l10, {
       summary: byId('l10-summary'), head: byId('l10-head'),
       body: byId('l10-body'), caption: byId('l10-caption'),
@@ -1064,8 +1053,7 @@
     }
     block.hidden = false;
     byId('l11-sub').textContent = l11.rows.length + ' rack' +
-      (l11.rows.length === 1 ? '' : 's') + ' · ' +
-      ((l11.derivedFrom || {}).runs || 0) + ' suite runs · pega5';
+      (l11.rows.length === 1 ? '' : 's') + ' · pega5';
     renderTable(l11, {
       summary: byId('l11-summary'), head: byId('l11-head'),
       body: byId('l11-body'), caption: byId('l11-caption'),

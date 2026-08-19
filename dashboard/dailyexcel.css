@@ -91,8 +91,24 @@
   font-variant-numeric: tabular-nums;
 }
 
-.sheet-tile .tile-sub { font-size: 12px; color: var(--text-secondary); }
+/* One fact per line. These were inline spans, so the verdicts, the not-run
+   count, the count-mode note and the other population's figure reflowed into a
+   single grey paragraph — and the two numbers the tile exists for were the
+   hardest things in it to find. */
+.sheet-tile .tile-sub { display: block; font-size: 12px; color: var(--text-secondary); }
 .sheet-tile .tile-blank { color: var(--text-muted); }
+
+/* Passed and failed, directly under the rate: the headline, set at the body
+   size but weighted so it reads before the lines below it. */
+.sheet-tile .tile-verdicts {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sheet-tile .tile-verdicts > span { display: inline; }
+.sheet-tile .tile-unrun { margin-top: 2px; }
+.sheet-tile .tile-unrun > span { display: inline; }
 .sheet-tile.warn { border-color: var(--status-warning); }
 
 .sheet-summary .tone-pass { color: var(--sheet-pass-text); background: none; }
@@ -253,18 +269,6 @@ span.jira-key { color: var(--text-secondary); }
   .sheet-wrap { max-height: 68vh; }
 }
 
-/* A tab rebuilt from the API rather than exported from the line's sheet. The
-   warning colour is the point: the numbers are ours, not theirs. */
-.sheet-tile.derived {
-  flex-basis: 100%;
-  border-color: var(--status-warning);
-  border-left-width: 3px;
-}
-
-.sheet-tile.derived .tile-value {
-  font-size: 18px;
-  color: var(--text-secondary);
-}
 
 /* ------------------------------------------------------- build provenance */
 /* Release, commit and repo in the masthead. Quiet by default — it is
@@ -479,25 +483,6 @@ span.jira-key { color: var(--text-secondary); }
 
 .sheet-tile.filtered .tile-value { color: var(--accent-solid); }
 
-/* Engineering runs the tab deliberately left out. Stated, because an empty
-   column otherwise reads as "the station was idle". */
-.sheet-tile .tile-excluded {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px dashed var(--border);
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-/* A debug build that was counted. Marked, not hidden — the number includes it
-   and the reader should know before quoting it. */
-.sheet-tile .tile-debug {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px dashed var(--status-warning);
-  color: var(--status-warning);
-}
-
 /* The release-only figure, wherever the tile above it counts a validation or
    debug build too. Marked, because the difference between the two numbers is
    exactly what gets misread. */
@@ -534,15 +519,15 @@ span.jira-key { color: var(--text-secondary); }
 /* Which population the tile counted. */
 .sheet-tile .tile-mode { color: var(--text-muted); font-style: italic; }
 
-/* ------------------------------------------------------ retested serials */
+/* --------------------------------------------------------- test history */
 
-/* In Count all a returning serial gets its own column, so the day's fresh
-   material and its re-runs separate without the reader parsing a serial. */
-.sheet-table th.col-retested { min-width: 210px; }
-.sheet-table td.serial.retested { white-space: nowrap; }
-.rt-serial { display: block;
-             font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-.rt-line { display: block; margin-top: 2px; }
+/* Beside the DUT SN, never instead of it: every serial stays in the one
+   column in both count modes, and this column holds what varies — the
+   attempts that unit already made at this station. Blank on a first visit. */
+.sheet-table th.col-history { min-width: 150px; }
+.sheet-table td.history { white-space: nowrap; vertical-align: middle; }
+.rt-line { display: block; }
+.rt-line + .rt-line { margin-top: 2px; }
 .rt-station { font-size: 10px; color: var(--text-muted); margin-right: 4px;
               letter-spacing: 0.03em; }
 
@@ -554,6 +539,10 @@ span.jira-key { color: var(--text-secondary); }
   font-variant-numeric: tabular-nums; text-decoration: underline;
   text-underline-offset: 2px;
 }
+/* When the last of them was — the question the column is most read for. */
+.rt-when { font-size: 10px; color: var(--text-muted); font-style: italic;
+           margin-left: 2px; font-variant-numeric: tabular-nums; }
+
 .rt-att.a-pass { color: var(--sheet-pass-text); background: var(--sheet-pass-bg); }
 .rt-att.a-fail { color: var(--sheet-fail-text); background: var(--sheet-fail-bg); }
 a.rt-att:hover { outline: 1px solid currentColor; }

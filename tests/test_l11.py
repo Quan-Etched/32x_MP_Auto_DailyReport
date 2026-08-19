@@ -76,7 +76,7 @@ class ColumnTest(unittest.TestCase):
     def test_four_columns_per_stage_after_the_rack(self):
         columns = build_l11._columns()
         titles = [c["title"] for c in columns]
-        self.assertEqual(titles[:3], ["Date", "Rack SN", "DUT PN"])
+        self.assertEqual(titles[:3], ["Date", "SN", "DUT PN"])
         self.assertEqual(len(titles), 3 + 2 * 4)
         self.assertEqual(titles[3], "L11 Provision Results")
         self.assertEqual(titles[7], "L11 Test Results")
@@ -210,10 +210,11 @@ class DayTest(unittest.TestCase):
 
 
 class AttachTest(unittest.TestCase):
-    def test_l11_is_not_looked_for_before_the_line_asked_for_it(self):
-        """Before 08-17 pega5's rows are rack bring-up that predates L11 being
-        a tracked stage; back-filling them would read as production testing."""
-        self.assertEqual(build_dailyexcel.L11_FROM, "2026-08-17")
+    def test_l11_is_looked_for_on_every_published_day(self):
+        """The floor was at 08-17, which kept the rack power-cycle campaign of
+        08-11 to 08-14 off the only page it can be seen on. The table names
+        pega5 as its source, so an early day cannot read as sheet data."""
+        self.assertEqual(build_dailyexcel.L11_FROM, build_dailyexcel.L10_FROM)
 
     def test_an_l11_build_error_does_not_take_the_module_tab_with_it(self):
         from factory import pega

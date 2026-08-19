@@ -154,13 +154,16 @@ if __name__ == "__main__":
 
 
 class RetestColumnTest(unittest.TestCase):
-    """The Retested DUT SN column and its F/P traces.
+    """The Test History column and its F/P traces.
 
-    It was drawn only in Count all, on the assumption that Count new has no
-    returning units to put in it. A row is kept as new input when it is new at
-    *any* station, so on 08-16 all sixteen shown rows are returning to MLT and
-    fresh to HTT — their earlier attempts existed and the one column that shows
-    them was switched off by the mode.
+    Two rules were wrong here in turn. The column was drawn only in Count all,
+    which switched it off on exactly the days that needed it; and a returning
+    unit's DUT SN moved into the column with it, spreading the day's units over
+    two headings. Now the serial always stays in DUT SN, and the column is
+    drawn whenever anything on screen has a history to put in it.
+
+    Which, since Count new became "no history anywhere", means in practice:
+    populated in Count all, absent in Count new.
     """
 
     def script(self):
@@ -168,8 +171,54 @@ class RetestColumnTest(unittest.TestCase):
 
     def test_the_column_follows_the_data_not_the_mode(self):
         text = self.script()
-        self.assertNotIn("var splitSerial = countMode === 'all';", text)
-        self.assertIn("var splitSerial = rows.some(", text)
+        self.assertNotIn("var showHistory = countMode === 'all';", text)
+        self.assertIn("var showHistory = rows.some(", text)
+
+    def test_the_serial_stays_in_one_column(self):
+        """Both cells are appended unconditionally: DUT SN renders for every
+        row, and the history cell beside it is what is empty or full."""
+        text = self.script()
+        self.assertIn("tr.appendChild(renderCell(cell, column, wraps[position]));\n"
+                      "          tr.appendChild(historyCell(cell));", text)
+        self.assertNotIn("Retested DUT SN", text)
+        self.assertIn("text: 'Test History'", text)
+
+    def test_the_last_seen_note_does_not_double_up_on_the_serial(self):
+        """The note under the serial and the column beside it said the same
+        thing. The column keeps it, with the links; DUT SN goes back to being
+        a column of serials."""
+        text = self.script()
+        self.assertIn("cell.seen && !historyColumn", text)
+        self.assertIn("class: 'rt-when'", text)
+
+    def test_count_new_is_units_with_no_history_anywhere(self):
+        """Count new used to keep a unit that was new at *any* station, so a
+        row returning to MLT and fresh to HTT sat in it carrying its MLT
+        attempts. A mode read as "today's fresh material" cannot show rows
+        with a history."""
+        text = self.script()
+        self.assertIn("return !Object.keys(serial.seen || {}).length;", text)
+        self.assertNotIn("if (!seen[station]) return true;", text)
+
+    def test_the_derived_provenance_tile_is_gone(self):
+        """Its suite-run count went first, then the caveats that outlived it:
+        releaseOnly() states the non-release builds on the tile that counted
+        them, and renderCaption names the source under every table."""
+        text = self.script()
+        self.assertNotIn("Read these numbers with", text)
+        self.assertNotIn("function debugNote", text)
+        self.assertNotIn("function excludedNote", text)
+        self.assertIn("releaseOnly(entry)", text)
+
+    def test_the_tile_puts_passed_and_failed_on_their_own_line(self):
+        """They are what the tile is read for. They used to share a reflowing
+        grey paragraph with the not-run count, the mode note and the other
+        population's figure."""
+        text = self.script()
+        self.assertIn("class: 'tile-sub tile-verdicts'", text)
+        self.assertIn("class: 'tile-sub tile-unrun'", text)
+        css = (DASHBOARD / "dailyexcel.css").read_text(encoding="utf-8")
+        self.assertIn(".sheet-tile .tile-sub { display: block;", css)
 
     def test_the_marks_are_built_from_the_attempt_number(self):
         """F1 is the first attempt and it failed; the number is the unit's own

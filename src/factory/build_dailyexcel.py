@@ -276,6 +276,7 @@ def build_bundle(
             l11_tab = _l11_for(tab["day"])
             if l11_tab:
                 tab["l11"] = l11_tab
+        _serial_heading(tab)
     matched = sum(tab["crossref"]["matched"] for tab in tabs)
     total = sum(tab["crossref"]["duts"] for tab in tabs)
 
@@ -306,6 +307,31 @@ def build_bundle(
         },
         "warnings": warnings,
     }
+
+
+#: What the serial column is called on every daily table.
+SERIAL_HEADING = "SN"
+
+
+def _serial_heading(tab: Dict[str, Any]) -> None:
+    """Head the serial column ``SN`` on this tab and on the two under it.
+
+    The three tables are read together and each was naming its own subject in
+    the column head — "DUT SN" over modules, "Chassis SN" over L10, "Rack SN"
+    over L11 — which made one column at three levels look like three different
+    things. The subject is already stated where it belongs: the section heading
+    above each table says L10 or L11 and counts chassis or racks.
+
+    This is the one place the module table can be changed. L10 and L11 set the
+    title in their own ``_columns``; the module table's comes from the line's
+    workbook, and a sheet-copied tab carries whatever heading the export had.
+    Rewriting it here rather than at parse time keeps the workbook reader a
+    faithful reader — the only thing overridden is what the page prints.
+    """
+    for table in (tab, tab.get("l10"), tab.get("l11")):
+        for column in (table or {}).get("columns") or []:
+            if column.get("key") == "B":
+                column["title"] = SERIAL_HEADING
 
 
 def _candidate_days(payload: Dict[str, Any]) -> set:
@@ -837,23 +863,38 @@ def _sheet_versions(tab: Dict[str, Any], result_key: str) -> List[Optional[str]]
 #: the sheet carried L10 too.
 L10_FROM = "0000-00-00"
 
-#: The earliest day L11 is looked for. Unlike L10 this one has a floor, and it
-#: is the day the line asked for it: before 08-17 pega5's rows are the rack
-#: bring-up that predates L11 being a tracked stage, and back-filling them
-#: would put a fortnight of debugging into the daily record as though it were
-#: production testing.
-L11_FROM = "2026-08-17"
+#: The earliest day L11 is looked for.
+#:
+#: Every published day, same as L10. This had a floor at 08-17, on the argument
+#: that pega5's earlier rows are rack bring-up rather than production testing.
+#: They are — and the daily tracker is the only place they can be seen, so the
+#: floor was not keeping bring-up out of the production record, it was keeping
+#: L11 off the page for the fortnight it was actually being worked on. The
+#: table says "from pega5" and sits under the module and L10 ones, so no day's
+#: rack runs can be read as something the line's own sheet recorded.
+L11_FROM = "0000-00-00"
 
 
 #: How far back to look before calling a unit new.
 #:
-#: Ten days. A day's yield is normally read as "how did today's build go", and
-#: a unit that failed on Monday and is re-run on Thursday answers a different
-#: question — it says whether a fix worked, not how the fresh material is
-#: doing. Mixing the two moves the number without anything on the line
-#: changing. Ten days is long enough to catch the retest campaigns this line
-#: actually runs and short enough to stay inside what the controllers keep.
-NEW_INPUT_LOOKBACK = 10
+#: A day's yield is normally read as "how did today's build go", and a unit
+#: that failed a fortnight ago and is re-run today answers a different question
+#: — it says whether a fix worked, not how the fresh material is doing. Mixing
+#: the two moves the number without anything on the line changing.
+#:
+#: Thirty days, asked for by the line. It was ten, chosen to cover the retest
+#: campaigns as they were then run; the campaigns since have been longer than
+#: that — a unit failing at MLT in the first week of the month and coming back
+#: at the end of it counted as fresh material, which is the one thing this
+#: window exists to prevent. Thirty is still inside what the controllers keep
+#: (pega holds ninety), so the window is a judgement about the line rather
+#: than a limit of the source.
+#:
+#: This is one number, not two: it decides both which rows are new input and
+#: how far the Test History column reaches back. Splitting them would let the
+#: table show an attempt that the tile beside it had already ruled out of
+#: scope.
+NEW_INPUT_LOOKBACK = 30
 
 
 #: How many prior attempts a returning serial carries. Enough to show a

@@ -153,7 +153,14 @@ def _columns() -> List[Dict[str, Any]]:
     """
     columns = [
         {"key": "A", "title": "Date", "width": None},
-        {"key": "B", "title": "Chassis SN", "width": 16.0},
+        # Just "SN". It read "Chassis SN", then "DUT SN", and the heading is
+        # the wrong place for the argument either way: the three daily tables
+        # are read together, and each naming its own subject in the column head
+        # made one column at three levels look like three different things. The
+        # section heading above the table says L10 and counts chassis, which is
+        # where the subject belongs. build_dailyexcel._serial_heading does the
+        # same for the module table, whose title comes from the workbook.
+        {"key": "B", "title": "SN", "width": 16.0},
         {"key": "C", "title": "DUT PN", "width": 14.0},
     ]
     index = 3

@@ -60,10 +60,15 @@ class FailureTest(unittest.TestCase):
 class ColumnTest(unittest.TestCase):
     def test_four_columns_per_stage_after_the_chassis(self):
         """Result, version, failure, link — the module tracker's shape, so the
-        two pages share a renderer and a tally rather than drifting."""
+        two pages share a renderer and a tally rather than drifting.
+
+        Just "SN". It read "Chassis SN", then "DUT SN"; the three daily tables
+        are read together and each naming its own subject in the column head
+        made one column at three levels look like three different things. The
+        heading over the table still says L10 and still counts chassis."""
         columns = build_l10._columns()
         titles = [c["title"] for c in columns]
-        self.assertEqual(titles[:3], ["Date", "Chassis SN", "DUT PN"])
+        self.assertEqual(titles[:3], ["Date", "SN", "DUT PN"])
         self.assertEqual(len(titles), 3 + 4 * 4)
         self.assertEqual(titles[3], "L10 FAT Results")
         self.assertEqual(titles[4], "L10 FAT Version")

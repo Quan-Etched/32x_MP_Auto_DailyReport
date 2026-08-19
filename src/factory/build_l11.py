@@ -113,7 +113,9 @@ def _columns() -> List[Dict[str, Any]]:
     """
     columns = [
         {"key": "A", "title": "Date", "width": None},
-        {"key": "B", "title": "Rack SN", "width": 16.0},
+        # "SN", not "Rack SN" — see the note in build_l10._columns. The
+        # heading above the table says L11 and counts racks.
+        {"key": "B", "title": "SN", "width": 16.0},
         {"key": "C", "title": "DUT PN", "width": 12.0},
     ]
     index = 3
