@@ -235,3 +235,89 @@ class RetestColumnTest(unittest.TestCase):
         """Both populations are wanted daily; neither should be behind a
         toggle."""
         self.assertIn("tile-other", self.script())
+
+
+class TableZoomTest(unittest.TestCase):
+    """Zooming the tables, on the gesture a spreadsheet uses.
+
+    The sheet is thirteen columns wide and the L10 one is nineteen, so both
+    stay wider than the screen they are read on. The only way to reach the HTT
+    column was the horizontal scrollbar, which the line reported as the most
+    awkward thing about the page: in Excel you press a key and the table
+    shrinks until you can see all of it.
+    """
+
+    def page(self):
+        return (DASHBOARD / "dailyexcel.html").read_text(encoding="utf-8")
+
+    def script(self):
+        return (DASHBOARD / "dailysheet.js").read_text(encoding="utf-8")
+
+    def style(self):
+        return (DASHBOARD / "dailyexcel.css").read_text(encoding="utf-8")
+
+    def test_the_control_is_on_the_page(self):
+        page = self.page()
+        for element in ("zoom-out", "zoom-in", "zoom-level",
+                        "zoom-fit", "zoom-reset", "zoom-note"):
+            with self.subTest(element=element):
+                self.assertIn('id="%s"' % element, page)
+
+    def test_it_zooms_rather_than_scales(self):
+        """zoom is a layout operation, so the table really becomes narrower and
+        the scroll container has less to scroll. transform would shrink only
+        the paint and leave the scrollport believing it was full width."""
+        style = self.style()
+        self.assertIn(".sheet-table { zoom: var(--sheet-zoom, 1); }", style)
+        # The declaration, not the comment above it explaining why not, and
+        # not text-transform, which the sticky header legitimately sets.
+        declarations = [line.split("/*")[0] for line in style.splitlines()]
+        self.assertFalse([d for d in declarations
+                          if re.search(r"(^|[\s;{])transform\s*:", d)])
+
+    def test_one_value_drives_every_table(self):
+        """Set on the root element, so the module, L10 and L11 tables cannot
+        end up at three different sizes on one page."""
+        self.assertIn(
+            "document.documentElement.style.setProperty('--sheet-zoom'",
+            self.script())
+
+    def test_the_shortcut_needs_shift(self):
+        """Cmd+/- is the browser's own page zoom and still works: it shrinks
+        the tiles and the prose too, which is sometimes what a reader wants.
+        Taking it over would remove that and pick a fight with a shortcut every
+        browser reserves. Cmd+Shift+/- is what the line asked for and is free."""
+        text = self.script()
+        self.assertIn(
+            "if (!(event.metaKey || event.ctrlKey) || !event.shiftKey || event.altKey) {",
+            text)
+
+    def test_the_keys_are_matched_by_physical_code(self):
+        """event.key for the shifted characters is layout-dependent; the code
+        is the physical key, so this survives a keyboard that does not put +
+        and - where a US one does."""
+        text = self.script()
+        for code in ("'Minus'", "'Equal'", "'Digit0'"):
+            with self.subTest(code=code):
+                self.assertIn(code, text)
+
+    def test_fit_measures_at_full_size(self):
+        """The table carries min-width:100%, so at any zoom where it already
+        fits, scrollWidth equals clientWidth — a ratio taken there would report
+        "fitted" at every level. Reading the natural width first is the only
+        measurement that means anything."""
+        text = self.script()
+        self.assertIn("function fitZoom() {\n    setZoom(1);", text)
+
+    def test_fit_says_so_when_it_could_not_fit(self):
+        """A control that promises to fit and quietly does not is worse than
+        one that says how far it got. L10 needs 44% at a full-screen window and
+        the floor is 50%."""
+        text = self.script()
+        self.assertIn("still scrolls", text)
+        self.assertIn("zoomNote(", text)
+
+    def test_the_level_survives_a_reload(self):
+        """Somebody who found the level at which their day fits on one screen
+        should not have to find it again every morning."""
+        self.assertIn("factory.daily.zoom", self.script())

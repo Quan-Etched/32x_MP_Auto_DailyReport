@@ -567,6 +567,185 @@
   });
   window.addEventListener('resize', closeMenu);
 
+  /* ----------------------------------------------------------- table zoom */
+
+  /* The sheet is thirteen columns wide and stays wider than the screen. Until
+   * now the only way to reach the HTT column was the horizontal scrollbar,
+   * which the line reports as the single most awkward thing about reading this
+   * page: in Excel you press a key and the whole table shrinks until you can
+   * see it.
+   *
+   * So: one zoom for every table on the page, on the Excel gesture.
+   *
+   * WHY Cmd+Shift+± AND NOT Cmd+±
+   * Cmd+± is the browser's own page zoom, and it already works — it shrinks
+   * the tiles and the prose along with the table, which is sometimes what a
+   * reader wants. Taking it over would remove that, and would also mean this
+   * page fighting a shortcut every browser reserves. Cmd+Shift+± is the
+   * gesture the line actually asked for, it is free, and it leaves the two
+   * zooms independent: page zoom for everything, this for the tables.
+   */
+
+  //: Excel-ish stops. Not a free-running multiplier — a percentage that lands
+  //: on a round number is one a reader can report back over Slack.
+  var ZOOM_STEPS = [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.5];
+  var ZOOM_MIN = ZOOM_STEPS[0];
+  var ZOOM_MAX = ZOOM_STEPS[ZOOM_STEPS.length - 1];
+
+  /* Kept across reloads. Somebody who found the level at which their day fits
+   * on one screen should not have to find it again every morning. */
+  var ZOOM_STORE = 'factory.daily.zoom';
+
+  var zoom = 1;
+
+  function storedZoom() {
+    try {
+      var saved = parseFloat(window.localStorage.getItem(ZOOM_STORE));
+      /* Anything outside the range is a value this code never wrote — a stale
+       * key, a hand-edited store — and 100% is the safe reading of it. */
+      return (saved >= ZOOM_MIN && saved <= ZOOM_MAX) ? saved : 1;
+    } catch (err) {
+      return 1;                    /* storage disabled or blocked; not fatal */
+    }
+  }
+
+  function applyZoom() {
+    document.documentElement.style.setProperty('--sheet-zoom', String(zoom));
+
+    var level = byId('zoom-level');
+    if (level) level.textContent = Math.round(zoom * 100) + '%';
+    var group = level && level.parentNode;
+    if (group) {
+      group.className = 'zoom' + (Math.abs(zoom - 1) > 0.001 ? ' is-zoomed' : '');
+    }
+    /* A stepper that cannot step should say so rather than going quiet. */
+    var out = byId('zoom-out'), into = byId('zoom-in');
+    if (out) out.disabled = zoom <= ZOOM_MIN + 0.001;
+    if (into) into.disabled = zoom >= ZOOM_MAX - 0.001;
+
+    try { window.localStorage.setItem(ZOOM_STORE, String(zoom)); } catch (err) {}
+  }
+
+  function setZoom(next) {
+    zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, next));
+    zoomNote('');
+    applyZoom();
+  }
+
+  /* What the toolbar says when the answer is not simply the percentage. */
+  function zoomNote(text) {
+    var note = byId('zoom-note');
+    if (!note) return;
+    note.textContent = text;
+    note.hidden = !text;
+  }
+
+  //: Which table a scroll box belongs to, for the note above.
+  var TABLE_NAMES = {
+    'sheet-table': 'the module table',
+    'l10-table': 'the L10 table',
+    'l11-table': 'the L11 table'
+  };
+
+  function stepZoom(direction) {
+    var index;
+    if (direction > 0) {
+      for (index = 0; index < ZOOM_STEPS.length; index++) {
+        if (ZOOM_STEPS[index] > zoom + 0.001) return setZoom(ZOOM_STEPS[index]);
+      }
+      return setZoom(ZOOM_MAX);
+    }
+    for (index = ZOOM_STEPS.length - 1; index >= 0; index--) {
+      if (ZOOM_STEPS[index] < zoom - 0.001) return setZoom(ZOOM_STEPS[index]);
+    }
+    return setZoom(ZOOM_MIN);
+  }
+
+  /* Shrink until the widest table on the page fits its box.
+   *
+   * Measured at 100% rather than scaled from wherever the zoom happens to be:
+   * the table carries min-width:100%, so at a zoom where it already fits,
+   * scrollWidth equals clientWidth and a ratio taken there would say "you are
+   * fitted" at every level. Reading the natural width first is the only
+   * measurement that means anything.
+   *
+   * Not a mode. A later window resize does not re-fit — a zoom that moved on
+   * its own while somebody was reading would be worse than one that is simply
+   * where they left it. */
+  function fitZoom() {
+    setZoom(1);
+
+    var scale = 1;
+    var wraps = document.querySelectorAll('.sheet-wrap');
+    for (var i = 0; i < wraps.length; i++) {
+      var wrap = wraps[i];
+      /* offsetParent is null for the L10/L11 blocks on a day that has none.
+       * Measuring a hidden block returns zeroes and would fit to nothing. */
+      if (wrap.offsetParent === null) continue;
+      var room = wrap.clientWidth;          /* reading these forces the reflow */
+      var need = wrap.scrollWidth;
+      if (room > 0 && need > room) scale = Math.min(scale, room / need);
+    }
+    /* Floor rather than round, so the last column lands inside the box instead
+     * of one pixel outside it with a scrollbar to prove it. */
+    setZoom(Math.floor(scale * 100) / 100);
+
+    /* 50% is the floor because 50% of 13px is the smallest this table has any
+     * business being, and the widest one on the page — L10, nineteen columns —
+     * needs 44% at a full-screen window and 33% at a narrow one. So Fit width
+     * cannot always fit, and when it cannot it says which table is still short
+     * rather than leaving somebody to wonder why the scrollbar survived a
+     * button labelled Fit. Page zoom stacks on top of this if they need it. */
+    var worst = null, over = 0;
+    var after = document.querySelectorAll('.sheet-wrap');
+    for (var j = 0; j < after.length; j++) {
+      if (after[j].offsetParent === null) continue;
+      var short = after[j].scrollWidth - after[j].clientWidth;
+      if (short > over) {
+        over = short;
+        worst = (after[j].querySelector('table') || {}).id;
+      }
+    }
+    if (over > 1) {
+      zoomNote((TABLE_NAMES[worst] || 'one table') + ' still scrolls \u2014 ' +
+               Math.round(ZOOM_MIN * 100) + '% is as small as these go');
+    }
+  }
+
+  function bindZoom() {
+    var out = byId('zoom-out'), into = byId('zoom-in');
+    var fit = byId('zoom-fit'), reset = byId('zoom-reset');
+    if (out) out.addEventListener('click', function () { stepZoom(-1); });
+    if (into) into.addEventListener('click', function () { stepZoom(1); });
+    if (fit) fit.addEventListener('click', fitZoom);
+    if (reset) reset.addEventListener('click', function () { setZoom(1); });
+
+    document.addEventListener('keydown', function (event) {
+      if (!(event.metaKey || event.ctrlKey) || !event.shiftKey || event.altKey) {
+        return;
+      }
+      /* event.code is the physical key, so this survives the layouts where +
+       * and - are not where a US keyboard puts them; event.key is the fallback
+       * for the shifted characters those layouts produce. */
+      var code = event.code || '';
+      var key = event.key || '';
+      var smaller = code === 'Minus' || code === 'NumpadSubtract' ||
+                    key === '_' || key === '-';
+      var bigger = code === 'Equal' || code === 'NumpadAdd' ||
+                   key === '+' || key === '=';
+      var back = code === 'Digit0' || code === 'Numpad0' ||
+                 key === '0' || key === ')';
+      if (!smaller && !bigger && !back) return;
+
+      event.preventDefault();
+      if (back) setZoom(1);
+      else stepZoom(bigger ? 1 : -1);
+    });
+
+    zoom = storedZoom();
+    applyZoom();
+  }
+
   /* ---------------------------------------------------------------- table */
 
   function renderTable(tab, els) {
@@ -1095,6 +1274,7 @@
       return;
     }
 
+    bindZoom();
     renderNotes();
     show();
     window.addEventListener('hashchange', show);

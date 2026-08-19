@@ -34,6 +34,33 @@
   <main id="content">
     <section class="sheet-summary" id="summary"></section>
 
+    <!-- Zoom, for the same reason a spreadsheet has one: the sheet is wider
+         than the screen it is read on, and the way the line already knows to
+         see all of it at once is to zoom out — not to drag a horizontal
+         scrollbar hunting for the HTT column.
+
+         One control for all three tables on the page. Cmd/Ctrl+Shift+± and
+         Cmd/Ctrl+Shift+0 drive it from the keyboard, which is the Excel
+         gesture the line asked for; plain Cmd/Ctrl+± is deliberately left
+         alone so the browser's own page zoom still works alongside it. -->
+    <div class="sheet-tools">
+      <span class="zoom-note" id="zoom-note" hidden></span>
+      <span class="zoom-label" id="zoom-label">Table zoom</span>
+      <div class="zoom" role="group" aria-labelledby="zoom-label">
+        <button type="button" class="zoom-step" id="zoom-out"
+                aria-label="Zoom out"
+                title="Zoom out&#10;⌘⇧−  ·  Ctrl+Shift+−">&#8722;</button>
+        <span class="zoom-level" id="zoom-level" aria-live="polite">100%</span>
+        <button type="button" class="zoom-step" id="zoom-in"
+                aria-label="Zoom in"
+                title="Zoom in&#10;⌘⇧+  ·  Ctrl+Shift++">+</button>
+        <button type="button" class="zoom-act" id="zoom-fit"
+                title="Shrink the tables until every column fits with no sideways scrolling">Fit width</button>
+        <button type="button" class="zoom-act" id="zoom-reset"
+                title="Back to 100%&#10;⌘⇧0  ·  Ctrl+Shift+0">Reset</button>
+      </div>
+    </div>
+
     <div class="table-wrap sheet-wrap">
       <table class="sheet-table" id="sheet-table">
         <caption id="sheet-caption"></caption>

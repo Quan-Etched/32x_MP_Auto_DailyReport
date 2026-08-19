@@ -114,6 +114,90 @@
 .sheet-summary .tone-pass { color: var(--sheet-pass-text); background: none; }
 .sheet-summary .tone-fail { color: var(--sheet-fail-text); background: none; }
 
+/* ------------------------------------------------------------- table zoom */
+
+/* `zoom`, not `transform: scale()`.
+   zoom is a layout operation: the table genuinely becomes narrower, so the
+   scroll container has less to scroll, the sticky header still sticks to the
+   scrollport, and "fit" can be computed from scrollWidth. transform only
+   shrinks the painted result — the scrollport would go on believing the table
+   was full width, leaving a shrunken table adrift in its own dead space with
+   the scrollbar unchanged.
+
+   Set on :root by dailysheet.js so one value drives all three tables. The
+   fallback keeps the page at 100% if the script never runs. */
+.sheet-table { zoom: var(--sheet-zoom, 1); }
+
+.sheet-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 14px 0 6px;
+}
+
+.zoom-label { font-size: 12px; color: var(--text-muted); }
+
+/* Said only when Fit width could not deliver on its name. A control that
+   promises to fit and then quietly does not is worse than one that says how
+   far it got. */
+.zoom-note {
+  font-size: 12px;
+  color: var(--status-warning);
+  font-style: italic;
+  margin-right: auto;
+}
+
+.zoom {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.zoom-step,
+.zoom-act {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  padding: 4px 10px;
+}
+
+/* Square, so the pair reads as one stepper rather than two words. */
+.zoom-step {
+  min-width: 30px;
+  font-size: 15px;
+  line-height: 1;
+  padding: 4px 0;
+}
+
+.zoom-step:hover,
+.zoom-act:hover { background: var(--hover-wash); color: var(--text-primary); }
+.zoom-step:disabled { opacity: 0.4; cursor: default; background: transparent; }
+
+.zoom-step:focus-visible,
+.zoom-act:focus-visible { outline: 2px solid var(--accent-solid); outline-offset: 1px; }
+
+/* The current level, between the two steppers. Tabular so stepping through
+   50 / 60 / 100 / 125 does not shuffle the buttons sideways. */
+.zoom-level {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+/* Said only when the tables are not at 100%, so a reader who zoomed out and
+   then went to lunch cannot mistake a shrunken page for a rendering fault. */
+.zoom.is-zoomed .zoom-level { font-weight: 600; color: var(--accent-solid); }
+
 /* ------------------------------------------------------------------ table */
 
 .sheet-wrap {
