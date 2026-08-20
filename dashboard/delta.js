@@ -767,7 +767,13 @@
   }
 
   function init() {
-    if (!byId('table-body')) return;
+    /* Guard on an element the stage tables cannot work without, and name it
+     * from the same list they render into — this guard held a stale id after
+     * the single table was split in two, and a stale id here does not fail
+     * loudly, it renders an empty page with every heading still in place. */
+    if (!STAGES.every(function (stage) { return byId('body-' + stage.key); })) {
+      return;
+    }
     render();
     window.addEventListener('hashchange', render);
   }
