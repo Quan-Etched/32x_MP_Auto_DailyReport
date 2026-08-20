@@ -223,3 +223,54 @@ class WeekIsSevenDaysTest(unittest.TestCase):
     def test_the_days_that_had_runs_are_untouched(self):
         got = build_weekly._every_day(self.rows(), "2026-08-10", "2026-08-16", True)
         self.assertEqual(got[0], self.rows()[0])
+
+
+class WeekToDateTest(unittest.TestCase):
+    """The flow chart counts the week the line is standing in.
+
+    It showed the same trailing seven days the station page does, which on a
+    Thursday is half of this week and half of last — so a number quoted on
+    Thursday covered days already quoted on Monday under a different heading.
+    """
+
+    def payload(self):
+        from datetime import date, timedelta
+        today = date(2026, 8, 20)                       # a Thursday
+        monday = today - timedelta(days=today.weekday())
+        return {
+            "runs": [_run((monday + timedelta(days=d)).strftime("%Y-%m-%d"))
+                     for d in range(4)] +
+                    [_run((monday - timedelta(days=d)).strftime("%Y-%m-%d"))
+                     for d in (1, 2, 3)],
+            "source": "pega", "timezone": "UTC",
+        }
+
+    def test_the_window_starts_on_monday(self):
+        import datetime as dt
+        window = build_stations.build_ranged_bundle(self.payload())["windowWeek"]
+        monday = dt.datetime.strptime(window["weekOf"], "%Y-%m-%d").date()
+        self.assertEqual(monday.weekday(), 0)
+
+    def test_it_carries_a_start_time_and_a_last_counted_time(self):
+        """Read at nine on a Thursday, a pair of dates does not say whether
+        this morning's units are in the number."""
+        window = build_stations.build_ranged_bundle(self.payload())["windowWeek"]
+        self.assertTrue(window["startedAt"].startswith(window["weekOf"]))
+        self.assertIn("T00:00:00", window["startedAt"])
+        self.assertIsNotNone(window["lastRunAt"])
+        self.assertGreater(window["lastRunAt"], window["startedAt"])
+
+    def test_last_week_is_not_dragged_in(self):
+        """The whole point. The rolling window had three of these."""
+        bundle = build_stations.build_ranged_bundle(self.payload())
+        week = {s["key"]: s["runs"] for s in bundle["stationsWeek"]}
+        every = {s["key"]: s["runs"] for s in bundle["stationsAll"]}
+        self.assertEqual(week["__all__"], 4)
+        self.assertEqual(every["__all__"], 7)
+
+    def test_the_week_is_the_calendar_week_not_the_last_seven_with_data(self):
+        """A Monday with nothing on it is a Monday the line did not run.
+        Reaching back into the previous Sunday to fill it would be the rolling
+        window again under another name."""
+        window = build_stations.build_ranged_bundle(self.payload())["windowWeek"]
+        self.assertGreaterEqual(window["from"], window["weekOf"])

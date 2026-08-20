@@ -451,3 +451,26 @@ class ParetoDrilldownTest(unittest.TestCase):
         """Where a failure happens is the first thing anyone asks, and it is
         what decides who owns it."""
         self.assertIn("name: 'stations'", self.read("charts.js"))
+
+
+class FlowWindowTest(unittest.TestCase):
+    """The flow chart counts this week, and says how current it is."""
+
+    def script(self):
+        return (DASHBOARD / "flow.js").read_text(encoding="utf-8")
+
+    def test_it_reads_the_week_set(self):
+        text = self.script()
+        self.assertIn("STATIONS.viewsWeek || STATIONS.views", text)
+        self.assertIn("STATIONS.windowWeek || STATIONS.window", text)
+
+    def test_no_reader_is_left_on_the_rolling_set(self):
+        """One page, one window. A box drawn from the seven-day views beside a
+        heading that says "week to date" is the drift this replaces."""
+        self.assertNotIn("(STATIONS.views || {})[", self.script())
+
+    def test_both_ends_are_shown_as_times(self):
+        text = self.script()
+        self.assertIn("week to date", text)
+        self.assertIn("last counted", text)
+        self.assertIn("function stamp(iso)", text)

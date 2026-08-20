@@ -12,7 +12,7 @@ The retest *detail* table is capped; everything else is small by construction
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -243,6 +243,58 @@ def build_ranged_bundle(payload: Dict[str, Any],
     bundle["viewsAll"] = full["views"]
     bundle["stationsAll"] = full["stations"]
     bundle["windowAll"] = full["window"]
+
+    # Week to date, for the flow chart. See _week_bundle.
+    week = _week_bundle(floored, state, tz_name)
+    bundle["viewsWeek"] = week["views"]
+    bundle["stationsWeek"] = week["stations"]
+    bundle["windowWeek"] = week["window"]
+    return bundle
+
+
+def _week_bundle(payload: Dict[str, Any], state: Optional[Dict[str, Any]],
+                 tz_name: str) -> Dict[str, Any]:
+    """Monday of the current week to now, accumulating.
+
+    WHY THE FLOW CHART DOES NOT WANT A ROLLING WINDOW
+    It was showing the same trailing seven days the station page does, which on
+    a Thursday is half of this week and half of last. The flow chart is the one
+    the line stands in front of and reads as "how are we doing" — and the answer
+    to that is about the week they are in, not about a window that drags a
+    finished week along behind it. Monday's number should start at Monday.
+
+    The week is the calendar week, not the last seven days with data: a Monday
+    with nothing on it is a Monday the line did not run, and quietly reaching
+    back into the previous Sunday to fill it would be the rolling window again
+    under another name. So an empty early week reads as empty, which is true.
+
+    The window carries a start *time* and the time of the last run counted, not
+    only dates. Read at 09:00 on a Thursday, "2026-08-17 to 2026-08-20" does not
+    say whether this morning's units are in it; "last counted 2026-08-20 07:41Z"
+    does.
+    """
+    today = datetime.now(timezone.utc).date()
+    monday = today - timedelta(days=today.weekday())
+    start = monday.strftime("%Y-%m-%d")
+
+    scoped = dict(payload)
+    scoped["runs"] = [run for run in payload.get("runs") or []
+                      if run.get("startTs")
+                      and daily.day_key(run["startTs"], tz_name) >= start]
+    bundle = build_bundle(scoped, state, 0)
+
+    stamps = [run["startTs"] for run in scoped["runs"] if run.get("startTs")]
+    window = dict(bundle.get("window") or {})
+    window["weekOf"] = start
+    window["from"] = window.get("from") or start
+    window["startedAt"] = "{}T00:00:00Z".format(start) if tz_name == "UTC" else \
+        "{}T00:00:00".format(start)
+    window["lastRunAt"] = (
+        datetime.fromtimestamp(max(stamps), timezone.utc)
+        .replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        if stamps else None)
+    window["runs"] = len(scoped["runs"])
+    bundle["window"] = window
     return bundle
 
 

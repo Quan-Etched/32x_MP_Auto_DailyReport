@@ -142,8 +142,34 @@
 
   function byId(id) { return document.getElementById(id); }
 
+  /* 2026-08-20T00:04:12Z -> 2026-08-20 00:04 UTC. Minutes, not seconds: this
+     says how fresh a figure is, and nobody needs it to the second. */
+  function stamp(iso) {
+    if (!iso) return '—';
+    var text = String(iso).replace('T', ' ').replace('Z', '');
+    return text.slice(0, 16) + (String(iso).indexOf('Z') > -1 ? ' UTC' : '');
+  }
+
+  /* Week to date, not the trailing seven days.
+   *
+   * This chart is the one the line stands in front of and reads as "how are we
+   * doing". A rolling window answers that with half of this week and half of
+   * last, so a number quoted on Thursday covers days that were already quoted
+   * on Monday under a different heading. The week the line is standing in is
+   * the week it should show, accumulating from Monday.
+   *
+   * Falls back to the seven-day set if an older bundle has no week views, so
+   * the page renders rather than emptying while a build catches up. */
+  function views() {
+    return STATIONS.viewsWeek || STATIONS.views || {};
+  }
+
+  function windowOf() {
+    return STATIONS.windowWeek || STATIONS.window || {};
+  }
+
   function summary(key) {
-    var view = (STATIONS.views || {})[key];
+    var view = views()[key];
     return (view && view.summary) || null;
   }
 
@@ -375,16 +401,30 @@
     el.lanes = byId('lanes');
     el.legend = byId('legend');
 
-    var win = STATIONS.window || {};
-    byId('meta').textContent = win.from
-      ? 'yields from ' + win.from + ' to ' + win.to +
-        (win.days ? ' \u00b7 ' + win.days + ' days' : '')
-      : 'flow only — no station data loaded';
+    var win = windowOf();
+    /* Both ends as times, not dates.
+     *
+     * Read at nine on a Thursday, "2026-08-17 to 2026-08-20" does not say
+     * whether this morning's units are in the number. The start says which
+     * Monday the count began, and the last-counted stamp says how current it
+     * is — which is the question anyone asks of a live figure. */
+    byId('meta').textContent = win.weekOf
+      ? 'week to date \u00b7 from ' + stamp(win.startedAt) +
+        ' \u00b7 last counted ' + (win.lastRunAt ? stamp(win.lastRunAt) : 'nothing yet') +
+        (win.runs ? ' \u00b7 ' + win.runs + ' unit runs' : '')
+      : (win.from
+         ? 'yields from ' + win.from + ' to ' + win.to +
+           (win.days ? ' \u00b7 ' + win.days + ' days' : '')
+         : 'flow only — no station data loaded');
 
-    /* The prose said "last 30 days" while the bundle moved to 7. Read the
-       number rather than restate it, so the two cannot drift again. */
+    /* The prose used to say how many days the window covered. It is a week
+       now, and how much of it has happened is on the line above. */
     var days = byId('window-days');
-    if (days) days.textContent = win.days ? String(win.days) : '—';
+    if (days) {
+      days.textContent = win.weekOf
+        ? 'this week, from Monday ' + win.weekOf
+        : (win.days ? 'the last ' + win.days + ' days' : 'the collected window');
+    }
 
     renderLanes();
     renderCombined();
