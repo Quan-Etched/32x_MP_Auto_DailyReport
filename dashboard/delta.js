@@ -249,51 +249,110 @@
 
   /* ---------------------------------------------------------------- table  */
 
+  /* One row per unit, five columns, and the fifth is the only one that asks
+   * anybody for anything.
+   *
+   * The first cut of this table had a row per *delta* and seven columns, and it
+   * was unreadable: a unit that differed on three fields appeared three times,
+   * "Stage / Local sheet / Online / Delta / Question for" spread one fact
+   * across five cells, and the thirty rows that were only ever going to say
+   * "ran after the cut" filled the screen before the interesting ones. The
+   * shape below is the one that was asked for, and it is better — a serial, is
+   * it in each place, where to look, and what to do about it.
+   *
+   * Action_Item is blank only when the two readings agree on everything. A unit
+   * present in both that disagrees on a verdict or a failure case is still a
+   * discrepancy, so it still gets an ask; "in both" is not the same as "agrees".
+   */
   var COLUMNS = [
-    { key: 'sn', title: 'DUT SN' },
-    { key: 'where', title: 'Shown in' },
-    { key: 'station', title: 'Stage' },
-    { key: 'local', title: 'Local sheet' },
-    { key: 'online', title: 'Online' },
-    { key: 'kind', title: 'Delta' },
-    { key: 'asks', title: 'Question for' }
+    { key: 'sn',       title: 'DUT_SN' },
+    { key: 'excel',    title: 'Excel' },
+    { key: 'dashboard', title: 'Dashboard' },
+    { key: 'location', title: 'Location' },
+    { key: 'action',   title: 'Action_Item' }
   ];
 
-  function whereChip(where) {
-    var text = { both: 'both', local: 'sheet only', online: 'dashboard only' }[where]
-               || where;
-    return h('span', { class: 'where w-' + where, text: text });
+  /* Excel's own A1 notation, so a location can be read out loud and typed into
+   * the Name Box. The tab name is included because the workbook has twenty. */
+  function cellRef(day, unit) {
+    if (!unit.row) return '';
+    var column = (day.columns || {}).sn || 'B';
+    return day.tab + '!' + column + unit.row;
   }
 
-  function caseList(names) {
-    if (!names || !names.length) return h('span', { class: 'blank', text: '—' });
-    var wrap = h('span', { class: 'cases' });
-    names.forEach(function (name) {
-      wrap.appendChild(h('code', { text: name }));
-    });
-    return wrap;
-  }
-
-  function verdict(value) {
-    if (!value || value === 'blank') {
-      return h('span', { class: 'blank', text: 'not run' });
-    }
-    return h('span', { class: 'v-' + value, text: value });
-  }
-
-  function rowsFor(day) {
-    var out = [];
-    (day.units || []).forEach(function (unit) {
-      if (view.only === 'deltas' && !unit.deltas.length) return;
-      if (!unit.deltas.length) {
-        out.push({ unit: unit, delta: null });
-        return;
+  function runUrl(unit) {
+    /* The run behind the thing the row is asking about.
+     *
+     * Not simply the first link on the unit: a row whose only discrepancy is
+     * in HTT would otherwise send the reader to the MLT run, where there is
+     * nothing to see. The stage named in the first delta wins; a unit with no
+     * delta has nothing to chase, so MLT then HTT is fine for it. */
+    var stages = [];
+    (unit.deltas || []).forEach(function (delta) {
+      if (delta.station && stages.indexOf(delta.station) === -1) {
+        stages.push(delta.station);
       }
-      unit.deltas.forEach(function (delta) {
-        out.push({ unit: unit, delta: delta });
-      });
     });
-    return out;
+    ['mlt', 'htt'].forEach(function (stage) {
+      if (stages.indexOf(stage) === -1) stages.push(stage);
+    });
+    for (var i = 0; i < stages.length; i++) {
+      var url = (unit[stages[i]] || {}).url;
+      if (url) return url;
+    }
+    return '';
+  }
+
+  /* What a row is asking for, in the words the ask came in. */
+  function actionFor(unit) {
+    if (unit.where === 'local') {
+      return 'Deep dive on why there is excel record? Mistake in Excel or Dash?';
+    }
+    if (unit.where === 'online') {
+      return 'Deep dive on why there is dash record? Mistake in Dash or Excel?';
+    }
+    if (!unit.deltas.length) return '';
+    /* In both, and they disagree. Name what disagrees rather than sending the
+     * reader back to a legend: the field, then the two values. */
+    return unit.deltas.map(function (delta) {
+      var meta = kindOf(delta.kind);
+      var local = Array.isArray(delta.local)
+        ? (delta.local.join(' + ') || 'blank') : (delta.local || 'blank');
+      var online = Array.isArray(delta.online)
+        ? (delta.online.join(' + ') || 'blank') : (delta.online || 'blank');
+      return delta.field + ': Excel says ' + local + ', Dashboard says ' +
+             online + ' — ' + meta.label.toLowerCase() + ', question for ' +
+             (SIDE_LABEL[meta.side] || meta.side);
+    }).join('. ');
+  }
+
+  function yesNo(value) {
+    return h('span', { class: value ? 'yes' : 'no', text: value ? 'YES' : 'NO' });
+  }
+
+  /* The rows, in the order and shape both the table and the CSV use. Built once
+   * so the file somebody downloads cannot disagree with the page they
+   * downloaded it from. */
+  function rowsFor(day) {
+    return (day.units || []).filter(function (unit) {
+      return view.only !== 'deltas' || unit.deltas.length || unit.where !== 'both';
+    }).map(function (unit) {
+      var inExcel = unit.where !== 'online';
+      var inDash = unit.where !== 'local';
+      return {
+        unit: unit,
+        sn: unit.sn,
+        excel: inExcel,
+        dashboard: inDash,
+        /* Where to go and look. The run link where there is one, because that
+         * is the thing a reader can open; the sheet cell for a unit only Excel
+         * has, because there is no run to open. */
+        url: inDash ? runUrl(unit) : '',
+        cell: cellRef(day, unit),
+        sheetUrl: unit.row ? sheetUrl(day, unit.row) : '',
+        action: actionFor(unit)
+      };
+    });
   }
 
   function renderTable(day) {
@@ -303,76 +362,111 @@
 
     var tr = h('tr', {});
     COLUMNS.forEach(function (column) {
-      tr.appendChild(h('th', { text: column.title }));
+      tr.appendChild(h('th', { class: 'c-' + column.key, text: column.title }));
     });
     head.appendChild(tr);
 
     var rows = rowsFor(day);
-    rows.forEach(function (entry) {
-      var unit = entry.unit, delta = entry.delta;
-      var line = h('tr', { class: delta ? 'has-delta' : 'agrees' });
-      line.appendChild(snCell(day, unit));
-      line.appendChild(h('td', {}, [whereChip(unit.where)]));
+    rows.forEach(function (row) {
+      var line = h('tr', { class: row.action ? 'has-delta' : 'agrees' });
 
-      if (!delta) {
-        line.appendChild(h('td', { class: 'dim', text: 'MLT · HTT' }));
-        line.appendChild(h('td', { class: 'dim' }, [verdict(unit.mlt.local),
-                                                    document.createTextNode(' · '),
-                                                    verdict(unit.htt.local)]));
-        line.appendChild(h('td', { class: 'dim' }, [verdict(unit.mlt.online),
-                                                    document.createTextNode(' · '),
-                                                    verdict(unit.htt.online)]));
-        line.appendChild(h('td', {}, [h('span', { class: 'kind-ok', text: 'agrees' })]));
-        line.appendChild(h('td', { class: 'dim', text: '—' }));
-        body.appendChild(line);
-        return;
-      }
-
-      var meta = kindOf(delta.kind);
-      var isCase = delta.kind.indexOf('case') === 0;
-      line.appendChild(h('td', { text: delta.field }));
-
-      if (isCase) {
-        line.appendChild(h('td', {}, [caseList(delta.local)]));
-        line.appendChild(h('td', {}, [caseList(delta.online)]));
-      } else if (delta.kind === 'population') {
-        line.appendChild(h('td', {}, [h('span', {
-          class: delta.local === 'present' ? 'v-pass' : 'blank',
-          text: delta.local })]));
-        line.appendChild(h('td', {}, [h('span', {
-          class: delta.online === 'present' ? 'v-pass' : 'blank',
-          text: delta.online })]));
-      } else {
-        line.appendChild(h('td', {}, [verdict(delta.local)]));
-        line.appendChild(h('td', {}, [verdict(delta.online)]));
-      }
-
-      line.appendChild(h('td', {}, [
-        h('span', { class: 'kind k-' + delta.kind, text: meta.label,
-                    title: meta.note }),
-        delta.fixture
-          ? h('span', { class: 'kind-extra',
-                        text: delta.fixture.join(', ') + ' — no slot' })
-          : null
+      /* The serial links into the sheet where the sheet has it — the cheapest
+       * way to get from a row here to the row it came from. */
+      line.appendChild(h('td', { class: 'mono' }, [
+        row.sheetUrl
+          ? h('a', { href: row.sheetUrl, target: '_blank',
+                     rel: 'noopener noreferrer',
+                     title: row.cell, text: row.sn })
+          : document.createTextNode(row.sn)
       ]));
-      line.appendChild(h('td', { class: 'asks',
-                                 text: SIDE_LABEL[meta.side] || meta.side }));
+      line.appendChild(h('td', { class: 'c-excel' }, [yesNo(row.excel)]));
+      line.appendChild(h('td', { class: 'c-dashboard' }, [yesNo(row.dashboard)]));
+
+      var location = h('td', { class: 'c-location' });
+      if (row.url) {
+        location.appendChild(h('a', {
+          href: row.url, target: '_blank', rel: 'noopener noreferrer',
+          class: 'fi-link', title: row.url, text: 'FI_Link'
+        }));
+      } else if (row.cell) {
+        location.appendChild(row.sheetUrl
+          ? h('a', { href: row.sheetUrl, target: '_blank',
+                     rel: 'noopener noreferrer', class: 'mono-sm',
+                     text: row.cell })
+          : h('span', { class: 'mono-sm', text: row.cell }));
+      } else {
+        location.appendChild(h('span', { class: 'blank', text: '—' }));
+      }
+      line.appendChild(location);
+
+      line.appendChild(h('td', { class: 'c-action', text: row.action }));
       body.appendChild(line);
     });
 
-    var withDelta = (day.units || []).filter(function (u) {
-      return u.deltas.length;
-    }).length;
+    var asking = rows.filter(function (row) { return row.action; }).length;
     byId('table-sub').textContent =
-      withDelta + ' of ' + plural((day.units || []).length, 'unit') +
-      ' differ between the two readings, over ' +
-      plural(rows.filter(function (r) { return r.delta; }).length, 'delta') + '.';
+      rows.length + ' rows, ' + asking + ' with something to chase. ' +
+      'Action_Item is blank where Excel and the dashboard agree on everything.';
+    renderDownload(day, rows);
   }
 
+  /* --------------------------------------------------------------- the CSV */
+
+  /* The same five columns, built from the same rows the table was.
+   *
+   * Generated in the browser rather than written out by the build: the file has
+   * to match the filter that is on screen, and a file on disk could only ever
+   * match one of them. */
+  function csvFor(rows) {
+    var out = [COLUMNS.map(function (column) { return column.title; })];
+    rows.forEach(function (row) {
+      out.push([
+        row.sn,
+        row.excel ? 'YES' : 'NO',
+        row.dashboard ? 'YES' : 'NO',
+        /* The URL itself, not the words "FI_Link" — a spreadsheet cell reading
+         * "FI_Link" with no link in it is worse than useless. */
+        row.url || row.cell || '',
+        row.action
+      ]);
+    });
+    return out.map(function (line) {
+      return line.map(function (cell) {
+        var text = String(cell === null || cell === undefined ? '' : cell);
+        return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+      }).join(',');
+    }).join('\r\n');
+  }
+
+  function renderDownload(day, rows) {
+    var host = byId('download');
+    if (!host) return;
+    host.innerHTML = '';
+    /* A BOM, because this is opened in Excel by the people who keep the sheet,
+     * and without one Excel reads UTF-8 as its local codepage. */
+    var blob = new Blob(['\ufeff' + csvFor(rows)],
+                        { type: 'text/csv;charset=utf-8' });
+    var name = 'delta-' + day.day + (view.only === 'deltas' ? '-to-chase' : '-all')
+               + '.csv';
+    host.appendChild(h('a', {
+      class: 'view-toggle', download: name, href: URL.createObjectURL(blob),
+      title: 'the ' + rows.length + ' rows below, exactly as filtered'
+    }, [document.createTextNode('Download CSV')]));
+  }
+
+  /* -------------------------------------------------------------- filters  */
+
+  /* Two views, and the default hides nothing that needs chasing.
+   *
+   * "Only what needs chasing" keeps every row with an Action_Item — which
+   * includes every unit that is on one side only, since those all carry an ask
+   * by definition. "Every unit" adds back the rows where the two readings agree
+   * completely, for anyone checking one specific serial. */
   function renderFilters(day) {
     var host = byId('filters');
     host.innerHTML = '';
-    [['deltas', 'Only the deltas'], ['all', 'Every unit']].forEach(function (pair) {
+    [['deltas', 'Only what needs chasing'],
+     ['all', 'Every unit']].forEach(function (pair) {
       var button = h('button', {
         type: 'button', class: 'view-toggle' + (view.only === pair[0] ? ' on' : ''),
         'aria-pressed': view.only === pair[0] ? 'true' : 'false', text: pair[1]

@@ -52,9 +52,10 @@
       <div id="reconcile"></div>
     </section>
 
-    <!-- The complete list. Every unit on either side, not only the ones that
-         disagree — a reader checking a specific serial needs to find it here
-         whether or not it is a problem. -->
+    <!-- One row per unit: is it in each place, where to look, and what to do
+         about it. Every unit on either side is available, not only the ones
+         that disagree — a reader checking a specific serial needs to find it
+         here whether or not it is a problem. -->
     <section class="card full" style="margin-top:16px">
       <div class="card-head">
         <div>
@@ -63,6 +64,9 @@
         </div>
         <span class="spacer"></span>
         <div class="delta-filters" id="filters"></div>
+        <!-- Built in the browser from the rows on screen, so the file cannot
+             disagree with the table it came from. -->
+        <div class="delta-filters" id="download"></div>
       </div>
       <div class="table-wrap">
         <table class="delta-table" id="table">

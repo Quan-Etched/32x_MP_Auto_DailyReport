@@ -54,14 +54,31 @@
   text-align: right; font-variant-numeric: tabular-nums;
 }
 
-/* Which reading a unit is in. Neutral by design — "sheet only" is not a fault,
-   and on 08-20 "dashboard only" mostly means "ran after the cut". */
-.where {
-  font-size: 11px; padding: 1px 7px; border-radius: 999px;
-  border: 1px solid var(--border); color: var(--text-muted); white-space: nowrap;
+/* YES / NO, and neither is coloured as a verdict. A unit missing from one side
+   is not a fault on that side — on 08-20 almost every NO in the Excel column
+   means "ran after the sheet was cut". So NO is only dimmed, never red: the
+   Action_Item column is where a row says whether anything is actually wrong. */
+.yes, .no {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.03em;
+  font-variant-numeric: tabular-nums;
 }
-.where.w-local  { color: var(--series-4); border-color: currentColor; }
-.where.w-online { color: var(--series-1); border-color: currentColor; }
+.yes { color: var(--text-secondary); }
+.no  { color: var(--text-muted); }
+
+/* Column widths. The action is the long one and gets whatever is left; the
+   four before it are all short and fixed, so the eye can run down them. */
+.delta-table th.c-excel, .delta-table th.c-dashboard,
+.delta-table td.c-excel, .delta-table td.c-dashboard {
+  width: 5.5em; text-align: center;
+}
+.delta-table th.c-location, .delta-table td.c-location { width: 12em; }
+.delta-table td.c-action { color: var(--text-secondary); line-height: 1.5; }
+
+.fi-link { color: var(--accent-solid); font-size: 11.5px; white-space: nowrap; }
+.mono-sm {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; color: var(--accent-solid);
+}
 
 .v-pass { color: var(--success-text); font-weight: 600; }
 .v-fail { color: var(--status-critical); font-weight: 600; }
