@@ -410,3 +410,44 @@ class DayCalendarTest(unittest.TestCase):
         for kind in ("is-future", "is-before", "is-empty"):
             with self.subTest(kind=kind):
                 self.assertIn(kind, text)
+
+
+class ParetoDrilldownTest(unittest.TestCase):
+    """A bar is a question, so it should be answerable.
+
+    The chart could say "794 failures in Other" and offer no way to find out
+    what they were — a tooltip with a share and one test name out of thirty,
+    and no mention of which station. That is a Pareto as decoration.
+    """
+
+    def read(self, name):
+        return (DASHBOARD / name).read_text(encoding="utf-8")
+
+    def test_both_pages_have_somewhere_to_put_the_breakdown(self):
+        self.assertIn('id="pareto-detail"', self.read("index.html"))
+        self.assertIn('id="wk-pareto-detail"', self.read("week.html"))
+
+    def test_the_breakdown_is_rendered_by_the_shared_library(self):
+        """Two implementations would answer "which station" two ways."""
+        charts = self.read("charts.js")
+        self.assertIn("function renderAreaDetail(", charts)
+        self.assertIn("renderAreaDetail: renderAreaDetail", charts)
+        for page in ("stations.js", "week.js"):
+            with self.subTest(page=page):
+                self.assertIn("renderAreaDetail(", self.read(page))
+
+    def test_the_pareto_takes_a_select_handler(self):
+        charts = self.read("charts.js")
+        self.assertIn("function renderPareto(plot, rows, opts) {", charts)
+        self.assertIn("opts.onSelect", charts)
+
+    def test_it_answers_where_what_and_which_units(self):
+        charts = self.read("charts.js")
+        for question in ("Where it failed", "What failed", "Units most affected"):
+            with self.subTest(question=question):
+                self.assertIn(question, charts)
+
+    def test_the_tooltip_names_stations_rather_than_one_test(self):
+        """Where a failure happens is the first thing anyone asks, and it is
+        what decides who owns it."""
+        self.assertIn("name: 'stations'", self.read("charts.js"))

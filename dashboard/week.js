@@ -367,7 +367,17 @@
     C.renderTrend(byId('plot-wk-relfpy'), relRows, {
       ariaLabel: 'First-pass yield per software release this week'
     });
-    C.renderPareto(byId('plot-wk-pareto'), charts.pareto || []);
+    var detail = byId('wk-pareto-detail');
+    C.renderAreaDetail(detail, null);
+    C.renderPareto(byId('plot-wk-pareto'), charts.pareto || [], {
+      /* No dutHref: every run behind these bars is in the table below, so a
+       * serial here links to nothing the reader cannot already see. */
+      onSelect: function (row) {
+        C.renderAreaDetail(detail, row, {
+          onClose: function () { C.renderAreaDetail(detail, null); }
+        });
+      }
+    });
   }
 
   function show() {

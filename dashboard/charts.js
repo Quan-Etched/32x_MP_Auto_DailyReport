@@ -535,7 +535,8 @@
    * imply a relationship that is not in the data — unlike two independent
    * measures sharing a plot.
    */
-  function renderPareto(plot, rows) {
+  function renderPareto(plot, rows, opts) {
+    opts = opts || {};
     clear(plot);
     if (!rows.length) { emptyPlot(plot, 'No failures in this window — nothing to rank.'); return; }
 
@@ -637,7 +638,15 @@
         { name: 'share', value: fmtPct(row.share) },
         { name: 'cumulative', value: fmtPct(row.cumulativeShare) },
         { name: 'distinct DUTs', value: fmtInt(row.duts) },
-        row.topTest ? { name: 'top test', value: row.topTest } : null
+        /* Which stations, not which single test. "top test" named one string
+         * out of thirty and left the reader no better off; where a failure
+         * happens is the first thing anyone asks, and it is the thing that
+         * decides who owns it. */
+        (row.byStation || []).length
+          ? { name: 'stations', value: row.byStation.slice(0, 3).map(
+                function (s) { return s.label + ' ' + s.fails; }).join(' · ') }
+          : (row.topTest ? { name: 'top test', value: row.topTest } : null),
+        opts.onSelect ? { name: '', value: 'click for the breakdown' } : null
       ].filter(Boolean), row.area);
     }
     function hide() { highlight.setAttribute('opacity', '0'); tip.hide(); }
@@ -650,7 +659,22 @@
       show(Math.max(0, Math.min(rows.length - 1, Math.floor(lx / band))));
     });
     hit.addEventListener('pointerleave', hide);
-    attachCursor(plot, rows.length, show, hide);
+
+    /* A bar is a question, so it should be answerable. Without this the chart
+     * could say "794 failures in Other" and offer no way to find out what they
+     * were — which is how a Pareto becomes decoration. */
+    function activate(i) {
+      if (opts.onSelect && rows[i]) opts.onSelect(rows[i], i);
+    }
+    if (opts.onSelect) {
+      plot.classList.add('is-clickable');
+      hit.addEventListener('click', function (e) {
+        var box = svg.getBoundingClientRect();
+        var lx = (e.clientX - box.left) * (width / box.width) - margin.left;
+        activate(Math.max(0, Math.min(rows.length - 1, Math.floor(lx / band))));
+      });
+    }
+    attachCursor(plot, rows.length, show, hide, opts.onSelect ? activate : null);
   }
 
   /* ---------------------------------------------------------------- retest */
@@ -776,7 +800,88 @@
 
   /* ----------------------------------------------------------------- state */
 
+  /* The breakdown behind one Pareto bar.
+   *
+   * Three questions, in the order they get asked: where did it fail, what
+   * failed, and which units. Built here rather than on each page so the
+   * station page and the week page cannot answer them differently.
+   *
+   * `dutHref` is optional — the station page can link a serial into the run
+   * table, the week page has those rows on the page already. */
+  function renderAreaDetail(host, row, opts) {
+    opts = opts || {};
+    clear(host);
+    if (!row) { host.hidden = true; return; }
+    host.hidden = false;
+
+    var head = h('div', { class: 'pd-head' }, [
+      h('h3', { class: 'pd-title', text: row.area }),
+      h('span', { class: 'pd-sum', text:
+        fmtInt(row.fails) + ' failing tests · ' + fmtPct(row.share) +
+        ' of the window · ' + fmtInt(row.duts) + ' distinct units' +
+        (row.testCount ? ' · ' + fmtInt(row.testCount) + ' distinct tests' : '') })
+    ]);
+    if (opts.onClose) {
+      var close = h('button', { type: 'button', class: 'pd-close',
+                                'aria-label': 'Close the breakdown', text: '\u00d7' });
+      close.addEventListener('click', opts.onClose);
+      head.appendChild(close);
+    }
+    host.appendChild(head);
+
+    var grid = h('div', { class: 'pd-grid' });
+
+    grid.appendChild(pdTable('Where it failed', ['Station', 'Fails', 'Units'],
+      (row.byStation || []).map(function (s) {
+        return [s.label, fmtInt(s.fails), fmtInt(s.duts)];
+      }), 'No station recorded.'));
+
+    grid.appendChild(pdTable('What failed', ['Test', 'Fails'],
+      (row.byTest || []).map(function (t) { return [t.test, fmtInt(t.fails)]; }),
+      'No test names recorded.',
+      row.testCount > (row.byTest || []).length
+        ? 'top ' + (row.byTest || []).length + ' of ' + row.testCount
+        : null));
+
+    grid.appendChild(pdTable('Units most affected', ['DUT SN', 'Fails'],
+      (row.topDuts || []).map(function (d) {
+        return [opts.dutHref ? h('a', { class: 'pd-link', href: opts.dutHref(d.dut),
+                                        text: d.dut }) : d.dut,
+                fmtInt(d.fails)];
+      }), 'No serials recorded.'));
+
+    host.appendChild(grid);
+  }
+
+  function pdTable(title, columns, rows, empty, note) {
+    var card = h('div', { class: 'pd-card' }, [
+      h('h4', { class: 'pd-h', text: title }),
+      note ? h('span', { class: 'pd-note', text: note }) : null
+    ]);
+    if (!rows.length) {
+      card.appendChild(h('p', { class: 'pd-empty', text: empty }));
+      return card;
+    }
+    var table = h('table', { class: 'pd-table' });
+    var thead = h('thead', {}, [h('tr', {}, columns.map(function (c, i) {
+      return h('th', { scope: 'col', class: i ? 'n' : '', text: c });
+    }))]);
+    var tbody = h('tbody', {}, rows.map(function (cells) {
+      return h('tr', {}, cells.map(function (value, i) {
+        var td = h('td', { class: i ? 'n' : '' });
+        if (value && value.nodeType) td.appendChild(value);
+        else td.textContent = value;
+        return td;
+      }));
+    }));
+    table.appendChild(thead);
+    table.appendChild(tbody);
+    card.appendChild(h('div', { class: 'pd-wrap' }, [table]));
+    return card;
+  }
+
   window.FactoryCharts = {
+    renderAreaDetail: renderAreaDetail,
     /* The pass / fail / abort series, exported because the legend beside a
      * mix chart is drawn by the page and has to name the same three in the
      * same colours as the bars. */

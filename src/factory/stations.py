@@ -298,6 +298,24 @@ def classify(level: Optional[str], suite: Optional[str]) -> str:
     return UNCLASSIFIED
 
 
+#: key -> label, built once. The Pareto breakdown names a station on every row
+#: and rebuilding the registry per row would be the same list walked thousands
+#: of times.
+_LABELS = {station.key: station.label for station in STATIONS}
+
+
+def label_of(key: Optional[str]) -> str:
+    """The line's own name for a station key.
+
+    Unmapped and engineering runs keep their bucket name rather than becoming
+    blank — a breakdown row that cannot say where a failure happened should say
+    that, not say nothing.
+    """
+    if not key:
+        return UNCLASSIFIED
+    return _LABELS.get(key, key)
+
+
 def registry() -> List[Dict[str, Any]]:
     return [station.to_dict() for station in sorted(STATIONS, key=lambda s: s.order)]
 

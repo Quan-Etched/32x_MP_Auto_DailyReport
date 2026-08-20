@@ -183,6 +183,7 @@ def top_yield_hits(
     counter: Counter = Counter()
     examples: Dict[str, Counter] = defaultdict(Counter)
     duts: Dict[str, set] = defaultdict(set)
+    detail: Dict[str, Dict[str, Any]] = defaultdict(_detail)
 
     for run in runs:
         for failure in run.get("failures") or []:
@@ -197,8 +198,9 @@ def top_yield_hits(
                 examples[name][failure["test"]] += 1
             if run.get("dutSerial"):
                 duts[name].add(run["dutSerial"])
+            _record(detail[name], run, failure)
 
-    return _pareto_rows(counter, examples, duts, limit)
+    return _pareto_rows(counter, examples, duts, limit, detail)
 
 
 def first_failure_areas(
@@ -228,21 +230,75 @@ def first_failure_areas(
     return _pareto_rows(counter, examples, duts, limit)
 
 
-def _pareto_rows(counter, examples, duts, limit) -> List[Dict[str, Any]]:
+#: How much of an area's breakdown travels with the page.
+#:
+#: Enough to answer "which station, which test, which units" without a second
+#: request, and bounded so twelve areas do not carry every failure in the
+#: window. The full rows are one click further on, in the run table.
+DETAIL_TESTS = 8
+DETAIL_DUTS = 12
+
+
+def _detail() -> Dict[str, Any]:
+    return {"stations": defaultdict(Counter), "tests": Counter(),
+            "duts": Counter(), "days": Counter(), "stationDuts": defaultdict(set)}
+
+
+def _record(bucket: Dict[str, Any], run: Dict[str, Any],
+            failure: Dict[str, Any]) -> None:
+    """One failing test occurrence, filed under everything a reader asks next."""
+    station = run.get("stationKey") or stations.UNCLASSIFIED
+    dut = run.get("dutSerial")
+    bucket["stations"][station]["fails"] += 1
+    if dut:
+        bucket["stationDuts"][station].add(dut)
+        bucket["duts"][dut] += 1
+    # Grouped on the signature, not the raw id: the controllers stamp a run
+    # hash on every test name, so the raw ids are all distinct and a list of
+    # them says nothing.
+    name = rootcause.signature(failure.get("test"), failure.get("display"))
+    if name:
+        bucket["tests"][name] += 1
+
+
+def _pareto_rows(counter, examples, duts, limit,
+                 detail=None) -> List[Dict[str, Any]]:
     total = sum(counter.values())
     rows = []
     cumulative = 0
     for name, count in counter.most_common(limit):
         cumulative += count
         top = examples[name].most_common(1)
-        rows.append({
+        row = {
             "area": name,
             "fails": count,
             "share": (count / total) if total else 0.0,
             "cumulativeShare": (cumulative / total) if total else 0.0,
             "duts": len(duts[name]),
             "topTest": top[0][0] if top else None,
-        })
+        }
+        if detail is not None:
+            bucket = detail.get(name)
+            if bucket:
+                row["byStation"] = [
+                    {"station": key,
+                     "label": stations.label_of(key),
+                     "fails": value["fails"],
+                     "duts": len(bucket["stationDuts"].get(key) or ())}
+                    for key, value in sorted(
+                        bucket["stations"].items(),
+                        key=lambda kv: -kv[1]["fails"])
+                ]
+                row["byTest"] = [
+                    {"test": test, "fails": hits}
+                    for test, hits in bucket["tests"].most_common(DETAIL_TESTS)
+                ]
+                row["testCount"] = len(bucket["tests"])
+                row["topDuts"] = [
+                    {"dut": serial, "fails": hits}
+                    for serial, hits in bucket["duts"].most_common(DETAIL_DUTS)
+                ]
+        rows.append(row)
     return rows
 
 

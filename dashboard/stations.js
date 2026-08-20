@@ -79,7 +79,8 @@
    * Both are aggregated on the build side and shipped together. A view carries
    * per-release totals and a failure Pareto, neither of which can be recovered
    * by filtering the daily rows in the browser. */
-  var state = { station: '__all__', paretoMode: 'pareto', range: '7d' };
+  var state = { station: '__all__', paretoMode: 'pareto', range: '7d',
+                area: null };
 
   function ranges() {
     return (DATA.ranges || {}).options || [];
@@ -359,6 +360,19 @@
     }));
   }
 
+  /* The open breakdown, kept in state so switching station or range re-opens
+   * the same area rather than silently closing it — the question "and what
+   * about C2C on HTT" is one click, not two. */
+  function showArea(row) {
+    var host = document.getElementById('pareto-detail');
+    if (!host) return;
+    state.area = row ? row.area : null;
+    C.renderAreaDetail(host, row, {
+      dutHref: function (dut) { return runsHref({ dut: dut, status: 'fail' }); },
+      onClose: function () { state.area = null; C.renderAreaDetail(host, null); }
+    });
+  }
+
   function stateWord(station) {
     if (station.state === 'blocked') return 'no access';
     if (station.state === 'unmapped') return 'not mapped';
@@ -440,7 +454,20 @@
       { label: 'fails', color: 'var(--series-1)' },
       { label: 'cumulative %', color: 'var(--text-primary)' }
     ]);
-    renderPareto(document.getElementById('plot-pareto'), paretoRows);
+    /* Clicking a bar opens the breakdown under the chart rather than
+     * navigating away: the reader is comparing areas, and a drill-through
+     * would cost them the chart they were reading. The serials inside it do
+     * navigate — that is the point at which they want the rows. */
+    renderPareto(document.getElementById('plot-pareto'), paretoRows, {
+      onSelect: function (row) { showArea(row); }
+    });
+    if (state.area) {
+      var again = null;
+      for (var pi = 0; pi < paretoRows.length; pi++) {
+        if (paretoRows[pi].area === state.area) again = paretoRows[pi];
+      }
+      showArea(again);          /* null when the new view has no such area */
+    }
 
     renderRetest(view);
     renderTables(dailyRows, relRows, paretoRows, view);
