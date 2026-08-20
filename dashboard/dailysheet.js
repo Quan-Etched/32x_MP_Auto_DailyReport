@@ -1446,6 +1446,34 @@
     document.title = 'Daily tracker — ' + (current.day || current.label);
   }
 
+  /* A download button per table, made once and left alone.
+   *
+   * The filename is a function, not a string: it has to name the day that is on
+   * screen when the button is clicked, and the button outlives every day
+   * switch. Same reason the table is looked up per click — the element stays,
+   * but what is in it does not.
+   *
+   * Wired only where FactoryCsv loaded, so a page that has not been given the
+   * helper degrades to no button rather than to a broken one. */
+  function wireDownloads() {
+    if (!window.FactoryCsv) return;
+    var day = function () { return (current && (current.day || current.label)) || 'day'; };
+    [['csv-sheet', 'sheet-table', 'module', 'Download CSV'],
+     ['csv-l10', 'l10-table', 'l10', 'Download L10 CSV'],
+     ['csv-l11', 'l11-table', 'l11', 'Download L11 CSV']]
+      .forEach(function (spec) {
+        window.FactoryCsv.attach(byId(spec[0]), {
+          table: function () { return byId(spec[1]); },
+          name: function () {
+            return 'tracker-' + spec[2] + '-' + day() + '.csv';
+          },
+          label: spec[3],
+          title: 'the rows on screen, as filtered and in the current count ' +
+                 'mode, as a CSV for Excel'
+        });
+      });
+  }
+
   function init() {
     el.summary = byId('summary');
     el.head = byId('sheet-head');
@@ -1462,6 +1490,7 @@
     }
 
     bindZoom();
+    wireDownloads();
     renderNotes();
     show();
     window.addEventListener('hashchange', show);

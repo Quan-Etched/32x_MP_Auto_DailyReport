@@ -59,6 +59,7 @@ DOM_SCRIPTS = {
     "index.html": ["stations.js"],
     "ocp.html": ["stations.js"],
     "dailyexcel.html": ["dailysheet.js"],
+    "weekly.html": ["weeklysummary.js"],
     "delta.html": ["delta.js"],
     "week.html": ["week.js"],
     "flow.html": ["flow.js"],

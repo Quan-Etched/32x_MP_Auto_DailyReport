@@ -406,6 +406,31 @@
     renderBuild();
   }
 
+  /* One button per table. Made once; both the table and the filename are looked
+   * up per click, because the week on screen changes under them and the units
+   * table is filtered by step before anybody wants the file. */
+  function wireDownloads() {
+    if (!window.FactoryCsv) return;
+    var week = function () { return (current && current.week) || 'week'; };
+    window.FactoryCsv.attach(byId('csv-steps'), {
+      table: function () { return byId('steps-table'); },
+      name: function () { return 'week-' + week() + '-steps.csv'; },
+      label: 'Download CSV',
+      title: 'first-pass yield per test step for this week, as a CSV for Excel'
+    });
+    window.FactoryCsv.attach(byId('csv-units'), {
+      table: function () { return byId('units-table'); },
+      name: function () {
+        return 'week-' + week() + '-units' + (filter ? '-' + filter : '') + '.csv';
+      },
+      label: 'Download CSV',
+      /* Worth saying: the table shows the first LIMIT rows and the CSV is the
+       * same rows, not the whole week. A file that silently held more than the
+       * table would be the wrong kind of surprise. */
+      title: 'the source rows on screen — as filtered, and only the ones shown'
+    });
+  }
+
   function init() {
     el.bar = byId('weekbar');
     el.tiles = byId('tiles');
@@ -413,6 +438,7 @@
       byId('steps-caption').textContent = 'No data — run `make weekly`.';
       return;
     }
+    wireDownloads();
     show();
     window.addEventListener('hashchange', show);
   }

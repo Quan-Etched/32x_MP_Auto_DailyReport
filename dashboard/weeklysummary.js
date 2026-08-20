@@ -132,6 +132,16 @@
       return;
     }
     render();
+    /* One table, one button. Every week is on screen at once here, so nothing
+     * about the filename or the table depends on when it is clicked. */
+    if (window.FactoryCsv) {
+      window.FactoryCsv.attach(byId('csv-summary'), {
+        table: byId('summary'),
+        name: 'weekly-summary-' + WEEKS.length + '-weeks.csv',
+        label: 'Download CSV',
+        title: 'every week in this table, as a CSV for Excel'
+      });
+    }
   }
 
   if (document.readyState === 'loading') {

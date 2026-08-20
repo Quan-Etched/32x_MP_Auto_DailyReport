@@ -52,6 +52,9 @@
          gesture the line asked for; plain Cmd/Ctrl+± is deliberately left
          alone so the browser's own page zoom still works alongside it. -->
     <div class="sheet-tools">
+      <!-- Download beside the zoom, because both are "how I want to look at
+           this table" rather than anything about the data in it. -->
+      <span class="csv-slot" id="csv-sheet"></span>
       <span class="zoom-note" id="zoom-note" hidden></span>
       <span class="zoom-label" id="zoom-label">Table zoom</span>
       <div class="zoom" role="group" aria-labelledby="zoom-label">
@@ -85,7 +88,8 @@
          columns: a chassis is not a module, one chassis holds many of them,
          and a row carrying both would have no single subject. -->
     <section class="l10-block" id="l10-block" hidden>
-      <h2 class="l10-head">L10 <span class="l10-sub" id="l10-sub"></span></h2>
+      <h2 class="l10-head">L10 <span class="l10-sub" id="l10-sub"></span>
+        <span class="csv-slot" id="csv-l10"></span></h2>
       <section class="sheet-summary" id="l10-summary"></section>
       <div class="table-wrap sheet-wrap">
         <table class="sheet-table" id="l10-table">
@@ -101,7 +105,8 @@
          chassis, each holding many modules, so it can no more share a row with
          L10 than L10 can with a module. -->
     <section class="l10-block" id="l11-block" hidden>
-      <h2 class="l10-head">L11 <span class="l10-sub" id="l11-sub"></span></h2>
+      <h2 class="l10-head">L11 <span class="l10-sub" id="l11-sub"></span>
+        <span class="csv-slot" id="csv-l11"></span></h2>
       <section class="sheet-summary" id="l11-summary"></section>
       <div class="table-wrap sheet-wrap">
         <table class="sheet-table" id="l11-table">
@@ -146,6 +151,7 @@
 </div>
 
 <script src="data/dailyexcel.js"></script>
+<script src="tablecsv.js"></script>
 <script src="dailysheet.js"></script>
 <script src="theme.js"></script>
 <script src="update.js"></script>

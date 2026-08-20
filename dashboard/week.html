@@ -26,8 +26,9 @@
 
   <section class="wk-tiles" id="tiles"></section>
 
+  <div class="wk-tools"><span class="csv-slot" id="csv-steps"></span></div>
   <div class="table-wrap">
-    <table class="wk-table steps">
+    <table class="wk-table steps" id="steps-table">
       <caption id="steps-caption"></caption>
       <thead>
         <tr>
@@ -118,8 +119,9 @@
     <h2>Source data — every unit run this week</h2>
     <p class="wk-note" id="source-note"></p>
     <div class="wk-filters" id="filters"></div>
+    <div class="wk-tools"><span class="csv-slot" id="csv-units"></span></div>
     <div class="table-wrap">
-      <table class="wk-table units">
+      <table class="wk-table units" id="units-table">
         <caption id="units-caption"></caption>
         <thead>
           <tr>
@@ -143,6 +145,7 @@
 </div>
 
 <script src="data/weekly.js"></script>
+<script src="tablecsv.js"></script>
 <script src="charts.js"></script>
 <script src="week.js"></script>
 <script src="theme.js"></script>

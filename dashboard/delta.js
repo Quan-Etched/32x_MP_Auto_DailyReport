@@ -594,17 +594,19 @@
     ['Action_Item', function (row) { return row.action; }]
   ];
 
+  /* The rows built here, joined and escaped by the shared helper — the same one
+   * the daily and weekly tables use, so there is one place that knows how to
+   * quote a field for Excel rather than three that drift.
+   *
+   * The row model stays local: this CSV carries Prior_Attempts and Last_Seen,
+   * which the table does not show, so it cannot be an export of the DOM the way
+   * those tables' are. */
   function csvFor(rows) {
     var lines = [CSV_COLUMNS.map(function (pair) { return pair[0]; })];
     rows.forEach(function (row) {
       lines.push(CSV_COLUMNS.map(function (pair) { return pair[1](row); }));
     });
-    return lines.map(function (line) {
-      return line.map(function (cell) {
-        var text = String(cell === null || cell === undefined ? '' : cell);
-        return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
-      }).join(',');
-    }).join('\r\n');
+    return window.FactoryCsv.toCsv(lines);
   }
 
   function renderDownload(day, stage, rows) {

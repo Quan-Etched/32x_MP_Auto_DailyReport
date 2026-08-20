@@ -416,6 +416,8 @@ dashboard/
   l10.html            the L10 tracker (same renderer as the module one)
   direct.html         station yield from the controllers (same renderer again)
   builds.html + builds.js + builds.css   new builds vs retests
+  tablecsv.js         download-as-CSV, shared: exports the table as it is on
+                      screen, so the file matches the filter the reader set
   update.js           the Update button, shared by every page
   data/*.js           generated bundles (gitignored)
 
