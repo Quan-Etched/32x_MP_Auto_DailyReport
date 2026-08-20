@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accessory Board Test Flow</title>
+<style>
+/* Accessory-board test flow — PDB, HPB, BB, VBB.
+ *
+ * A sibling of https://32x-production.i.etched.com/flow.html and deliberately
+ * built the same way: the same tokens, the same box fills, the same rule that
+ * colour is a claim rather than decoration. Two things are different.
+ *
+ * 1. This page has no yields. flow.html prints numbers because every stage on
+ *    it reports to a pega controller or to OCP. Not one of the four accessory
+ *    boards does — no controller, no run rows, nothing for this repo to
+ *    collect — so a green box here means "this stage exists and runs", not
+ *    "here is its pass rate". A page that borrowed flow.html's look and quietly
+ *    dropped that distinction would be the worst of both.
+ *
+ * 2. It is drawn as a grid rather than wired with SVG. The subject is a column:
+ *    four boards, one stage, present for one of them. A grid puts that column
+ *    where the eye lands; routed wires would bury it.
+ *
+ * Everything on the page is transcribed from source/. Nothing is inferred.
+ */
+
+:root {
+  color-scheme: light;
+  --page:            #f9f9f7;
+  --surface-1:       #fcfcfb;
+  --text-primary:    #0b0b0b;
+  --text-secondary:  #52514e;
+  --text-muted:      #898781;
+  --grid:            #e1e0d9;
+  --axis:            #c3c2b7;
+  --border:          rgba(11, 11, 11, 0.10);
+  --accent-solid:    #1c62b8;
+  --status-good:     #0ca30c;
+  --status-warning:  #fab219;
+  --status-critical: #d03b3b;
+  --radius: 10px;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page:           #0d0d0d;
+    --surface-1:      #1a1a19;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --grid:           #2c2c2a;
+    --axis:           #383835;
+    --border:         rgba(255, 255, 255, 0.10);
+    --accent-solid:   #2f6fc4;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page:           #0d0d0d;
+  --surface-1:      #1a1a19;
+  --text-primary:   #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted:     #898781;
+  --grid:           #2c2c2a;
+  --axis:           #383835;
+  --border:         rgba(255, 255, 255, 0.10);
+  --accent-solid:   #2f6fc4;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font: 15px/1.5 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1180px; margin: 0 auto; padding: 26px 22px 70px; }
+
+/* ------------------------------------------------------------- masthead */
+
+.masthead {
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  padding-bottom: 14px; border-bottom: 1px solid var(--border);
+}
+.masthead h1 { font-size: 21px; margin: 0; font-weight: 700; }
+.masthead .meta { font-size: 12.5px; color: var(--text-muted); }
+.masthead .spacer { flex: 1 1 auto; }
+
+.chip {
+  font: inherit; font-size: 12.5px; color: var(--text-secondary);
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: 999px; padding: 4px 12px; text-decoration: none; cursor: pointer;
+}
+.chip:hover { color: var(--text-primary); border-color: var(--axis); }
+
+.intro { max-width: 80ch; color: var(--text-secondary); margin: 18px 0 0; }
+.intro strong { color: var(--text-primary); }
+
+h2 {
+  font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-muted); font-weight: 700;
+  margin: 38px 0 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+}
+h2 + .lede { margin: 10px 0 16px; color: var(--text-secondary); max-width: 80ch; }
+
+/* --------------------------------------------------------------- legend */
+
+.legend {
+  display: flex; flex-wrap: wrap; gap: 20px; margin: 18px 0 10px; font-size: 12.5px;
+}
+.legend-item { display: flex; align-items: center; gap: 8px; }
+.swatch { width: 16px; height: 16px; border-radius: 3px; flex: none; border: 1px solid; }
+.legend-note { color: var(--text-muted); }
+
+/* ---------------------------------------------------------------- boxes */
+
+/* The fills are the line's own — the green and grey everyone already reads off
+   the Pega slide — so they are literal colours, and the text on them is forced
+   dark in both themes. A box whose colour flips with the reader's OS setting is
+   a box two people cannot discuss over a call. */
+.box {
+  position: relative; border: 1px solid; border-radius: 4px;
+  padding: 8px 10px; min-height: 54px; color: #101010;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.box .label { font-size: 14px; line-height: 1.2; }
+.box .sub   { font-size: 10.5px; color: #3d3d3d; }
+
+.k-build { background: #d9d9d9; border-color: #a5a5a5; }
+.k-test  { background: #d5e8d4; border-color: #82b366; }
+.k-test .label { font-weight: 700; }
+.k-pack  { background: #dae8fc; border-color: #7ea6d9; }
+
+/* A stage that does not exist for this board. Not a failure and not a gap in
+   our knowledge — the board simply does not go through it. */
+.k-none {
+  background: transparent; border: 1px dashed var(--axis); color: var(--text-muted);
+  align-items: center; justify-content: center; min-height: 54px;
+}
+.k-none .label { font-size: 12px; font-style: italic; }
+
+/* Proposed: drawn in the proposal, costed, ticketed, and not built. Amber and
+   dashed so it can never be mistaken for a stage that runs. */
+.k-plan {
+  background: repeating-linear-gradient(
+    -45deg, #fdf3d8, #fdf3d8 7px, #f9e9bf 7px, #f9e9bf 14px);
+  border: 1.5px dashed #c98500;
+}
+.k-plan .label { font-weight: 700; }
+
+/* Running. The ring is what separates "this happens" from "this is planned". */
+.k-live { box-shadow: 0 0 0 2px rgba(46, 106, 46, 0.45); }
+
+.state {
+  position: absolute; top: -9px; right: 7px;
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 1px 6px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.25);
+  text-transform: uppercase; color: #101010;
+}
+.s-live { background: #b7e1b4; }
+.s-plan { background: #ffdf8a; }
+
+.jira {
+  position: absolute; right: 8px; bottom: 6px;
+  font-size: 9.5px; color: #14532d; text-decoration: underline;
+}
+.k-plan .jira { color: #6b4a00; }
+
+/* ----------------------------------------------------------------- grid */
+
+.board-flow { overflow-x: auto; padding: 6px 2px 10px; }
+
+.grid {
+  display: grid;
+  grid-template-columns: 132px repeat(4, minmax(150px, 1fr)) 34px 150px;
+  /* Rows are declared rather than left implicit: the BFT band spans
+     `1 / -1`, and -1 only reaches the last *explicit* line. Left implicit the
+     band collapses to the header row. One header + five boards. */
+  grid-template-rows: auto repeat(5, minmax(56px, auto));
+  gap: 10px 8px;
+  min-width: 940px;
+  align-items: stretch;
+}
+
+.col-head {
+  font-size: 11.5px; font-weight: 700; color: var(--text-primary);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  padding-bottom: 4px; border-bottom: 1px solid var(--axis);
+  align-self: end;
+}
+.col-head span { display: block; font-weight: 400; text-transform: none;
+                 letter-spacing: 0; color: var(--text-muted); font-size: 10.5px; }
+
+.row-head { display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.row-head .name { font-weight: 700; font-size: 14px; }
+.row-head .what { font-size: 11px; color: var(--text-muted); line-height: 1.35; }
+
+/* The one column the page exists for. The wash runs the full height of the
+   grid behind the boxes so BFT reads as a column, not as four separate cells
+   that happen to line up. */
+.bft-band {
+  grid-column: 5; grid-row: 1 / -1;
+  background: rgba(201, 133, 0, 0.09);
+  border: 1px solid rgba(201, 133, 0, 0.35);
+  border-radius: 8px;
+  margin: -6px -6px -8px;
+  z-index: 0;
+}
+.grid > *:not(.bft-band) { position: relative; z-index: 1; }
+
+.arrow {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--axis); font-size: 19px; line-height: 1;
+}
+
+/* --------------------------------------------------------------- strips */
+
+.strip {
+  display: flex; align-items: stretch; gap: 8px; flex-wrap: nowrap;
+  overflow-x: auto; padding: 6px 2px 12px;
+}
+.strip .box { min-width: 132px; flex: 0 0 auto; }
+.strip .arrow { flex: 0 0 22px; }
+.strip-label {
+  flex: 0 0 132px; display: flex; flex-direction: column; justify-content: center;
+}
+.strip-label .name { font-weight: 700; font-size: 14px; }
+.strip-label .what { font-size: 11px; color: var(--text-muted); }
+
+/* ---------------------------------------------------------------- cards */
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+
+.card {
+  background: var(--surface-1); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px 18px;
+}
+.card h3 { margin: 0; font-size: 16px; display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.card h3 .tag {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 3px; color: #101010;
+}
+.tag-live { background: #b7e1b4; }
+.tag-plan { background: #ffdf8a; }
+.card .role { margin: 6px 0 12px; font-size: 12.5px; color: var(--text-muted); }
+
+.items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.items li { border-left: 2px solid var(--grid); padding-left: 10px; font-size: 13px; }
+.items .it { font-weight: 600; }
+.items .crit { color: var(--text-secondary); font-size: 12px; }
+.items .done { color: var(--status-good); font-weight: 700; font-size: 11px; }
+.items .open { color: var(--status-critical); font-weight: 700; font-size: 11px; }
+
+.facts { margin: 14px 0 0; font-size: 12.5px; color: var(--text-secondary); }
+.facts div { display: flex; gap: 8px; padding: 3px 0; border-top: 1px solid var(--border); }
+.facts dt, .facts .k { flex: 0 0 96px; color: var(--text-muted); }
+.facts .v { flex: 1 1 auto; }
+
+.query {
+  margin: 12px 0 0; padding: 9px 11px; font-size: 12.5px;
+  background: rgba(201, 133, 0, 0.10); border-left: 3px solid var(--status-warning);
+  border-radius: 0 6px 6px 0; color: var(--text-secondary);
+}
+.query b { color: var(--text-primary); }
+
+/* ---------------------------------------------------------------- table */
+
+table { border-collapse: collapse; width: 100%; font-size: 13px; margin-top: 6px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.table-scroll { overflow-x: auto; }
+
+.pill {
+  display: inline-block; font-size: 10.5px; font-weight: 700; padding: 1px 7px;
+  border-radius: 999px; color: #101010;
+}
+.p-live { background: #b7e1b4; }
+.p-plan { background: #ffdf8a; }
+.p-none { background: #e0dfd8; }
+
+a { color: var(--accent-solid); }
+
+footer.notes {
+  margin-top: 44px; padding-top: 16px; border-top: 1px solid var(--border);
+  font-size: 12.5px; color: var(--text-muted); max-width: 84ch;
+}
+footer.notes p { margin: 0 0 9px; }
+footer.notes code { font-size: 12px; }
+
+@media (max-width: 700px) {
+  .wrap { padding: 20px 14px 50px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <h1>Accessory Board Test Flow</h1>
+  <span class="meta">PDB · HPB · Bridge Board · VBB &nbsp;|&nbsp; as of 18 Aug 2026</span>
+  <span class="spacer"></span>
+  <a class="chip" href="https://32x-production.i.etched.com/flow.html">Module flow &rarr;</a>
+  <button type="button" class="chip" id="theme">Theme: system</button>
+</header>
+
+<p class="intro">
+  The four boards that go into a 4U tray and a 2U system alongside the Sohu
+  module, and what tests each one sees before it gets there. <strong>Board
+  Function Test is the column this page exists for</strong>: it is the only
+  stage that powers an accessory board up and talks to it, and today exactly
+  one of the four boards has one running. The other three are proposed —
+  drawn, costed, ticketed, and about twelve weeks from existing.
+</p>
+
+<h2>L6 — board level</h2>
+<p class="lede">
+  Each board reads left to right through its own PCBA line and hands off to the
+  assembly that consumes it. The stages are Pegatron's own, transcribed from the
+  four <em>PCBA Process Flow</em> slides and the Aug&nbsp;3 <em>Production Test
+  Flowchart</em>. SMT here stands for the whole print-place-reflow-inspect chain
+  on that slide (SPI, AOI top and bottom, 5DX X-ray, touch-up, de-panel).
+</p>
+
+<div class="legend">
+  <span class="legend-item"><span class="swatch k-build"></span>
+    Builds or moves the board <span class="legend-note">— no verdict</span></span>
+  <span class="legend-item"><span class="swatch k-test k-live"></span>
+    Tests it, and runs today</span>
+  <span class="legend-item"><span class="swatch k-plan"></span>
+    Tests it, and does not exist yet</span>
+  <span class="legend-item"><span class="swatch k-none" style="border-style:dashed"></span>
+    Not in this board's flow</span>
+</div>
+
+<div class="board-flow">
+<div class="grid">
+
+  <div class="bft-band" aria-hidden="true"></div>
+
+  <div></div>
+  <div class="col-head">SMT<span>print · place · reflow · AOI · X-ray · de-panel</span></div>
+  <div class="col-head">ICT<span>in-circuit, bed of nails</span></div>
+  <div class="col-head">Programming<span>identity and firmware</span></div>
+  <div class="col-head">BFT<span>board function test</span></div>
+  <div></div>
+  <div class="col-head">Goes into<span></span></div>
+
+  <!-- VBB ------------------------------------------------------------- -->
+  <div class="row-head">
+    <span class="name">VBB</span>
+    <span class="what">Vertical baseboard — carries the Sohu module</span>
+  </div>
+  <div class="box k-build"><span class="label">SMT</span>
+    <span class="sub">both sides · DIP · wave solder</span></div>
+  <div class="box k-test"><span class="label">ICT</span>
+    <span class="sub">+ FRU flashing ICT</span></div>
+  <div class="box k-test"><span class="label">Flash</span>
+    <span class="sub">ROT OTP · PROD cert · lock BL</span></div>
+  <div class="box k-test k-live"><span class="state s-live">running</span>
+    <span class="label">BFT</span>
+    <span class="sub">I2C · UART · GPIO · power-on seq · PRBS</span>
+    <a class="jira" href="https://etched-ai.atlassian.net/browse/ETCH-39584">ETCH-39584</a></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-build"><span class="label">4U ASSY</span>
+    <span class="sub">tray, with Sohu module + BB</span></div>
+
+  <!-- HPB ------------------------------------------------------------- -->
+  <div class="row-head">
+    <span class="name">HPB</span>
+    <span class="what">Host power board — 54&nbsp;V hot-swap to the module</span>
+  </div>
+  <div class="box k-build"><span class="label">SMT</span>
+    <span class="sub">both sides · DIP · wave solder</span></div>
+  <div class="box k-test"><span class="label">ICT</span></div>
+  <div class="box k-none"><span class="label">none</span></div>
+  <div class="box k-plan"><span class="state s-plan">proposed</span>
+    <span class="label">BFT</span>
+    <span class="sub">54 V out · 12 V out · I2C · reset · LED</span>
+    <a class="jira" href="https://etched-ai.atlassian.net/browse/ETCH-39590">ETCH-39590</a></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-build"><span class="label">4U ASSY</span></div>
+
+  <!-- BB -------------------------------------------------------------- -->
+  <div class="row-head">
+    <span class="name">BB</span>
+    <span class="what">Bridge board — 4&nbsp;×&nbsp;2 Ethernet connector pairs</span>
+  </div>
+  <div class="box k-build"><span class="label">SMT</span>
+    <span class="sub">top side only</span></div>
+  <div class="box k-none"><span class="label">no ICT</span></div>
+  <div class="box k-none"><span class="label">none</span></div>
+  <div class="box k-plan"><span class="state s-plan">proposed</span>
+    <span class="label">BFT</span>
+    <span class="sub">open / short across P, N, GND</span>
+    <a class="jira" href="https://etched-ai.atlassian.net/browse/ETCH-39591">ETCH-39591</a></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-build"><span class="label">4U ASSY</span>
+    <span class="sub">fitted at Pre-Assy1</span></div>
+
+  <!-- PDB ------------------------------------------------------------- -->
+  <div class="row-head">
+    <span class="name">PDB</span>
+    <span class="what">Power distribution board — four PSUs into the 2U</span>
+  </div>
+  <div class="box k-build"><span class="label">SMT</span>
+    <span class="sub">both sides · DIP · wave solder</span></div>
+  <div class="box k-test"><span class="label">ICT</span>
+    <span class="sub">then press fit</span></div>
+  <div class="box k-none"><span class="label">none</span></div>
+  <div class="box k-plan"><span class="state s-plan">proposed</span>
+    <span class="label">BFT</span>
+    <span class="sub">SMBus · PWROK · PS_ON · 54 V / 12 V pins</span>
+    <a class="jira" href="https://etched-ai.atlassian.net/browse/ETCH-39589">ETCH-39589</a></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-build"><span class="label">2U ASSY</span>
+    <span class="sub">PDB module at Pre-Assy3</span></div>
+
+  <!-- PV1, for scale --------------------------------------------------- -->
+  <div class="row-head">
+    <span class="name">PV1</span>
+    <span class="what">Sohu module PCBA — here for comparison, not an accessory</span>
+  </div>
+  <div class="box k-build"><span class="label">SMT</span>
+    <span class="sub">both sides · dispensing</span></div>
+  <div class="box k-test"><span class="label">ICT</span></div>
+  <div class="box k-none"><span class="label">none</span></div>
+  <div class="box k-none"><span class="label">no BFT</span></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-test k-live"><span class="label">MLT &rarr; HTT</span>
+    <span class="sub">after module assy + TIM bake</span></div>
+
+</div>
+</div>
+
+<h2>Downstream — where the boards end up</h2>
+<p class="lede">
+  Once a board leaves L6 it is never tested alone again: the next verdict it
+  gets is a system one, with three other boards and a module in the same
+  chassis. That is the argument for BFT in one sentence — a PDB fault found at
+  2U SFT costs a strip-down, and a PDB fault found at PDB BFT costs a board.
+</p>
+
+<div class="strip">
+  <div class="strip-label"><span class="name">4U tray</span>
+    <span class="what">VBB + HPB + BB + Sohu module</span></div>
+  <div class="box k-build"><span class="label">4U ASSY</span>
+    <span class="sub">cold plate, harnesses, hoses</span></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-test"><span class="label">4U tray test</span>
+    <span class="sub">with golden 2U system</span></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-build"><span class="label">6U ASSY</span></div>
+</div>
+
+<div class="strip">
+  <div class="strip-label"><span class="name">2U system</span>
+    <span class="what">PDB + MB + switch + PSUs</span></div>
+  <div class="box k-build"><span class="label">2U ASSY</span>
+    <span class="sub">PDB module, MCIO, riser, fans</span></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-test"><span class="label">FW update</span></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-test"><span class="label">2U SFT</span></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-test"><span class="label">2U Run-in</span></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-build"><span class="label">6U ASSY</span></div>
+</div>
+
+<div class="strip">
+  <div class="strip-label"><span class="name">6U and rack</span>
+    <span class="what">4U tray inserted into the 2U</span></div>
+  <div class="box k-test"><span class="label">FAT</span></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-test"><span class="label">SFT</span></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-test"><span class="label">Run-in</span></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-test"><span class="label">Hi-pot</span></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-build"><span class="label">L11 ASSY</span></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-test"><span class="label">L11 test</span>
+    <span class="sub">provision · SFT · run-in</span></div>
+  <div class="arrow">&rarr;</div>
+  <div class="box k-pack"><span class="label">Pack</span></div>
+</div>
+
+<h2>What each BFT would test</h2>
+<p class="lede">
+  Test items exactly as the Pega proposal states them. All three share one rig:
+  a Pega-owned test fixture motherboard with an AST2600 BMC, a Carol BMC card,
+  a front-IO board, a host PC and a barcode reader — the board-specific part is
+  the fixture board and its cables.
+</p>
+
+<div class="cards">
+
+  <div class="card">
+    <h3>PDB BFT <span class="tag tag-plan">proposed</span></h3>
+    <p class="role">
+      Everything the PDB does is pass power and the handshake around it, so
+      every item is a pin test: drive one end from fixture GPIO, look for it at
+      the other. No real power is applied — even the 54&nbsp;V and 12&nbsp;V
+      nets are checked as continuity, not as rails.
+    </p>
+    <ul class="items">
+      <li><span class="it">Address / Preset / AC_FAULT pins</span><br>
+        <span class="crit">Read the address pin level to confirm the resistor is
+        mounted. TFMB sees 3.3 V or 0 V.</span></li>
+      <li><span class="it">SMBUS DAT / INT# / CLK</span><br>
+        <span class="crit">Drive high via PU1 to PSU1-4; TFMB checks the GPIO
+        reaches 3.3 V.</span></li>
+      <li><span class="it">PWROK</span><br>
+        <span class="crit">Drive high via PSU1-4 to PU1; TFMB reads the PU1
+        PWROK pin.</span></li>
+      <li><span class="it">PS_ON / 12VSB / SMART_ON / I_SHARE / RS+ / RS&minus;</span><br>
+        <span class="crit">Drive via PU1 to PSU1-4; TFMB reads the PSU PS_ON
+        pin.</span></li>
+      <li><span class="it">54 V / 12 V pins</span><br>
+        <span class="crit">Drive at PSU1, read at PSU1-4 and HPB_PSU2 — pin
+        open or not, not a rail measurement.</span></li>
+    </ul>
+    <div class="query">
+      <b>Open since 30 Dec 2025 (Yibing):</b> can we test the connection of each
+      individual power or GND pin? Two answers are on the table and neither is
+      chosen — <b>Option 1</b> GPIO loopback through the DUT, <b>Option 2</b>
+      nine I<sup>2</sup>C IO expanders, send on one and listen on the other
+      eight.
+    </div>
+    <div class="facts">
+      <div><span class="k">Fixture</span><span class="v">Drawing issued
+        11 Aug 2026 · 1 fixture board + 5 golden-finger boards</span></div>
+      <div><span class="k">Lead time</span><span class="v">~12 weeks from
+        release</span></div>
+      <div><span class="k">Jira</span><span class="v">
+        <a href="https://etched-ai.atlassian.net/browse/ETCH-39589">ETCH-39589</a>
+        — In Progress, P1, Eason Chuang</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>HPB BFT <span class="tag tag-plan">proposed</span></h3>
+    <p class="role">
+      The only one of the three that actually powers the board: a golden PDB and
+      a Pacer PSU feed real 54&nbsp;V in, and the fixture drives the MP5920
+      hot-swap controllers and reads their registers back over I<sup>2</sup>C.
+    </p>
+    <ul class="items">
+      <li><span class="it">54 V output</span><br>
+        <span class="crit">TFMB drives the hot-swap EN; PG must come back at
+        3.3 V.</span></li>
+      <li><span class="it">LED visual check</span><br>
+        <span class="crit">Lit is a pass — the one item on any of the three that
+        needs an operator's eye.</span></li>
+      <li><span class="it">I<sup>2</sup>C</span><br>
+        <span class="crit">Read the MPS register (e.g. 0x8B) and check the rail
+        level is in range.</span></li>
+      <li><span class="it">Reset</span><br>
+        <span class="crit">Reset the HPB mux, then re-address it — the bus must
+        come back.</span></li>
+      <li><span class="it">12 V output</span><br>
+        <span class="crit">DUT supplies 12 V to the fixture; TFMB reads it
+        high.</span></li>
+    </ul>
+    <div class="query">
+      <b>Open since 30 Dec 2025 (Yibing):</b> can we add an external load —
+      say 10 A — and measure the voltage drop from 54 V in to 54 V out? As
+      written the test proves the rail comes up, not that it holds up.
+    </div>
+    <div class="facts">
+      <div><span class="k">Fixture</span><span class="v">WIP at Pega, ETA
+        TBD — the least advanced of the three</span></div>
+      <div><span class="k">Lead time</span><span class="v">~12 weeks from
+        release</span></div>
+      <div><span class="k">Jira</span><span class="v">
+        <a href="https://etched-ai.atlassian.net/browse/ETCH-39590">ETCH-39590</a>
+        — In Progress, P1, Eason Chuang</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>BB BFT <span class="tag tag-plan">proposed</span></h3>
+    <p class="role">
+      The bridge board is passive — eight connectors and the differential pairs
+      between them — so there is one test item, and the board's whole quality
+      argument rests on it. It is also the only board of the four with no ICT,
+      which makes BFT its first and last electrical check.
+    </p>
+    <ul class="items">
+      <li><span class="it">Open / short</span><br>
+        <span class="crit">All P signals of a connector pair are strapped
+        together in the fixture, likewise all N. TFMB then proves P–N, P–GND and
+        N–GND are all open.</span></li>
+    </ul>
+    <div class="query">
+      <b>Coverage gap, raised 30 Dec 2025 (Yibing):</b> as designed this finds
+      shorts — P to N, or either to GND — and <b>cannot see an open circuit</b>,
+      which on a board that is nothing but interconnect is the failure that
+      matters. The proposal on the following slide fixes it: cascade the P
+      signals 1A&rarr;1B&rarr;1B&rarr;1A, toggle in from GPIO, monitor out, and
+      require OUT to follow IN. Not yet in the test-item table.
+    </div>
+    <div class="facts">
+      <div><span class="k">Fixture</span><span class="v">Drawing issued
+        11 Aug 2026 · 1 fixture board, FR-4 class</span></div>
+      <div><span class="k">Lead time</span><span class="v">~12 weeks from
+        release</span></div>
+      <div><span class="k">Jira</span><span class="v">
+        <a href="https://etched-ai.atlassian.net/browse/ETCH-39591">ETCH-39591</a>
+        — In Progress, P1, Eason Chuang</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>VBB BFT <span class="tag tag-live">running</span></h3>
+    <p class="role">
+      The one that exists, at TY2 6F in the BFT area. Worth reading before
+      committing to three more, because it is the only evidence of what one of
+      these stations costs to stand up: brought to the factory 3 Aug 2026, and
+      still not clean two weeks later.
+    </p>
+    <ul class="items">
+      <li><span class="it">Setup</span> <span class="done">DONE</span></li>
+      <li><span class="it">I<sup>2</sup>C</span> <span class="done">DONE</span>
+        <span class="crit"> — I2C4 could not read the 0x77 mux during bring-up;
+        HIF needed Pega BMC work.</span></li>
+      <li><span class="it">UART</span> <span class="done">DONE</span></li>
+      <li><span class="it">GPIO</span> <span class="done">DONE</span>
+        <span class="crit"> — failed first pass: pins not pulled up on the
+        fixture board.</span></li>
+      <li><span class="it">Power-on sequence</span> <span class="done">DONE</span>
+        <span class="crit"> — the fixture has a BMC but no HPB, so it runs
+        bench-top and the real handshake is not exercised here.</span></li>
+      <li><span class="it">PRBS</span> <span class="open">UNSTABLE</span>
+        <span class="crit"> — intermittent pass/fail, error count will not reset
+        to zero and saturates.
+        <a href="https://etched-ai.atlassian.net/browse/ETCH-38389">ETCH-38389</a>,
+        still To Do.</span></li>
+    </ul>
+    <div class="facts">
+      <div><span class="k">Cycle time</span><span class="v">over 1 hour per
+        board (7 Aug)</span></div>
+      <div><span class="k">Fixtures</span><span class="v">3 built, 1 returning
+        to HQ, 2 on the floor · connectors rated 300 mating cycles ·
+        4-month lead time on more</span></div>
+      <div><span class="k">Last build</span><span class="v">45-unit PROD:
+        flashing FPY 42/45 (93.3%), LPY 45/45 — BFT items mostly passing, PRBS
+        outstanding</span></div>
+      <div><span class="k">Jira</span><span class="v">
+        <a href="https://etched-ai.atlassian.net/browse/ETCH-39584">ETCH-39584</a>
+        MP readiness (P0) — test stability, station capacity, log access,
+        fixture handling all still To Do</span></div>
+    </div>
+  </div>
+
+</div>
+
+<h2>Status at a glance</h2>
+<div class="table-scroll">
+<table>
+  <thead>
+    <tr>
+      <th>Board</th><th>ICT</th><th>BFT today</th><th>Test items</th>
+      <th>Fixture</th><th>Lead time</th><th>Jira</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><b>VBB</b></td><td>Yes</td>
+      <td><span class="pill p-live">running</span></td>
+      <td class="num">6 (5 done, PRBS open)</td>
+      <td>3 built, 2 on floor</td>
+      <td class="num">4 mo for more</td>
+      <td><a href="https://etched-ai.atlassian.net/browse/ETCH-39584">ETCH-39584</a></td>
+    </tr>
+    <tr>
+      <td><b>PDB</b></td><td>Yes</td>
+      <td><span class="pill p-plan">proposed</span></td>
+      <td class="num">5</td>
+      <td>Drawing 11 Aug 2026</td>
+      <td class="num">~12 wk</td>
+      <td><a href="https://etched-ai.atlassian.net/browse/ETCH-39589">ETCH-39589</a></td>
+    </tr>
+    <tr>
+      <td><b>HPB</b></td><td>Yes</td>
+      <td><span class="pill p-plan">proposed</span></td>
+      <td class="num">5</td>
+      <td>WIP at Pega, ETA TBD</td>
+      <td class="num">~12 wk</td>
+      <td><a href="https://etched-ai.atlassian.net/browse/ETCH-39590">ETCH-39590</a></td>
+    </tr>
+    <tr>
+      <td><b>BB</b></td>
+      <td><span class="pill p-none">none</span></td>
+      <td><span class="pill p-plan">proposed</span></td>
+      <td class="num">1</td>
+      <td>Drawing 11 Aug 2026</td>
+      <td class="num">~12 wk</td>
+      <td><a href="https://etched-ai.atlassian.net/browse/ETCH-39591">ETCH-39591</a></td>
+    </tr>
+  </tbody>
+</table>
+</div>
+
+<h2>Three things the flow makes obvious</h2>
+<div class="cards">
+  <div class="card">
+    <h3>BB has no electrical test at all</h3>
+    <p class="role" style="margin-bottom:0">
+      Every other board gets ICT. The bridge board's Pega slide draws X-ray and
+      visual inspection and then hands it straight to 4U assembly. Until BB BFT
+      exists, the first thing that can find a bad solder joint on it is a
+      4U&nbsp;tray test with a module and three other boards attached — and the
+      proposed BFT, as written, still cannot see an open.
+    </p>
+  </div>
+  <div class="card">
+    <h3>Twelve weeks is the whole schedule</h3>
+    <p class="role" style="margin-bottom:0">
+      All three carry the same ~12-week fixture lead time, and only two of the
+      three drawings are released. Nothing about that clock starts until someone
+      places the order, so today's decision is not "which test items" — it is
+      whether to release the two finished drawings while the HPB one is still
+      being drawn.
+    </p>
+  </div>
+  <div class="card">
+    <h3>One station's worth of evidence</h3>
+    <p class="role" style="margin-bottom:0">
+      VBB BFT took a fortnight of on-site bring-up to get five of six items
+      passing, still has an unstable PRBS, and runs over an hour a board on two
+      fixtures whose connectors are rated for 300 insertions. Whatever the three
+      new stations cost, that is the shape of it — and
+      <a href="https://etched-ai.atlassian.net/browse/ETCH-20787">ETCH-20787</a>,
+      finding an owner for these three fixture designs, is still To&nbsp;Do.
+    </p>
+  </div>
+</div>
+
+<footer class="notes">
+  <p>
+    <b>No yields on this page, by design.</b> Every stage on the module flow
+    chart reports to a pega controller or to OCP Logs, so that page prints pass
+    rates. None of the four accessory boards reports anywhere this repo can
+    reach — VBB BFT results live on the station and its log access is still an
+    open ticket (<a href="https://etched-ai.atlassian.net/browse/ETCH-39587">ETCH-39587</a>).
+    A green box here means the stage exists and runs, nothing more.
+  </p>
+  <p>
+    Transcribed from the Pegatron overall-production deck (Google Slides
+    <code>1al4oxEe6wEzmGQEcpe42o6xr0wD6ArOXXsedeRZKiLA</code>), the PDB/HPB/BB
+    BFT proposal (<code>1fItdEW2GPoLqvQV70FgIa8SfIOBJSmJS</code>), the Slack
+    threads <i>PDB-HPB-BB-BFT XFN</i> and <code>#factory-vbb-testing</code>, and
+    Jira epics ETCH-17772, ETCH-17719 and ETCH-39584. Full provenance, including
+    what each source contributed and the per-board proposal decks the Jira
+    tickets link, is in <code>accessories/source/SOURCES.md</code>. Read
+    18 Aug 2026; statuses are as of that date and do not refresh.
+  </p>
+  <p>
+    Chain order within a lane comes from the per-board <i>PCBA Process Flow</i>
+    slides, where the sequence is drawn unambiguously. The Aug 3
+    <i>Production Test Flowchart</i> is the authority on which stages belong to
+    which board, but its boxes extract without their arrows, so it is not used
+    to order anything.
+  </p>
+</footer>
+
+</div>
+
+<script>
+/* Theme toggle, same three states as the dashboard: system, light, dark. */
+(function () {
+  'use strict';
+  var KEY = 'factory-theme';
+  var btn = document.getElementById('theme');
+  var order = ['system', 'light', 'dark'];
+
+  function apply(mode) {
+    if (mode === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', mode);
+    btn.textContent = 'Theme: ' + mode;
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) { /* private mode */ }
+  apply(order.indexOf(saved) === -1 ? 'system' : saved);
+
+  btn.addEventListener('click', function () {
+    var now = (document.documentElement.getAttribute('data-theme') || 'system');
+    var next = order[(order.indexOf(now) + 1) % order.length];
+    try { localStorage.setItem(KEY, next); } catch (e) { /* ignore */ }
+    apply(next);
+  });
+})();
+</script>
+
+</body>
+</html>

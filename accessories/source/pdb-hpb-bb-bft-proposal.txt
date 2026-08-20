@@ -1,0 +1,280 @@
+PDB/HPB/BB BFT Proposal
+Google Slides 1fItdEW2GPoLqvQV70FgIa8SfIOBJSmJS
+Text extracted 2026-08-18. Slide graphics (block diagrams, sectional views,
+fixture photographs) are not reproducible as text and are marked [figure].
+
+================================================================================
+CONTENTS
+================================================================================
+PDB           test environment / Block diagram / Function check / Equipment list
+HPB           test environment / Block diagram / Function check / Equipment list
+Bridge Board  test environment / Block diagram / Function check / Equipment list
+
+Test Fixture: Pega owned Test Fixture, MB, PSU, Test PC
+
+
+================================================================================
+PDB
+================================================================================
+
+PDB Test environment                                                   [figure]
+  PDB (DUT) · PSU · Test PC · Pega owned Test Fixture · MB
+  Legend: New design / Already existed
+
+PDB Block Diagram                                                      [figure]
+  PSU x4 -> 54V, 12VSB. PSU CON x4 (P1..P7, P11, P12).
+  Control signals and direction:
+    SMBUS_DAT        Bi-direction
+    SMBUS_CLK        I
+    PS_ON#           I
+    SMBUS_INT#       O
+    PSU_RS-          I
+    PSU_RS+          I
+    CRPS_PWROK       O
+    PSU_SMART_ON#    I
+    PSU_I_SHARE      Bi-direction
+  Rails: 12V_U, 3.3VSB, PG_LED1, 54V
+  Connectors: PU1 CON, HPB_PSU 1/2 CON, PSU1-4 CON, CON1, CON2, CON2-1, CON3, J6
+  Connect to PDB_B / Connect to HPB / Connect to PSU
+
+PDB Fun. Check
+  To attach PDB (DUT) with Test fixture use the golden finger board.
+  To use PEGA owned Test fixture MB (AST2600) by driving GPIO through
+  Connectors on test fixture and loop back through PDB (DUT).
+  Finally, AST2600 could sample these loop back signals through connectors
+  and cables.
+  Golden finger board attach x5. Wire cable. USB.
+  Use USB to give Test Fixture power. 5V transfer to 3.3V.
+  Net +54V and Net +12V use GPIO to test. Not use real power.
+
+  COMMENT — Yibing, 12/30/2025:
+    Can we test the connection of each individual power or GND pins?
+
+Option 1 — PDB BFT +54V, +12V test item summarization                  [figure]
+  Test Fixture MB (BMC AST2600) -> J6 -> PDB (DUT) -> PSU1-4 / BCON / PU1 CON /
+  HPB_1/2 CON. Golden finger board attach. GPIO.
+  Use GPIO to test net +54V and +12V. AST2600 could check the pin OPEN or not.
+
+Option 2 — PDB BFT +54V, +12V test item summarization                  [figure]
+  Nine I2C IO EXPANDERs (1..9).
+  Send one signal at 1. I2C IO EXPANDER to PDB (DUT), and get the signal
+  feedback at 2-9 I2C IO EXPANDER.
+  Finally, AST2600 could check the pin OPEN or not.
+
+PDB Test environment Sectional view                                    [figure]
+  Plexiglass · PDB Test Fixture · PDB Test Fixture PSU1-4, PU1 ·
+  PDB (DUT) PSU1-4, PU1 · Golden finger board · PDB (DUT) HPB_PSU1,2 ·
+  PSU1,2 · CON1 · TFMB CON1 · Wire cable
+
+PDB BFT test item summarization
+  ------------------------------------------------------------------------------
+  Test item
+    Description
+    Criterion
+  ------------------------------------------------------------------------------
+  Address/Preset/AC_FAULT pin test
+    Use TFMB GPIO to get the address pin level, check the resistor mount or
+    unmount.
+    TFMB will get 3.3V or 0V to define pass or fail.
+
+  SMBUS DAT/INT#/CLK pin test
+    Use TFMB GPIO to send the high level signal, via PU1 to PSU1-4.
+    TFMB will check GPIO get 3.3V level to define pass or fail.
+
+  PWROK pin test
+    Use TFMB GPIO to send the high level, via PSU1-4 to PU1.
+    TFMB will get correct voltage by PU1 PWROK PIN.
+
+  PS_ON/12VSB/SMART_ON/I_SHARE/RS+/RS- pin test
+    Use TFMB GPIO to send the signal, via PU1 to PSU1-4.
+    TFMB will get correct voltage by PSU1-4 PS_ON PIN.
+
+  54V/12V pin test
+    Use TFMB GPIO to send the signal at PSU1, and get signal at PSU1-4 and
+    HPB_PSU2.
+    TFMB will get correct voltage by PSU1-4 and HPB_PSU2.
+  ------------------------------------------------------------------------------
+
+PDB BFT Equipment list
+  Pega own Test Fixture Equipment
+    1  12V power supply leverage VBB from PACER PSU   x1  PSU for Pega own test fixture MB
+    2  Pega own Test fixture MB                       x1  TF MB and peripherals
+    3  HOST PC                                        x1
+    4  carol BMC card                                 x1  TF MB and peripherals
+    5  FRONT IO board                                 x1  TF MB and peripherals
+    6  Barcode reader                                 x1
+  BFT Test Fixture
+    1  PDB test fixture                               x1  New design test fixture board
+    2  PSU connector golden finger board              x4  New design test fixture board
+    3  PU1 connector golden finger board              x1  New design test fixture board
+  Test Fixture Wire Cable
+    1  Test fixture MB to PDB test fixture cable (CON1)   x1
+    2  Test fixture MB to PDB test fixture cable (CON3)   x1
+    3  Test fixture MB to PDB test fixture cable (J6)     x1
+    4  USB 2.0 TYPE A CABLE                               x1
+    5  PDB; HPB_1/2 CON wire to CON2 cable                x2
+    6  RJ45 CABLE                                         x1  PC to Test Fixture MB cable
+    7  AC power cord                                      x1
+    8  Carlo Front IO to Test Fixture MB SlimSAS cable    x1
+    9  Carlo Front IO to Test Fixture MB power cable      x1
+
+
+================================================================================
+HPB
+================================================================================
+
+HPB Test environment                                                   [figure]
+  HPB (DUT) · PSU · Test PC · Pega owned Test Fixture · MB ·
+  PDB Golden sample
+  Legend: New design / Already existed
+
+HPB Block Diagram                                                      [figure]
+  HPB_SB CON -> Switch -> V3P3_VCC_IN / V3P3_VCC -> I2C MUX
+  I2C x4 for MP5920, PG x4, ALERT x4, EN x4, RESET x4
+  Four identical channels, each: MP5048 x4 (ON, IMON, TEMP) +
+    MP5920GRT (ON, IMON, TEMP, SCL, SDA, ALERT, RESET, PG, EN, D_OC, Fault, GPIO)
+  Rails / connectors: 12VCN1, P54V_LEFT, P54V_MC0, P54V_MC3, P54V_MC4,
+    P54V_MC7, MC0_PWR1, MC3_PWR1, MC4_PWR1, MC7_PWR1, HPB_PSU1, HPB_PSU2,
+    54V, 12V_U, GND
+  Connect to VBB / Connect to SoHu (TV3 series) / Connect to PDB
+
+HPB Fun. Check
+  To attach HPB (DUT) with test fixture.
+  To use PEGA owned Test fixture MB (AST2600) to control (read/write) MP5920
+  Hotswap controller through I2C/GPIO interface.
+  Finally, AST2600 could get output voltage through I2C command
+  (e.g. to read register 0x8B via I2C read command).
+  B2B Con attach. Wire cable. Power path. Read Hot swap controller register.
+  Golden sample PSU+PDB give 54V and 12V via cable to HPB test fixture
+  PWR_CON3,4. PCB layout to HPB test fixture PWR_CON1,2.
+  B2B to HPB (DUT) to give HOT SWAP controller and efuse power.
+  Make sure power working fine and can use I2C to check IC ok or not.
+
+  COMMENT — Yibing, 12/30/2025:
+    Can we add external load, such as 10A and measure the voltage drop from
+    the 54V input to 54V output?
+
+HPB Test environment Sectional view                                    [figure]
+  HPB (DUT) PWR_CON1,2 · MCx_PWR1 · 12VCN1 · HPB_SB ·
+  HPB Test Fixture PWR_CON1,2 and PWR_CON3,4 · TFMB CON1 ·
+  CON2 / CON3 / CON4 · PSU · PDB · wire cables · B2B Con attach
+
+HPB BFT test item summarization
+  ------------------------------------------------------------------------------
+  54V output test
+    TFMB will control the EN of Hotswap controller of DUT by cable at our
+    fixture. And the PG signal will feedback to TFMB if power rail output is
+    normal.
+    TFMB can get the 3.3V high level signal was pass.
+
+  LED Visually check
+    Check LED light.
+    Led light was pass, it was fail without light through visual inspection.
+
+  I2C pin test
+    TFMB could read MPS i2c register check if power rail level is normal or not
+    through cable connected to TFMB.
+    Get the correct value from MPS I2C register.
+
+  Reset pin test
+    TFMB will send reset to HPB mux. TFMB i2c master could get the I2C bus
+    through mux after reset.
+    I2C signal will reset. TFMB could check I2C address successfully again.
+
+  12V output test
+    DUT will provide 12V to FIXTURE. 12V will feedback to TFMB for checking.
+    TFMB get the high level signal was pass.
+  ------------------------------------------------------------------------------
+
+HPB BFT Equipment list
+  Pega own Test Fixture Equipment
+    1  12V power supply leverage VBB from PACER PSU   x1
+    2  Pega own Test fixture MB                       x1
+    3  HOST PC                                        x1
+    4  carol BMC card                                 x1
+    5  FRONT IO board                                 x1
+    6  Pacer PSU                                      x1  power for HPB
+    7  PDB golden sample                              x1  power for HPB
+    8  Barcode reader                                 x1
+  BFT Test Fixture
+    1  HPB test fixture                               x1  New design test fixture board
+  Test Fixture Wire Cable
+    1  Test fixture MB to HPB test fixture cable (CON1)              x1
+    2  HPB_SB wire to HPB Test Fixture Top cable                     x1
+    3  12VCN1 wire to HPB Test Fixture Top cable                     x1
+    4  MCx_PWR1 wire to HPB Test Fixture Top cable                   x4
+    5  PDB golden sample HPB_PSU1,2 wire to HPB Test Fixture BOT     x2
+    6  AC power cord                                                 x1  FOR CRPS
+    7  AC power cord                                                 x1  FOR TFMB power supply
+    8  RJ45 cable                                                    x1  PC to Test Fixture MB cable
+    9  USB 2.0 TYPE A CABLE                                          x1
+   10  Carlo Front IO to Test Fixture MB SlimSAS cable               x1
+   11  Carlo Front IO to Test Fixture MB power cable                 x1
+
+
+================================================================================
+BRIDGE BOARD (BB)
+================================================================================
+
+Bridge BD Test environment                                             [figure]
+  BB (DUT) · Test Fixture · Test Fixture MB · PSU · Test PC
+  Legend: New design / Already existed
+
+Bridge Board Block Diagram                                             [figure]
+  Four connector pairs CON1A/B, CON2A/B, CON3A/B, CON4A/B.
+  Each pair carries, per position -1 / -2 / -3 / -4:
+    ETH0_LN0~3, ETH1_LN0~3, ETH0_LN8~11, ETH1_LN8~11   (TX/RX, RX/TX)
+    ETH0_LN4~7, ETH1_LN4~7, ETH0_LN12~15, ETH1_LN12~15 (TX/RX, RX/TX)
+
+Bridge board Test fixture                                              [figure]
+  Per connector, the fixture gathers:
+    nA_ETH0_LN0-15_P / nA_ETH1_LN0-15_P / nA_ETH1_LN0-15_N (x2) and GND,
+    addressed A0..A15, for n = 1..4 and side A / B.
+
+BB Fun. Check
+  To attach BB (DUT) with Test fixture. B2B Con attach.
+  Bridge board Test fixture: CON1A1B all ETH0 and ETH1 P signal will connect
+  together follow the layout signal sequence. Can check all P signal had
+  correct solder and not short with GND or N signal. So does all N signal
+  design. CON2A2B, CON3A3B, CON4A4B had the same design.
+
+  COMMENT — Yibing, 12/30/2025:
+    Coverage: can identify if any shorts between P and N or to the GND.
+    Limitations: Can not detect open circuits. -> See next page for proposal
+    to cover it.
+
+Proposal to increase the test coverage for open circuit — Yibing, 12/30/2025
+  Open/short test:  1A -> 1B -> 1B -> 1A
+    IN  (Toggle, from GPIO)
+    OUT (Monitor, to GPIO)
+    Desired: IN=H, OUT=H ; IN=L, OUT=L
+  Cascade all P signals to reduce the number of GPIOs.
+  Test board: FR-4 or equivalent low speed board.
+  Group of _Ps (or Ns).
+
+BB BFT test item summarization
+  ------------------------------------------------------------------------------
+  Open/short test
+    TFMB send the signal to series P/N/GND pins, check following:
+      - Series P signals open with series N signals
+      - Series P signals open with GND
+      - Series N signals open with GND
+    All measured signals need to be open from each other.
+  ------------------------------------------------------------------------------
+
+Bridge BD BFT Equipment list
+  Pega own Test Fixture Equipment
+    1  12V power supply leverage VBB from PACER PSU   x1
+    2  Pega own Test fixture MB                       x1
+    3  HOST PC                                        x1
+    4  carol BMC card                                 x1
+    5  FRONT IO board                                 x1
+    6  Barcode reader                                 x1
+  BFT Test Fixture
+    1  Bridge board test fixture                      x1  New design test fixture board
+  Test Fixture Wire Cable
+    1  Test fixture MB to BB test fixture cable (CON1)   x1
+    2  RJ45 CABLE                                        x1  PC to Test Fixture MB cable
+    3  AC power cord                                     x1
+    4  Carlo Front IO to Test Fixture MB SlimSAS cable   x1
+    5  Carlo Front IO to Test Fixture MB power cable     x1

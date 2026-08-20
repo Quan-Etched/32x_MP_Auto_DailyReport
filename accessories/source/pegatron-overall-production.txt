@@ -1,0 +1,250 @@
+Overall Production in Pegatron — Taiwan, Eason Chuang
+Google Slides 1al4oxEe6wEzmGQEcpe42o6xr0wD6ArOXXsedeRZKiLA
+Text extracted 2026-08-18.
+
+EXCERPT. The deck runs to ~40 slides (team list, floor plans, network,
+locations, FA procedure). Reproduced here are the slides the flow on
+bft-flow.html is built from, in deck order. Slide graphics are not
+reproducible as text; box labels are transcribed in reading order and the
+arrows between them are not, which is why the page's chain order also leans on
+the four per-board PCBA slides where the sequence is unambiguous.
+
+================================================================================
+Etched Projects at Pega
+================================================================================
+Production Vehicle (PV)
+Test Vehicle (TV)
+Vertical Baseboard (VBB)
+Power Distribution Board (PDB)
+Host Power Board (HPB)
+Bridge Board (& Loopback Bridgeboard)
+Eval Board
+Mezzanine Card (MC) or Sohu Module
+L10 2U / 4U / 6U
+L11 Rack (4x 6U)
+
+================================================================================
+Etched | Product Flow
+================================================================================
+SMT/DIP -> Mezz module Assy + TIM Curing -> Mezz module Test ->
+4U Tray module Assy -> 2U System Assy -> 2U System Function test
+SOHU Module PCBA · 4U Tray · 2U System · 6U System
+TIM Dispensing
+Insert 4U tray into 2U System -> 6U L10 System Function test ->
+6U L10 System Run-in test -> Hi pot test -> 4U and 2U VI -> OQC
+
+================================================================================
+Etched | FATP Process Flow
+================================================================================
+Inputs: HPB Board · VBB Board · PDB Board
+Stations: Inspection · Liquid Station · 2U/4U Assy Station · 6U Assy Station
+4U Process:
+  Pre-Assy1 Install Coldplate Handles and Bridge board
+  Pre-Assy2 Disassemble the 4U Tray
+  Pre-Assy3 Assemble Rear Tray Module
+  Machine1  Dispensing on Bottom cold plate
+  Assy1 Assemble Sohu Module on Bottom Coldplate
+  Assy2 Assemble Sohu Link Cable
+  Assy3 Assemble PCIe harness
+  Assy4 Assemble Power harness
+  Assy5 Arrange Hoses of Sohu Module
+  VI1   4U - Final Visual Inspection
+2U Process:
+  Pre-Assy1 Remove parts
+  Pre-Assy2 Attach the Labels on MCIO cable
+  Pre-Assy3 Assemble PDB Module
+  Pre-Assy4 Assemble Switch Board Module and Riser Module
+  Pre-Assy5 Assemble Fan LB Bracket L & R
+  Pre-Assy6 Assemble IO module and HDD Cage Module
+  Pre-Assy7 Assemble Middle Fan module
+  Assy1 Install MB and Switch Board
+  Assy2 Install CPU, DIMM, and Cold plate
+  Assy3 Install PDB and MCIO cables
+  Assy4 Install Riser Module & Fan LB Module
+  Assy5 Install BPB and fan cage
+  Assy6 Install PSU and HDD
+  2U Firmware update (Liquid)
+  2U Function test (Liquid)
+  2U Run-in (Liquid)
+  VI1 2U - Final Visual Inspection
+6U Process:
+  Insert 4U tray into 2U System
+  6U L10 System Function test
+  6U L10 System Run-in test
+  Hi pot test
+  4U and 2U VI
+  OQC
+
+================================================================================
+Etched | PCBA Process Flow (Sohu PV1, TV3 MPS/INF)
+================================================================================
+TOP:    Loader Printer SPI PnP Reflow Oven Post-AOI 3D Pre-AOI VI
+BOTTOM: Loader Printer SPI PnP Reflow Oven Post-AOI Pre-AOI VI
+5DX X-Ray · Touch up · De-panel · Dispensing · ICT · VI
+-> Sohu assy
+
+================================================================================
+Etched | SOHU Assembly Process Flow
+================================================================================
+Machine Station: Machine1 Dispensing on Stiffener · Machine2 Tim Baking
+Assy Station:    Pre-Assy1 Put the TIM on Cold plate ·
+                 Assy1 Assemble the Sohu module
+Liquid Station:  Single SOHU test (Liquid)
+Inspection:      VI1 4U - Final Visual Inspection
+Test Fail -> FAE
+-> 4U System Assembly
+
+================================================================================
+Etched | PCBA Process Flow (Sohu-PDB)
+================================================================================
+TOP:    Loader Printer SPI PnP Reflow Oven Post-AOI 3D Pre-AOI VI
+BOTTOM: Loader Printer SPI PnP Reflow Oven Post-AOI Pre-AOI VI
+5DX X-Ray · DIP · Wave solder · Touch up · De-panel · ICT · VI · Press fit
+-> 2U assy
+        [no BFT stage drawn on this slide]
+
+================================================================================
+Etched | PCBA Process Flow (Sohu-VBB)                      [1135756]
+================================================================================
+TOP:    Loader Printer SPI PnP Reflow Oven Post-AOI 3D Pre-AOI VI
+BOTTOM: Loader Printer SPI PnP Reflow Oven Post-AOI Pre-AOI VI
+5DX X-Ray · DIP · Wave solder · Touch up · De-panel · ICT · VI
+Board Programming (MCU)
+Board Programming (ROT)
+BFT
+-> 4U System Assembly
+
+================================================================================
+Etched | PCBA Process Flow (Sohu-HPB)
+================================================================================
+TOP:    Loader Printer SPI PnP Reflow Oven Post-AOI 3D Pre-AOI VI
+BOTTOM: Loader Printer SPI PnP Reflow Oven Post-AOI Pre-AOI VI
+5DX X-Ray · DIP · Wave solder · Touch up · De-panel · ICT · VI
+-> 4U System Assembly
+        [no BFT stage drawn on this slide]
+
+================================================================================
+Etched | PCBA Process Flow (Sohu-BB)
+================================================================================
+TOP only: Loader Printer SPI PnP Reflow Oven Post-AOI 3D Pre-AOI VI
+5DX X-Ray · VI · De-panel
+BFT
+-> 4U System Assembly
+        [no ICT stage drawn on this slide]
+
+================================================================================
+Etched | 4U Tray Assembly Process Flow
+================================================================================
+HPB & VBB Input station
+Pre-Assy1 Install Coldplate Handles and Bridge board
+Pre-Assy2 Disassemble the 4U Tray
+Pre-Assy3 Assemble Rear Tray Module
+Machine1  Dispensing on Bottom cold plate
+Assy1 Assemble Sohu Module on Bottom Coldplate
+Assy2 Assemble Sohu Link Cable
+Assy3 Assemble PCIe harness
+Assy4 Assemble Power harness
+Assy5 Arrange Hoses of Sohu Module
+VI1 4U - Final Visual Inspection
+  1. Check modules, panels and shelfs are fully inserted.
+  2. Check screws are well fastened.
+-> 6U System Assembly
+
+================================================================================
+Etched | 6U System Assembly Process Flow
+================================================================================
+Assy1 Insert 4U tray into 2U System
+6U L10 System Function test
+6U L10 System Run-in test
+Hi pot test
+4U and 2U VI
+OQC
+Test Fail -> FAE
+-> L11 System Assembly
+
+================================================================================
+Etched | L11 System Assembly Process Flow
+================================================================================
+Pre-Assy1 Assy Rail · Pre-Assy2 Assy Leak tray wires · Pre-Assy3 Paste Label
+  (Pre ASSY 1 / 2 / 3 are done in parallel)
+Assy1 Remove packing & Assy Rail
+Assy2 Assy PDU
+Assy3 Assy VRM & CDU
+Assy4 Assy L10 Systems
+Assy5 Assy Switches
+Assy6 Cable Routing
+VI1 Inspection
+Machine2 Replenish PG25
+L11 Function test (Liquid)
+L11 Run-in (Liquid)
+Machine3 Drainage
+Machine4 Nitrogen filling
+VI2 L11 - Final Visual Inspection
+OQC
+Pack
+
+================================================================================
+Production Test Flowchart — Updated July 6, 2026
+================================================================================
+ASIC (@Sigurd) · FT
+PCBA L6 (@Pega): SMT · ICT · Flash · BFT · VBB · PV1 · Sohu Test · ASSY
+  ICT covers: HPB & VBB & PV1 & PDB
+  (a second annotation reads: HPB & PDB)
+SLT
+FATP L10 2U/4U: ASSY · SFT · Runin  (4U, 2U)
+FATP L10 6U: ASSY · SFT · Runin · HiPot
+Rack L11: ASSY · SFT · Pack
+
+================================================================================
+Production Test Flowchart — (undated intermediate revision)
+================================================================================
+WST · ASIC · FT                                   @Sigurd
+SMT / ICT — HPB & VBB & PV1 & PDB                 @Pega
+Flash / BFT — VBB
+                (a second annotation reads: HPB & PDB)
+MLT · HTT · SLT
+FATP L10 2U/4U: ASSY · FAT/SFT · Runin   (4U, 2U)
+FATP L10 6U:    ASSY · FAT/SFT · Runin
+Rack L11:       ASSY · Runin · Pack
+PV1 Provision
+Pega3:3000 · Pega4:3000 · Pega5:3000
+
+================================================================================
+Production Test Flowchart — Updated Aug. 3, 2026
+================================================================================
+L6 PV1:  SMT · ICT · MLT · TIM Baking · HTT        -> 4U ASSY
+L6 VBB:  SMT · ICT · Flash · BFT                   -> 4U ASSY
+L6 HPB:  SMT · ICT                                 -> 4U ASSY
+L6 PDB:  SMT · ICT                                 -> 2U ASSY
+L10 2U:  ASSY · FW Update · SFT · Runin
+L10 4U:  ASSY
+L10 6U:  ASSY · FAT · SFT · Runin
+L11:     ASSY · L11 Provisioning · L11 Test
+
+================================================================================
+Etched | TY2 6F - FA Area and BFT Area
+================================================================================
+BFT Area
+SLT area — SLT station quantity: 5
+FA Area
+
+================================================================================
+Etched | TY2 2U/4U MFG Process
+================================================================================
+(1) Dispense Sohu module  (2) TIM  (3) Sohu module Test
+(4) Dispense bottom cold plate  (5) Assemble BB & Sohu Module onto cold plate
+(6) Transfer to 4U online assy       Check in FA -> FA Process (on Fail)
+4U: (1) 4U Input (2) 4U Output (3) 4U Tray Test w/Golden 2U system
+    (4) Transfer to 6U Assy
+2U: (1) 2U Input (2) 2U Output (3) 2U Tray Test (4) Transfer to 6U Assy
+Sohu Test Area (5x) · TIM Baking · FA Area
+
+================================================================================
+Production Failure Analysis Flow
+================================================================================
+Production Test -> PASS -> Move to next stage -> OK2SHIP
+Production Test -> FAIL -> Report to Pega FA team for first triage
+  -> Root Cause Identification -> RC  -> Documentation
+                               -> NTF -> Reach out to Etched for further FA
+  -> Report to Etched review the FA
+Pegatron Production Troubleshooting Guide
