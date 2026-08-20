@@ -1,0 +1,8 @@
+﻿Day,Station,DUT_SN,Kind,Suite,Release,Status_On_The_Side_That_Has_It,Suite_Run,Started_UTC
+2026-08-18,l10_rin,268645410001,station-absent,L10_RIN,L10_RIN,pass,L10_RIN_run_d4eb3c17,2026-08-18 14:34:10
+2026-08-18,l10_sft,267694410002,station-absent,L10_SFT,L10_SFT,fail,L10_SFT_run_0c65eb15,2026-08-18 11:57:38
+2026-08-18,l10_sft,268645410001,station-absent,L10_SFT,L10_SFT,fail,L10_SFT_run_ebf80b08,2026-08-18 10:14:23
+2026-08-18,mlt,268494110000071,station-absent,mlt_2026.225.0-gitb937ca2c,mlt_2026.225.0-gitb937ca2c,fail,mlt_2026.225.0-gitb937ca2c_run_5b56662a,2026-08-18 10:46:24
+2026-08-18,mlt,268494110000117,station-absent,mlt_2026.230.0-gitdb090ec0-tpm-dry-run,mlt_2026.230.0-gitdb090ec0-tpm-dry-run,pass,mlt_2026.230.0-gitdb090ec0-tpm-dry-run_run_c3323fde,2026-08-19 04:49:11
+2026-08-18,mlt,268494110000127,station-absent,mlt_2026.230.0-gitdb090ec0-tpm-dry-run,mlt_2026.230.0-gitdb090ec0-tpm-dry-run,pass,mlt_2026.230.0-gitdb090ec0-tpm-dry-run_run_c3323fde,2026-08-19 04:49:11
+2026-08-18,mlt,268494130000055,station-absent,mlt_2026.230.0-gitdb090ec0-tpm-dry-run,mlt_2026.230.0-gitdb090ec0-tpm-dry-run,pass,mlt_2026.230.0-gitdb090ec0-tpm-dry-run_run_c3323fde,2026-08-19 04:49:11

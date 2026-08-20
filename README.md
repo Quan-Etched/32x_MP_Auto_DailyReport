@@ -382,6 +382,9 @@ src/factory/
   version.py          which build made a page: release, commit, repo
   build_release_source.py  what each release contains, from the sw tree at the
                       commit its suite name carries
+  reconcile.py        OCP against the controllers run by run for one day, with
+                      each difference classified — a fixture row standing in for
+                      its units is not a missing unit
   build_delta.py      the hand-kept sheet in diff/ against this repo's own
                       reading of the same day: population, verdicts, failure
                       cases, and why each differs
@@ -397,7 +400,7 @@ src/factory/
   cli.py              trust | levels | runs | inspect | collect | demo
                       | build | refresh | status | report | items
                       | dailyexcel | release-source | suite-map | delta
-                      | serve
+                      | reconcile | serve
 
 dashboard/
   styles.css          palette + chrome (light/dark as role tokens)

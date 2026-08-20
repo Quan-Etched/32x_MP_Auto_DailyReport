@@ -712,6 +712,65 @@ def cmd_archive(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_reconcile(args: argparse.Namespace) -> int:
+    """OCP against the controllers, run by run, for one day."""
+    from . import reconcile
+
+    from pathlib import Path as _Path
+
+    try:
+        ocp, controllers = reconcile.bundles(
+            _Path(args.ocp) if args.ocp else None,
+            _Path(args.controllers) if args.controllers else None)
+    except reconcile.NoBundle as exc:
+        print("Cannot compare: {}".format(exc), file=sys.stderr)
+        return 1
+
+    day = args.day or reconcile.latest_day(ocp, controllers)
+    if not day:
+        print("Neither bundle has a run with a day on it.", file=sys.stderr)
+        return 1
+
+    result = reconcile.compare_day(day, ocp, controllers)
+    sources = result["sources"]
+    print("{}  OCP collected {} · controllers collected {}".format(
+        day, sources["ocp"]["collectedAt"], sources["controllers"]["collectedAt"]))
+    print()
+    print("{:<16} {:>9} {:>9} {:>9} {:>9}   {}".format(
+        "station", "OCP runs", "OCP units", "ctl runs", "ctl units", "gap"))
+    for row in result["stations"]:
+        note = ""
+        if row["ocpBlind"]:
+            note = "OCP HAS NOTHING for this station today"
+        elif row["missingFromOcp"] or row["missingFromControllers"]:
+            note = "{} not in OCP, {} not in the controllers".format(
+                row["missingFromOcp"], row["missingFromControllers"])
+        print("{:<16} {:>9} {:>9} {:>9} {:>9}   {}".format(
+            row["label"], row["ocpRuns"], row["ocpUnits"],
+            row["ctlRuns"], row["ctlUnits"], note))
+
+    print()
+    counts = result["counts"]
+    print("units the controllers have and OCP does not: {}".format(
+        counts["missingFromOcp"]))
+    for kind, count in sorted(counts["byKind"].items(), key=lambda p: -p[1]):
+        print("    {:<18} {}".format(kind, count))
+    print("units OCP has and the controllers do not: {}".format(
+        counts["missingFromControllers"]))
+    for kind, count in sorted(counts["byKindOther"].items(), key=lambda p: -p[1]):
+        print("    {:<18} {}".format(kind, count))
+
+    out_dir = _Path(args.out) if args.out else None
+    for direction in ("ocp", "controllers"):
+        target = (out_dir / "missing-from-{}-{}.csv".format(direction, day)
+                  if out_dir else None)
+        path = reconcile.write_csv(result, path=target, direction=direction)
+        rows = len(result["missingFromOcp"] if direction == "ocp"
+                   else result["missingFromControllers"])
+        print("{} rows -> {}".format(rows, path))
+    return 0
+
+
 def cmd_delta(args: argparse.Namespace) -> int:
     """The hand-kept sheet against this repo's reading of the same day."""
     from . import build_delta
@@ -1208,6 +1267,22 @@ def _build_parser() -> argparse.ArgumentParser:
     relsrc.add_argument("--repo", default=None,
                         help="path to a clone of etched-ai/sw")
     relsrc.set_defaults(handler=cmd_release_source)
+
+    recon = subparsers.add_parser(
+        "reconcile",
+        help="OCP against the controllers, run by run, for one day")
+    recon.add_argument("--day", default=None,
+                       help="the day to compare (default: the most recent day "
+                            "either source has)")
+    recon.add_argument("--ocp", default=None,
+                       help="OCP run bundle to read (default: the built one)")
+    recon.add_argument("--controllers", default=None,
+                       help="controller run bundle to read (default: the built "
+                            "one)")
+    recon.add_argument("--out", default=None,
+                       help="directory to write the CSVs into (default: beside "
+                            "the bundles)")
+    recon.set_defaults(handler=cmd_reconcile)
 
     delta = subparsers.add_parser(
         "delta",

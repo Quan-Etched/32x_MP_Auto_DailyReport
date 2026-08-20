@@ -10,7 +10,8 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        dailyexcel requests pega-stations release-source suite-map delta retest fpy \
+        dailyexcel requests pega-stations release-source suite-map delta reconcile \
+        retest fpy \
         weekly \
         weekly-deck archive \
         weekly-snapshot schedule-weekly-install schedule-weekly-uninstall \
@@ -33,6 +34,7 @@ help:
 	@echo "make requests           re-check what we need from other systems"
 	@echo "make suite-map [CASES=1] which suite YAML each station runs, from the sw tree"
 	@echo "make delta              the hand-kept sheet in diff/ vs this repo's own reading"
+	@echo "make reconcile [DAY=..] OCP vs the controllers run by run, + a CSV of the gaps"
 	@echo "make schedule-install   install the hourly job (launchd / systemd timer)"
 	@echo "make schedule-weekly-install  install the Sunday 21:00 snapshot job"
 	@echo "make weekly-snapshot    run that snapshot now: collect, deck, archive, publish"
@@ -129,6 +131,13 @@ suite-map:
 # iterating on a new export, or for reading the comparison in a terminal.
 delta:
 	$(PY) -m factory.cli delta
+
+# OCP against the controllers, run by run, for one day, plus a CSV of the units
+# each source is missing. Reads the two published run bundles, so `make build`
+# first if they are stale. DAY=2026-08-20 to pick a day; default is the most
+# recent day either source has.
+reconcile:
+	$(PY) -m factory.cli reconcile $(if $(DAY),--day $(DAY),)
 
 # Retests split from new builds, in the line's own Retest-tab format.
 retest:
