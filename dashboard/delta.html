@@ -52,26 +52,46 @@
       <div id="reconcile"></div>
     </section>
 
-    <!-- One row per unit: is it in each place, where to look, and what to do
-         about it. Every unit on either side is available, not only the ones
-         that disagree — a reader checking a specific serial needs to find it
-         here whether or not it is a problem. -->
-    <section class="card full" style="margin-top:16px">
+    <!-- One table per stage, because a unit reaches MLT and HTT separately and
+         a row carrying both has no single subject: on 08-20 the sheet holds 78
+         MLT verdicts and 49 HTT ones, and asking "is this unit in Excel" has a
+         different answer depending on which you mean. Each table therefore
+         lists the units either side has a verdict for AT THAT STAGE, and gets
+         its own CSV. -->
+    <section class="card full stage-block" id="stage-mlt" style="margin-top:16px">
       <div class="card-head">
         <div>
-          <h2>Every unit</h2>
-          <p class="sub" id="table-sub"></p>
+          <h2>MLT</h2>
+          <p class="sub" id="sub-mlt"></p>
         </div>
         <span class="spacer"></span>
-        <div class="delta-filters" id="filters"></div>
+        <div class="delta-filters" id="view-mlt"></div>
         <!-- Built in the browser from the rows on screen, so the file cannot
              disagree with the table it came from. -->
-        <div class="delta-filters" id="download"></div>
+        <div class="delta-filters" id="download-mlt"></div>
       </div>
       <div class="table-wrap">
-        <table class="delta-table" id="table">
-          <thead id="table-head"></thead>
-          <tbody id="table-body"></tbody>
+        <table class="delta-table" id="table-mlt">
+          <thead id="head-mlt"></thead>
+          <tbody id="body-mlt"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card full stage-block" id="stage-htt" style="margin-top:16px">
+      <div class="card-head">
+        <div>
+          <h2>HTT</h2>
+          <p class="sub" id="sub-htt"></p>
+        </div>
+        <span class="spacer"></span>
+        <div class="delta-filters" id="view-htt"></div>
+        <div class="delta-filters" id="download-htt"></div>
+      </div>
+      <div class="table-wrap">
+        <table class="delta-table" id="table-htt">
+          <thead id="head-htt"></thead>
+          <tbody id="body-htt"></tbody>
         </table>
       </div>
     </section>

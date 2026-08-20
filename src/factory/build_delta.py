@@ -351,8 +351,22 @@ def published_rows(tab: Dict[str, Any]) -> List[Dict[str, Any]]:
         serial = value("sn")
         if not serial:
             continue
+        # Fresh material or a unit that has been here before. The tracker
+        # already works this out — it has to, so its Count new mode can drop
+        # returning units from a day's yield — and it records the answer on the
+        # serial cell: ``new`` for a first visit, ``seen``/``history`` per stage
+        # for one that is back. Recomputing it here from the run table would be
+        # a second implementation of the same question, and the two would
+        # disagree within a week.
+        sn_cell = cells.get(field.get("sn")) or {}
+        seen_at = sn_cell.get("seen") or {}
+        history = sn_cell.get("history") or {}
+
         entry = {"sn": serial, "pn": value("pn"), "jira": value("jira")}
         for key, _label in STATIONS:
+            entry[key + "Fresh"] = not seen_at.get(key)
+            entry[key + "Seen"] = seen_at.get(key) or ""
+            entry[key + "Attempts"] = len(history.get(key) or [])
             entry[key] = _verdict(value(key))
             entry[key + "Case"] = _cases(value(key + "Case"))
             entry[key + "Ver"] = value(key + "Ver")
@@ -474,7 +488,10 @@ def compare(local: List[Dict[str, Any]], online: List[Dict[str, Any]],
                               "onlineCase": (theirs or {}).get(key + "Case") or [],
                               "version": (theirs or {}).get(key + "Ver", ""),
                               "url": (source or {}).get(key + "Link")
-                                     or (theirs or {}).get(key + "Url", "")}
+                                     or (theirs or {}).get(key + "Url", ""),
+                              "fresh": (theirs or {}).get(key + "Fresh", True),
+                              "seen": (theirs or {}).get(key + "Seen", ""),
+                              "attempts": (theirs or {}).get(key + "Attempts", 0)}
             units.append(entry)
             continue
 
@@ -484,7 +501,13 @@ def compare(local: List[Dict[str, Any]], online: List[Dict[str, Any]],
             entry[key] = {"local": local_v, "online": online_v,
                           "localCase": local_c, "onlineCase": online_c,
                           "version": theirs.get(key + "Ver", ""),
-                          "url": mine.get(key + "Link") or theirs.get(key + "Url", "")}
+                          "url": mine.get(key + "Link") or theirs.get(key + "Url", ""),
+                          # Only the controllers can answer this — the sheet has
+                          # no column for it — so it comes from one side alone
+                          # and is labelled as the dashboard's answer.
+                          "fresh": theirs.get(key + "Fresh", True),
+                          "seen": theirs.get(key + "Seen", ""),
+                          "attempts": theirs.get(key + "Attempts", 0)}
             if local_v != online_v:
                 entry["deltas"].append({
                     "field": label + " result", "kind": "status", "station": key,

@@ -247,6 +247,57 @@ class CompareTest(unittest.TestCase):
         self.assertEqual([u["sn"] for u in out["units"]], ["1", "2"])
 
 
+class FreshTest(unittest.TestCase):
+    """Fresh material or a unit that has been here before, per stage.
+
+    Taken from the tracker rather than recomputed: it already has to work this
+    out so its Count new mode can drop returning units from a day's yield, and a
+    second implementation of the same question would disagree within a week.
+    """
+
+    def tab(self, sn_cell):
+        return {
+            "columns": [{"key": "B", "title": "SN"},
+                        {"key": "E", "title": "MLT Results"},
+                        {"key": "H", "title": "HTT Results"}],
+            "rows": [[sn_cell, {"v": "Passed"}, {"v": "Failed"}]],
+        }
+
+    def test_a_first_visit_is_fresh_at_every_stage(self):
+        row = build_delta.published_rows(self.tab({"v": "1", "new": True}))[0]
+        self.assertTrue(row["mltFresh"])
+        self.assertTrue(row["httFresh"])
+        self.assertEqual(row["mltAttempts"], 0)
+
+    def test_a_returning_unit_is_only_stale_at_the_stage_it_returned_to(self):
+        """A unit back for a second MLT has still only seen HTT once. Marking it
+        stale everywhere would put it in the wrong bucket on the other table."""
+        row = build_delta.published_rows(self.tab({
+            "v": "1", "seen": {"mlt": "2026-08-19"},
+            "history": {"mlt": [1, 2, 3]}}))[0]
+        self.assertFalse(row["mltFresh"])
+        self.assertTrue(row["httFresh"])
+        self.assertEqual(row["mltAttempts"], 3)
+        self.assertEqual(row["mltSeen"], "2026-08-19")
+
+    def test_the_flag_reaches_the_compared_unit(self):
+        local = [{"sn": "1", "row": 2, "mlt": "pass", "mltCase": [],
+                  "htt": "blank", "httCase": [], "mltLink": "", "httLink": ""}]
+        online = build_delta.published_rows(self.tab({
+            "v": "1", "seen": {"mlt": "2026-08-19"}, "history": {"mlt": [1, 2]}}))
+        out = build_delta.compare(local, online, adjudicate=False)
+        self.assertFalse(out["units"][0]["mlt"]["fresh"])
+        self.assertEqual(out["units"][0]["mlt"]["attempts"], 2)
+
+    def test_a_unit_only_the_sheet_has_defaults_to_fresh(self):
+        """Only the controllers can answer this, so a unit they do not have gets
+        the benign default rather than being called a retest on no evidence."""
+        local = [{"sn": "1", "row": 2, "mlt": "pass", "mltCase": [],
+                  "htt": "blank", "httCase": [], "mltLink": "", "httLink": ""}]
+        out = build_delta.compare(local, [], adjudicate=False)
+        self.assertTrue(out["units"][0]["mlt"]["fresh"])
+
+
 class BundleTest(unittest.TestCase):
     def test_the_tab_to_gid_map_is_config_not_code(self):
         """A gid cannot be derived from a tab name, and a row link without one

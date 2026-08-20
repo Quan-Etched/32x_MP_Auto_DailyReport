@@ -83,7 +83,9 @@
   var SIDE_LABEL = { sheet: 'the sheet', dashboard: 'the dashboard',
                      both: 'both', either: 'either' };
 
-  var view = { day: null, only: 'deltas' };
+  /* Per-stage view state — which rows, which sort, which column filters.
+   * Kept apart so sorting MLT does not disturb HTT. */
+  var view = { stages: {} };
 
   function h(tag, attrs, kids) {
     var node = document.createElement(tag);
@@ -249,28 +251,38 @@
 
   /* ---------------------------------------------------------------- table  */
 
-  /* One row per unit, five columns, and the fifth is the only one that asks
-   * anybody for anything.
+  /* One table per stage, six columns, sortable and filterable per column.
    *
-   * The first cut of this table had a row per *delta* and seven columns, and it
-   * was unreadable: a unit that differed on three fields appeared three times,
-   * "Stage / Local sheet / Online / Delta / Question for" spread one fact
-   * across five cells, and the thirty rows that were only ever going to say
-   * "ran after the cut" filled the screen before the interesting ones. The
-   * shape below is the one that was asked for, and it is better — a serial, is
-   * it in each place, where to look, and what to do about it.
+   * Two tables rather than one because a unit reaches MLT and HTT separately.
+   * On 08-20 the sheet holds 78 MLT verdicts and 49 HTT ones, so "is this unit
+   * in Excel" has two different answers and a single row cannot give both
+   * without qualifying every cell. Each table lists the units either side has a
+   * verdict for at that stage, and carries its own CSV.
    *
-   * Action_Item is blank only when the two readings agree on everything. A unit
-   * present in both that disagrees on a verdict or a failure case is still a
-   * discrepancy, so it still gets an ask; "in both" is not the same as "agrees".
+   * Column meanings, per stage:
+   *   Excel      the sheet records a verdict for this unit at this stage
+   *   Dashboard  the controllers do
+   *   Fresh      first visit to this stage, or back again — the dashboard's
+   *              answer, since the sheet has no column for it
+   *   Location   the run to open, or the sheet cell where there is no run
+   *   Action_Item blank only where the two agree on everything
    */
+  var STAGES = [{ key: 'mlt', label: 'MLT' }, { key: 'htt', label: 'HTT' }];
+
   var COLUMNS = [
-    { key: 'sn',       title: 'DUT_SN' },
-    { key: 'excel',    title: 'Excel' },
-    { key: 'dashboard', title: 'Dashboard' },
-    { key: 'location', title: 'Location' },
-    { key: 'action',   title: 'Action_Item' }
+    { key: 'sn',        title: 'DUT_SN',      kind: 'text' },
+    { key: 'excel',     title: 'Excel',       kind: 'yesno' },
+    { key: 'dashboard', title: 'Dashboard',   kind: 'yesno' },
+    { key: 'fresh',     title: 'Fresh',       kind: 'yesno' },
+    { key: 'location',  title: 'Location',    kind: 'text' },
+    { key: 'action',    title: 'Action_Item', kind: 'text' }
   ];
+
+  /* A verdict the sheet or the controller actually recorded, as opposed to a
+   * stage the unit has not reached. "Blank" is not a result. */
+  function graded(value) {
+    return value === 'pass' || value === 'fail' || value === 'abort';
+  }
 
   /* Excel's own A1 notation, so a location can be read out loud and typed into
    * the Name Box. The tab name is included because the workbook has twenty. */
@@ -280,41 +292,32 @@
     return day.tab + '!' + column + unit.row;
   }
 
-  function runUrl(unit) {
-    /* The run behind the thing the row is asking about.
-     *
-     * Not simply the first link on the unit: a row whose only discrepancy is
-     * in HTT would otherwise send the reader to the MLT run, where there is
-     * nothing to see. The stage named in the first delta wins; a unit with no
-     * delta has nothing to chase, so MLT then HTT is fine for it. */
-    var stages = [];
-    (unit.deltas || []).forEach(function (delta) {
-      if (delta.station && stages.indexOf(delta.station) === -1) {
-        stages.push(delta.station);
-      }
-    });
-    ['mlt', 'htt'].forEach(function (stage) {
-      if (stages.indexOf(stage) === -1) stages.push(stage);
-    });
-    for (var i = 0; i < stages.length; i++) {
-      var url = (unit[stages[i]] || {}).url;
-      if (url) return url;
-    }
-    return '';
-  }
+  /* What this stage's row is asking for, in the words the ask came in. */
+  function actionFor(unit, stage) {
+    var side = unit[stage.key] || {};
+    var inExcel = graded(side.local);
+    var inDash = graded(side.online);
 
-  /* What a row is asking for, in the words the ask came in. */
-  function actionFor(unit) {
-    if (unit.where === 'local') {
+    if (inExcel && !inDash) {
       return 'Deep dive on why there is excel record? Mistake in Excel or Dash?';
     }
-    if (unit.where === 'online') {
-      return 'Deep dive on why there is dash record? Mistake in Dash or Excel?';
+    if (!inExcel && inDash) {
+      /* Two different situations, and conflating them would waste somebody's
+       * afternoon: a unit the sheet never lists at all, versus one it lists
+       * with this stage still blank because the stage had not run when the
+       * sheet was written. */
+      return unit.where === 'online'
+        ? 'Deep dive on why there is dash record? Mistake in Dash or Excel?'
+        : 'On the Excel row but this stage is blank there. Deep dive on why ' +
+          'there is dash record? Mistake in Dash or Excel?';
     }
-    if (!unit.deltas.length) return '';
-    /* In both, and they disagree. Name what disagrees rather than sending the
-     * reader back to a legend: the field, then the two values. */
-    return unit.deltas.map(function (delta) {
+    /* Both recorded a verdict. Anything left is a disagreement about what it
+     * was, or about which case failed. */
+    var mine = (unit.deltas || []).filter(function (delta) {
+      return delta.station === stage.key;
+    });
+    if (!mine.length) return '';
+    return mine.map(function (delta) {
       var meta = kindOf(delta.kind);
       var local = Array.isArray(delta.local)
         ? (delta.local.join(' + ') || 'blank') : (delta.local || 'blank');
@@ -326,61 +329,193 @@
     }).join('. ');
   }
 
-  function yesNo(value) {
-    return h('span', { class: value ? 'yes' : 'no', text: value ? 'YES' : 'NO' });
-  }
-
-  /* The rows, in the order and shape both the table and the CSV use. Built once
-   * so the file somebody downloads cannot disagree with the page they
+  /* The rows for one stage, in the shape both the table and its CSV use. Built
+   * once so the file somebody downloads cannot disagree with the page they
    * downloaded it from. */
-  function rowsFor(day) {
-    return (day.units || []).filter(function (unit) {
-      return view.only !== 'deltas' || unit.deltas.length || unit.where !== 'both';
-    }).map(function (unit) {
-      var inExcel = unit.where !== 'online';
-      var inDash = unit.where !== 'local';
-      return {
+  function rowsFor(day, stage) {
+    var out = [];
+    (day.units || []).forEach(function (unit) {
+      var side = unit[stage.key] || {};
+      var inExcel = graded(side.local);
+      var inDash = graded(side.online);
+      /* Neither side has a verdict here, so there is nothing for this stage to
+       * compare. The unit is not missing; it has not reached this stage. */
+      if (!inExcel && !inDash) return;
+      out.push({
         unit: unit,
         sn: unit.sn,
         excel: inExcel,
         dashboard: inDash,
-        /* Where to go and look. The run link where there is one, because that
-         * is the thing a reader can open; the sheet cell for a unit only Excel
-         * has, because there is no run to open. */
-        url: inDash ? runUrl(unit) : '',
+        fresh: side.fresh !== false,
+        seen: side.seen || '',
+        attempts: side.attempts || 0,
+        /* The run to open. This stage's run, never the other stage's — a row
+         * about HTT that opens the MLT run wastes the click. */
+        url: inDash ? (side.url || '') : '',
         cell: cellRef(day, unit),
         sheetUrl: unit.row ? sheetUrl(day, unit.row) : '',
-        action: actionFor(unit)
-      };
+        action: actionFor(unit, stage)
+      });
     });
+    return out;
   }
 
-  function renderTable(day) {
-    var head = byId('table-head'), body = byId('table-body');
+  /* ----------------------------------------------------- sort and filter ---
+   *
+   * Click a heading to sort, click again to reverse, click a third time to go
+   * back to serial order — which is the one ordering that is not an opinion.
+   * The three YES/NO columns also carry a small select, which is the Excel data
+   * filter in the form that fits a heading cell.
+   *
+   * Both live in `view` per stage, so sorting MLT does not disturb HTT. */
+  function stageView(stage) {
+    view.stages = view.stages || {};
+    if (!view.stages[stage.key]) {
+      view.stages[stage.key] = { only: 'deltas', sort: null, filters: {} };
+    }
+    return view.stages[stage.key];
+  }
+
+  function sortValue(row, column) {
+    switch (column.key) {
+      case 'sn': return row.sn;
+      case 'excel': return row.excel ? 0 : 1;
+      case 'dashboard': return row.dashboard ? 0 : 1;
+      case 'fresh': return row.fresh ? 0 : 1;
+      case 'location': return row.url || row.cell || '';
+      /* Blank last whichever way it is sorted: the rows with an action are the
+       * reason the table exists, and burying them under the quiet ones would
+       * defeat the sort. */
+      case 'action': return row.action || '￿';
+      default: return '';
+    }
+  }
+
+  function applyView(rows, state) {
+    var out = rows.filter(function (row) {
+      if (state.only === 'deltas' && !row.action) return false;
+      return Object.keys(state.filters).every(function (key) {
+        var want = state.filters[key];
+        if (!want) return true;
+        return (row[key] ? 'YES' : 'NO') === want;
+      });
+    });
+    if (state.sort) {
+      var column = COLUMNS.filter(function (c) {
+        return c.key === state.sort.key;
+      })[0];
+      var dir = state.sort.dir === 'desc' ? -1 : 1;
+      /* Stable: equal rows keep serial order, so a YES/NO sort does not
+       * scramble the serials inside each group. */
+      out = out.map(function (row, at) { return { row: row, at: at }; })
+        .sort(function (a, b) {
+          var av = sortValue(a.row, column), bv = sortValue(b.row, column);
+          if (av < bv) return -dir;
+          if (av > bv) return dir;
+          return a.at - b.at;
+        })
+        .map(function (pair) { return pair.row; });
+    }
+    return out;
+  }
+
+  function headerCell(stage, column, rows) {
+    var state = stageView(stage);
+    var sorted = state.sort && state.sort.key === column.key;
+    var cell = h('th', { class: 'c-' + column.key + (sorted ? ' sorted' : '') });
+
+    var label = h('button', {
+      type: 'button', class: 'sort-btn',
+      title: 'sort by ' + column.title +
+             (sorted && state.sort.dir === 'asc' ? ' (descending)'
+              : sorted ? ' (back to serial order)' : '')
+    }, [
+      document.createTextNode(column.title),
+      h('span', { class: 'sort-mark',
+                  text: sorted ? (state.sort.dir === 'asc' ? '▲' : '▼') : '' })
+    ]);
+    label.addEventListener('click', function () {
+      if (!sorted) state.sort = { key: column.key, dir: 'asc' };
+      else if (state.sort.dir === 'asc') state.sort.dir = 'desc';
+      else state.sort = null;
+      renderStage(stage);
+    });
+    cell.appendChild(label);
+
+    if (column.kind === 'yesno') {
+      /* Only the values actually present, so the menu never offers a filter
+       * that empties the table. */
+      var present = {};
+      rows.forEach(function (row) { present[row[column.key] ? 'YES' : 'NO'] = true; });
+      var select = h('select', { class: 'col-filter',
+                                 'aria-label': 'filter ' + column.title });
+      [['', 'All']].concat(Object.keys(present).sort().map(function (v) {
+        return [v, v];
+      })).forEach(function (pair) {
+        var option = h('option', { value: pair[0], text: pair[1] });
+        if ((state.filters[column.key] || '') === pair[0]) {
+          option.setAttribute('selected', 'selected');
+        }
+        select.appendChild(option);
+      });
+      select.addEventListener('change', function (event) {
+        state.filters[column.key] = event.target.value;
+        renderStage(stage);
+      });
+      cell.appendChild(select);
+    }
+    return cell;
+  }
+
+  function freshCell(row) {
+    /* "NO ×8" rather than a bare NO: how many times a unit has been here is the
+     * next thing anybody asks, and it is already in hand. */
+    var cell = h('td', { class: 'c-fresh' });
+    cell.appendChild(h('span', {
+      class: row.fresh ? 'yes' : 'no',
+      title: row.fresh ? 'first visit to this stage'
+             : 'last seen ' + (row.seen || 'earlier') + ', ' +
+               row.attempts + ' prior attempt' + (row.attempts === 1 ? '' : 's'),
+      text: row.fresh ? 'YES' : 'NO'
+    }));
+    if (!row.fresh && row.attempts) {
+      cell.appendChild(h('span', { class: 'attempts', text: '×' + row.attempts }));
+    }
+    return cell;
+  }
+
+  function yesNo(value) {
+    return h('span', { class: value ? 'yes' : 'no', text: value ? 'YES' : 'NO' });
+  }
+
+  function renderStage(stage) {
+    var day = current();
+    if (!day) return;
+    var state = stageView(stage);
+    var all = rowsFor(day, stage);
+    var rows = applyView(all, state);
+
+    var head = byId('head-' + stage.key), body = byId('body-' + stage.key);
     head.innerHTML = '';
     body.innerHTML = '';
 
     var tr = h('tr', {});
     COLUMNS.forEach(function (column) {
-      tr.appendChild(h('th', { class: 'c-' + column.key, text: column.title }));
+      tr.appendChild(headerCell(stage, column, all));
     });
     head.appendChild(tr);
 
-    var rows = rowsFor(day);
     rows.forEach(function (row) {
       var line = h('tr', { class: row.action ? 'has-delta' : 'agrees' });
-
-      /* The serial links into the sheet where the sheet has it — the cheapest
-       * way to get from a row here to the row it came from. */
       line.appendChild(h('td', { class: 'mono' }, [
         row.sheetUrl
           ? h('a', { href: row.sheetUrl, target: '_blank',
-                     rel: 'noopener noreferrer',
-                     title: row.cell, text: row.sn })
+                     rel: 'noopener noreferrer', title: row.cell, text: row.sn })
           : document.createTextNode(row.sn)
       ]));
       line.appendChild(h('td', { class: 'c-excel' }, [yesNo(row.excel)]));
       line.appendChild(h('td', { class: 'c-dashboard' }, [yesNo(row.dashboard)]));
+      line.appendChild(freshCell(row));
 
       var location = h('td', { class: 'c-location' });
       if (row.url) {
@@ -391,46 +526,80 @@
       } else if (row.cell) {
         location.appendChild(row.sheetUrl
           ? h('a', { href: row.sheetUrl, target: '_blank',
-                     rel: 'noopener noreferrer', class: 'mono-sm',
-                     text: row.cell })
+                     rel: 'noopener noreferrer', class: 'mono-sm', text: row.cell })
           : h('span', { class: 'mono-sm', text: row.cell }));
       } else {
         location.appendChild(h('span', { class: 'blank', text: '—' }));
       }
       line.appendChild(location);
-
       line.appendChild(h('td', { class: 'c-action', text: row.action }));
       body.appendChild(line);
     });
 
-    var asking = rows.filter(function (row) { return row.action; }).length;
-    byId('table-sub').textContent =
-      rows.length + ' rows, ' + asking + ' with something to chase. ' +
-      'Action_Item is blank where Excel and the dashboard agree on everything.';
-    renderDownload(day, rows);
+    var asking = all.filter(function (row) { return row.action; }).length;
+    var fresh = all.filter(function (row) { return row.fresh; }).length;
+    byId('sub-' + stage.key).textContent =
+      all.length + ' units reached ' + stage.label + ' on either side — ' +
+      fresh + ' fresh, ' + (all.length - fresh) + ' back again. ' +
+      asking + ' with something to chase' +
+      (rows.length === all.length ? '' : '; showing ' + rows.length) + '.';
+
+    renderViewButtons(stage);
+    renderDownload(day, stage, rows);
+  }
+
+  function renderViewButtons(stage) {
+    var host = byId('view-' + stage.key);
+    var state = stageView(stage);
+    host.innerHTML = '';
+    [['deltas', 'Only what needs chasing'],
+     ['all', 'Every unit']].forEach(function (pair) {
+      var button = h('button', {
+        type: 'button',
+        class: 'view-toggle' + (state.only === pair[0] ? ' on' : ''),
+        'aria-pressed': state.only === pair[0] ? 'true' : 'false', text: pair[1]
+      });
+      button.addEventListener('click', function () {
+        state.only = pair[0];
+        renderStage(stage);
+      });
+      host.appendChild(button);
+    });
+  }
+
+  function renderTable(day) {
+    STAGES.forEach(function (stage) { renderStage(stage); });
   }
 
   /* --------------------------------------------------------------- the CSV */
 
-  /* The same five columns, built from the same rows the table was.
+  /* One CSV per stage, from the same rows that stage's table was rendered from
+   * — same order, same filter, same sort.
    *
-   * Generated in the browser rather than written out by the build: the file has
-   * to match the filter that is on screen, and a file on disk could only ever
-   * match one of them. */
+   * Generated in the browser rather than written out by the build, because it
+   * has to follow what is on screen and a file on disk could only ever match
+   * one view of it. */
+  var CSV_COLUMNS = [
+    ['DUT_SN', function (row) { return row.sn; }],
+    ['Excel', function (row) { return row.excel ? 'YES' : 'NO'; }],
+    ['Dashboard', function (row) { return row.dashboard ? 'YES' : 'NO'; }],
+    ['Fresh', function (row) { return row.fresh ? 'YES' : 'NO'; }],
+    /* A number rather than "×8" in the cell: this is the column somebody will
+     * sort and filter on in Excel, and "×8" does neither. */
+    ['Prior_Attempts', function (row) { return row.fresh ? 0 : row.attempts; }],
+    ['Last_Seen', function (row) { return row.seen || ''; }],
+    /* The URL itself, not the words "FI_Link" — a spreadsheet cell reading
+     * "FI_Link" with no link in it is worse than useless. */
+    ['Location', function (row) { return row.url || row.cell || ''; }],
+    ['Action_Item', function (row) { return row.action; }]
+  ];
+
   function csvFor(rows) {
-    var out = [COLUMNS.map(function (column) { return column.title; })];
+    var lines = [CSV_COLUMNS.map(function (pair) { return pair[0]; })];
     rows.forEach(function (row) {
-      out.push([
-        row.sn,
-        row.excel ? 'YES' : 'NO',
-        row.dashboard ? 'YES' : 'NO',
-        /* The URL itself, not the words "FI_Link" — a spreadsheet cell reading
-         * "FI_Link" with no link in it is worse than useless. */
-        row.url || row.cell || '',
-        row.action
-      ]);
+      lines.push(CSV_COLUMNS.map(function (pair) { return pair[1](row); }));
     });
-    return out.map(function (line) {
+    return lines.map(function (line) {
       return line.map(function (cell) {
         var text = String(cell === null || cell === undefined ? '' : cell);
         return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
@@ -438,46 +607,22 @@
     }).join('\r\n');
   }
 
-  function renderDownload(day, rows) {
-    var host = byId('download');
+  function renderDownload(day, stage, rows) {
+    var host = byId('download-' + stage.key);
     if (!host) return;
     host.innerHTML = '';
     /* A BOM, because this is opened in Excel by the people who keep the sheet,
      * and without one Excel reads UTF-8 as its local codepage. */
-    var blob = new Blob(['\ufeff' + csvFor(rows)],
+    var blob = new Blob(['﻿' + csvFor(rows)],
                         { type: 'text/csv;charset=utf-8' });
-    var name = 'delta-' + day.day + (view.only === 'deltas' ? '-to-chase' : '-all')
-               + '.csv';
+    var state = stageView(stage);
+    var name = 'delta-' + day.day + '-' + stage.key +
+               (state.only === 'deltas' ? '-to-chase' : '-all') + '.csv';
     host.appendChild(h('a', {
       class: 'view-toggle', download: name, href: URL.createObjectURL(blob),
-      title: 'the ' + rows.length + ' rows below, exactly as filtered'
-    }, [document.createTextNode('Download CSV')]));
-  }
-
-  /* -------------------------------------------------------------- filters  */
-
-  /* Two views, and the default hides nothing that needs chasing.
-   *
-   * "Only what needs chasing" keeps every row with an Action_Item — which
-   * includes every unit that is on one side only, since those all carry an ask
-   * by definition. "Every unit" adds back the rows where the two readings agree
-   * completely, for anyone checking one specific serial. */
-  function renderFilters(day) {
-    var host = byId('filters');
-    host.innerHTML = '';
-    [['deltas', 'Only what needs chasing'],
-     ['all', 'Every unit']].forEach(function (pair) {
-      var button = h('button', {
-        type: 'button', class: 'view-toggle' + (view.only === pair[0] ? ' on' : ''),
-        'aria-pressed': view.only === pair[0] ? 'true' : 'false', text: pair[1]
-      });
-      button.addEventListener('click', function () {
-        view.only = pair[0];
-        renderFilters(day);
-        renderTable(day);
-      });
-      host.appendChild(button);
-    });
+      title: 'the ' + rows.length + ' ' + stage.label +
+             ' rows below, exactly as filtered and sorted'
+    }, [document.createTextNode('Download ' + stage.label + ' CSV')]));
   }
 
   /* --------------------------------------------------------------- legend  */
@@ -616,7 +761,6 @@
     renderCut(day);
     renderYields(day);
     renderReconcile(day);
-    renderFilters(day);
     renderTable(day);
     renderLegend(day);
     renderFooter(day);
