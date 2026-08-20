@@ -198,6 +198,25 @@ def workbook_path(explicit: Optional[str] = None) -> Path:
     return candidates[0]
 
 
+def delta_days() -> List[str]:
+    """Days the hand-kept workbook in diff/ has a tab for.
+
+    Just the days, read out of diff/delta.json. Enough for the day view to know
+    whether a comparison exists without loading the comparison itself — a
+    300 KB bundle for one link would be a poor trade, and the alternative of
+    offering the link on every day sends most readers to an empty page.
+    """
+    note = config.REPO_ROOT / "diff" / "delta.json"
+    if not note.exists():
+        return []
+    try:
+        setting = json.loads(note.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    days = {(tab or {}).get("day") for tab in (setting.get("tabs") or {}).values()}
+    return sorted(day for day in days if day)
+
+
 def source_url() -> str:
     """The Google Sheet this was exported from, for the page's provenance line."""
     override = os.environ.get("FACTORY_DAILY_URL", "").strip()
@@ -309,6 +328,11 @@ def build_bundle(
             "tabsInWorkbook": len(book.sheet_names()),
         },
         "tabs": tabs,
+        # Days somebody has set up a hand-sheet comparison for, so the day view
+        # can offer the link on those days and not on the twenty where it would
+        # lead nowhere. Read from diff/delta.json — the config, not the built
+        # bundle: this module must not depend on a page that depends on it.
+        "deltaDays": delta_days(),
         "crossref": {
             "matched": matched,
             "duts": total,

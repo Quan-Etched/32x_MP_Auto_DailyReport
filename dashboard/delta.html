@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sheet vs dashboard — delta</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="stations.css">
+  <link rel="stylesheet" href="dailyexcel.css">
+  <link rel="stylesheet" href="delta.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Delta</h1>
+    <span class="meta" id="meta"></span>
+    <span class="build" id="build" title="Which build of the analysis produced this page"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" id="back" href="dailyexcel.html">← Daily tracker</a>
+    <a class="theme-toggle" id="sheet-link" href="#" target="_blank"
+       rel="noopener noreferrer" hidden>Open the sheet ↗</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <p class="lede">
+    The line's own tracker tab against this repo's reading of the same day, unit
+    by unit. Neither side is treated as truth: the sheet is the judgement of the
+    people at the fixture, the dashboard is the controllers' record of what they
+    ran, and each knows things the other does not.
+  </p>
+
+  <!-- The cut time, first, because it accounts for most of the gap on its own.
+       "29 units missing" and "29 units ran after the sheet was put down" are the
+       same number and completely different news. -->
+  <div class="banner" id="cut" hidden></div>
+  <div class="banner" id="notice" hidden></div>
+
+  <nav class="daycal" id="daytabs" aria-label="Day"></nav>
+
+  <main id="content">
+
+    <!-- Three readings of one day, side by side and never added together. -->
+    <section class="card full">
+      <div class="card-head">
+        <div>
+          <h2>The same day, three ways</h2>
+          <p class="sub" id="yield-sub"></p>
+        </div>
+      </div>
+      <div class="delta-yields" id="yields"></div>
+      <div id="reconcile"></div>
+    </section>
+
+    <!-- The complete list. Every unit on either side, not only the ones that
+         disagree — a reader checking a specific serial needs to find it here
+         whether or not it is a problem. -->
+    <section class="card full" style="margin-top:16px">
+      <div class="card-head">
+        <div>
+          <h2>Every unit</h2>
+          <p class="sub" id="table-sub"></p>
+        </div>
+        <span class="spacer"></span>
+        <div class="delta-filters" id="filters"></div>
+      </div>
+      <div class="table-wrap">
+        <table class="delta-table" id="table">
+          <thead id="table-head"></thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card full" style="margin-top:16px">
+      <div class="card-head">
+        <div>
+          <h2>What each kind of delta means</h2>
+          <p class="sub">And which side it puts the question to</p>
+        </div>
+      </div>
+      <div id="legend"></div>
+    </section>
+
+  </main>
+
+  <footer class="notes">
+    <p id="footer-meta"></p>
+    <p id="footer-caveats"></p>
+  </footer>
+
+</div>
+
+<script src="data/delta.js"></script>
+<script src="delta.js"></script>
+<script src="theme.js"></script>
+<script src="update.js"></script>
+</body>
+</html>

@@ -10,7 +10,8 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        dailyexcel requests pega-stations release-source suite-map retest fpy weekly \
+        dailyexcel requests pega-stations release-source suite-map delta retest fpy \
+        weekly \
         weekly-deck archive \
         weekly-snapshot schedule-weekly-install schedule-weekly-uninstall \
         schedule-weekly-status schedule-weekly-install-macos \
@@ -31,6 +32,7 @@ help:
 	@echo "make dailyexcel         compile daily/*.xlsx (MLT/HTT tracker) into the dashboard"
 	@echo "make requests           re-check what we need from other systems"
 	@echo "make suite-map [CASES=1] which suite YAML each station runs, from the sw tree"
+	@echo "make delta              the hand-kept sheet in diff/ vs this repo's own reading"
 	@echo "make schedule-install   install the hourly job (launchd / systemd timer)"
 	@echo "make schedule-weekly-install  install the Sunday 21:00 snapshot job"
 	@echo "make weekly-snapshot    run that snapshot now: collect, deck, archive, publish"
@@ -120,6 +122,13 @@ release-source:
 # it on the page, since the two share one committed bundle.
 suite-map:
 	$(PY) -m factory.cli suite-map $(if $(CASES),--cases,)
+
+# The hand-kept sheet in diff/ against this repo's own reading of the same day.
+# Needs an export in diff/ (FACTORY_DIFF_XLSX overrides) plus diff/delta.json
+# for the tab-to-gid map. Also runs as part of `make build`; this is for
+# iterating on a new export, or for reading the comparison in a terminal.
+delta:
+	$(PY) -m factory.cli delta
 
 # Retests split from new builds, in the line's own Retest-tab format.
 retest:

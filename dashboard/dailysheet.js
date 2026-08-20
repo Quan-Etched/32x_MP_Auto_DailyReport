@@ -1084,6 +1084,22 @@
     ]));
   }
 
+  /* The link to this day's sheet comparison, on the days there is one.
+   *
+   * Only those days: the list comes from diff/delta.json via the bundle, and
+   * offering the link on all twenty-one would send most readers to an empty
+   * page. It sits on the caption because that is where the table already says
+   * where its rows came from, and "rebuilt from pega3" is exactly the claim the
+   * comparison checks. */
+  function deltaLink(tab) {
+    var days = DATA.deltaDays || [];
+    if (!tab.day || days.indexOf(tab.day) === -1) return null;
+    return h('a', {
+      class: 'delta-link', href: 'delta.html#day=' + tab.day,
+      title: 'the line\u2019s own tab for this day against this table, unit by unit'
+    }, [document.createTextNode('compare with the sheet \u2192')]);
+  }
+
   function renderCaption(tab, showing, els) {
     els = els || el;
     var total = (tab.rows || []).length;
@@ -1091,11 +1107,16 @@
       ? (tab.day || tab.label) + ', rebuilt from ' +
         (((tab.derivedFrom || {}).source === 'pega3') ? 'pega3' : 'EOS')
       : (tab.day || tab.label) + ', as recorded by the line';
+    var compare = deltaLink(tab);
 
     els.caption.innerHTML = '';
     if (showing === total) {
       els.caption.appendChild(document.createTextNode(
         total + ' units — ' + source));
+      if (compare) {
+        els.caption.appendChild(document.createTextNode(' · '));
+        els.caption.appendChild(compare);
+      }
       return;
     }
 
@@ -1111,6 +1132,10 @@
       renderTable(tab);
     });
     els.caption.appendChild(reset);
+    if (compare) {
+      els.caption.appendChild(document.createTextNode(' · '));
+      els.caption.appendChild(compare);
+    }
   }
 
   /* What this unit already did here, one link per prior attempt.

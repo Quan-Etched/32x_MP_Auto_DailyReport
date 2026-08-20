@@ -1,0 +1,121 @@
+/* Sheet vs dashboard. Borrows the tracker's tiles and type so the two pages
+ * read as one thing; everything below is specific to the comparison.
+ *
+ * The colour rule: a *side* is never coloured. Neither the sheet nor the
+ * dashboard is the good one, and tinting one of them green would answer the
+ * page's question before the reader got to it. Colour is spent on the delta
+ * class instead — on how much of a problem a row is, which is a status ramp. */
+
+.delta-yields { display: flex; flex-wrap: wrap; gap: 22px; }
+.delta-group { flex: 1 1 380px; min-width: 300px; }
+.delta-group-head {
+  font-size: 13px; margin: 0 0 6px; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+/* The three readings. Distinguished by a rule on one edge rather than a fill:
+   they are the same kind of number from different places, not three grades of
+   the same number. */
+.sheet-tile.reported { border-left: 3px solid var(--series-5); }
+.sheet-tile.local    { border-left: 3px solid var(--series-4); }
+.sheet-tile.online   { border-left: 3px solid var(--series-1); }
+
+.delta-note, .delta-warn {
+  font-size: 12px; line-height: 1.6; max-width: 96ch; margin: 12px 0 0;
+}
+.delta-note { color: var(--text-secondary); }
+.delta-warn { color: var(--status-warning); }
+
+.delta-filters { display: flex; gap: 6px; }
+.view-toggle.on { border-color: var(--accent-solid); color: var(--accent-solid); }
+
+/* ------------------------------------------------------------------ table */
+
+.delta-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.delta-table th {
+  text-align: left; font-weight: 600; color: var(--text-muted);
+  padding: 4px 12px 6px 0; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--page); z-index: 1;
+  white-space: nowrap;
+}
+.delta-table td {
+  padding: 5px 12px 5px 0; vertical-align: top;
+  border-bottom: 1px solid var(--border); color: var(--text-secondary);
+}
+.delta-table tr.agrees td { color: var(--text-muted); }
+.delta-table td.mono, .delta-table td.mono a {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px; white-space: nowrap;
+}
+.delta-table td.mono a { color: var(--accent-solid); }
+.delta-table td.dim { color: var(--text-muted); }
+.delta-table td.asks { color: var(--text-muted); white-space: nowrap; }
+.delta-table td.num, .delta-table th.num {
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+
+/* Which reading a unit is in. Neutral by design — "sheet only" is not a fault,
+   and on 08-20 "dashboard only" mostly means "ran after the cut". */
+.where {
+  font-size: 11px; padding: 1px 7px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--text-muted); white-space: nowrap;
+}
+.where.w-local  { color: var(--series-4); border-color: currentColor; }
+.where.w-online { color: var(--series-1); border-color: currentColor; }
+
+.v-pass { color: var(--success-text); font-weight: 600; }
+.v-fail { color: var(--status-critical); font-weight: 600; }
+.v-abort { color: var(--status-serious); font-weight: 600; }
+.blank { color: var(--text-muted); font-style: italic; }
+
+.cases { display: flex; flex-direction: column; gap: 2px; }
+.cases code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; background: var(--hover-wash);
+  padding: 1px 5px; border-radius: 3px; width: fit-content;
+}
+
+/* The delta class, and the only place colour is load-bearing. A status ramp,
+   ordered by how much of a problem the row is: a verdict disagreement moves a
+   yield, a fixture failure on a unit row is a real mis-attribution, a missing
+   case name is an omission, and a nest-only cell is the dashboard's own gap. */
+.kind {
+  font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px;
+  border: 1px solid currentColor; white-space: nowrap; cursor: help;
+}
+.kind.k-status          { color: var(--status-critical); }
+.kind.k-case-fixture    { color: var(--status-critical); }
+.kind.k-case-conflict   { color: var(--status-serious); }
+.kind.k-case-missing    { color: var(--status-warning); }
+.kind.k-case-prose      { color: var(--status-warning); }
+.kind.k-case-overlap    { color: var(--status-warning); }
+.kind.k-case-subset     { color: var(--text-secondary); }
+.kind.k-case-extra      { color: var(--text-secondary); }
+.kind.k-case-nest-only  { color: var(--accent-solid); }
+.kind.k-population      { color: var(--text-muted); border-color: var(--border); }
+.kind-ok { font-size: 11px; color: var(--text-muted); }
+.kind-extra {
+  display: block; margin-top: 3px; font-size: 11px; color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ----------------------------------------------------------------- legend */
+
+.delta-legend { border-collapse: collapse; width: 100%; font-size: 12px; }
+.delta-legend th {
+  text-align: left; font-weight: 600; color: var(--text-muted);
+  padding: 3px 14px 6px 0; border-bottom: 1px solid var(--border);
+}
+.delta-legend td {
+  padding: 6px 14px 6px 0; vertical-align: top; color: var(--text-secondary);
+  border-bottom: 1px solid var(--border); line-height: 1.55;
+}
+.delta-legend tr.dim td, .delta-legend tr.dim .kind { opacity: 0.5; }
+.delta-legend td:last-child { max-width: 64ch; }
+
+/* The delta link on the tracker's own day view. */
+.delta-link { white-space: nowrap; }
+
+@media (max-width: 720px) {
+  .delta-group { flex-basis: 100%; }
+}

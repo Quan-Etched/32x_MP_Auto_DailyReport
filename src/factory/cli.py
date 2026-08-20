@@ -388,6 +388,28 @@ def cmd_build(args: argparse.Namespace) -> int:
         for warning in daily_bundle["warnings"]:
             print("  WARNING {}".format(warning), file=sys.stderr)
 
+        # The hand-kept sheet against the tracker just built, for the days
+        # somebody has put an export in diff/. Handed the bundle above rather
+        # than rebuilding it: reading that workbook twice in one build would
+        # double the slowest step on the page for no new information, and the
+        # two must compare against the same tabs anyway.
+        from . import build_delta
+        try:
+            delta_bundle = build_delta.build_bundle(daily_bundle)
+        except build_delta.NoWorkbook as exc:
+            print("Delta skipped ({})".format(exc))
+        except Exception as exc:                          # noqa: BLE001
+            print("Delta skipped ({})".format(exc))
+        else:
+            if delta_bundle["days"]:
+                delta_path = build_delta.write_bundle(delta_bundle)
+                print("Delta ({:.0f} KB, {} days) -> {}".format(
+                    delta_path.stat().st_size / 1024,
+                    len(delta_bundle["days"]), delta_path))
+            else:
+                print("Delta skipped (no tab in diff/ lines up with a "
+                      "published day)")
+
     # The week's first-pass yield, one row per test step — the summary the
     # Monday meeting reads. Cheap: it reuses the controller payload above.
     if pega_bundle is not None:
@@ -687,6 +709,59 @@ def cmd_archive(args: argparse.Namespace) -> int:
     for path in written:
         print("  {:>7} KB  {}".format(int(path.stat().st_size / 1024) or "<1",
                                       path))
+    return 0
+
+
+def cmd_delta(args: argparse.Namespace) -> int:
+    """The hand-kept sheet against this repo's reading of the same day."""
+    from . import build_delta
+
+    try:
+        bundle = build_delta.build_bundle(path=args.xlsx,
+                                          adjudicate=not args.no_adjudicate)
+    except build_delta.NoWorkbook as exc:
+        print("No workbook to compare: {}".format(exc), file=sys.stderr)
+        return 1
+
+    if not bundle["days"]:
+        print("No tab in the workbook lines up with a day the dashboard has.",
+              file=sys.stderr)
+        return 1
+
+    path = build_delta.write_bundle(bundle)
+    print("Delta ({:.0f} KB, {} days) -> {}".format(
+        path.stat().st_size / 1024, len(bundle["days"]), path))
+
+    for day in bundle["days"]:
+        print()
+        print("{}  sheet tab {!r}".format(day.get("day"), day["tab"]))
+        if day.get("missing"):
+            print("  not compared: {}".format(day["missing"]))
+            continue
+        counts = day["counts"]
+        said = day.get("reported") or {}
+        if said.get("cutAt"):
+            print("  cut at {}{}".format(
+                said["cutAt"],
+                ", line running until {}".format(said["stillRunningUntil"])
+                if said.get("stillRunningUntil") else ""))
+        for key, label in build_delta.STATIONS:
+            row = "  {:<4}".format(label)
+            reported = (said.get(key) or {})
+            if reported:
+                row += " reported {}P/{}F".format(reported.get("pass"),
+                                                  reported.get("fail"))
+            local, online = counts["local"][key], counts["online"][key]
+            row += "  sheet {}P/{}F ({}%)".format(
+                local["pass"], local["fail"], local["yield"])
+            row += "  online {}P/{}F ({}%)".format(
+                online["pass"], online["fail"], online["yield"])
+            print(row)
+        print("  units: {} on the sheet, {} online".format(
+            counts["local"]["rows"], counts["online"]["rows"]))
+        for kind, count in sorted(day["kinds"].items(),
+                                  key=lambda pair: -pair[1]):
+            print("    {:<16} {}".format(kind, count))
     return 0
 
 
@@ -1133,6 +1208,17 @@ def _build_parser() -> argparse.ArgumentParser:
     relsrc.add_argument("--repo", default=None,
                         help="path to a clone of etched-ai/sw")
     relsrc.set_defaults(handler=cmd_release_source)
+
+    delta = subparsers.add_parser(
+        "delta",
+        help="the hand-kept sheet in diff/ against this repo's own reading")
+    delta.add_argument("--xlsx", default=None,
+                       help="the workbook to compare against (default: the "
+                            "newest .xlsx in diff/)")
+    delta.add_argument("--no-adjudicate", action="store_true",
+                       help="skip the controller lookups that tell a "
+                            "fixture-level failure from a real conflict")
+    delta.set_defaults(handler=cmd_delta)
 
     smap = subparsers.add_parser(
         "suite-map",

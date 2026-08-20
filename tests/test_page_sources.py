@@ -25,6 +25,11 @@ EXPECTED = {
     "week.html": "data/weekly.js",
     "flow.html": "data/pega_stations.js",
     "retest.html": "data/retest.js",
+    # The comparison page loads only the comparison. The tracker's own bundle
+    # is deliberately not here: the day view needs one link, and pulling 600 KB
+    # across for it would be a poor trade — build_dailyexcel puts the list of
+    # comparable days into its own bundle instead.
+    "delta.html": "data/delta.js",
 }
 
 #: Addresses that were handed out and must keep resolving.

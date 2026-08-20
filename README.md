@@ -382,6 +382,9 @@ src/factory/
   version.py          which build made a page: release, commit, repo
   build_release_source.py  what each release contains, from the sw tree at the
                       commit its suite name carries
+  build_delta.py      the hand-kept sheet in diff/ against this repo's own
+                      reading of the same day: population, verdicts, failure
+                      cases, and why each differs
   suite_map.py        which suite YAML each station runs, and how we know:
                       BUILD's deploy_suite entries, the paths release scripts
                       pin, each file's own suite_name / run_name, then the
@@ -393,7 +396,8 @@ src/factory/
   control.py          the /api routes behind the Update button
   cli.py              trust | levels | runs | inspect | collect | demo
                       | build | refresh | status | report | items
-                      | dailyexcel | release-source | suite-map | serve
+                      | dailyexcel | release-source | suite-map | delta
+                      | serve
 
 dashboard/
   styles.css          palette + chrome (light/dark as role tokens)
@@ -404,6 +408,7 @@ dashboard/
   suitemap.js         which suite YAML each station runs, with the evidence
   runs.html + runtable.js + runs.css        raw run table (the drill-down)
   dailyexcel.html + dailysheet.js + dailyexcel.css   the line's daily tracker
+  delta.html + delta.js + delta.css   that sheet vs this repo, unit by unit
   requests.html + requests.js + requests.css   asks against other systems
   l10.html            the L10 tracker (same renderer as the module one)
   direct.html         station yield from the controllers (same renderer again)
@@ -417,6 +422,8 @@ tools/publish.sh           publish dashboard/: copy to FACTORY_WEB_ROOT, else
 deploy/launchd/            the hourly agent plist (macOS)
 deploy/systemd/            the hourly user service + timer (Linux)
 daily/                     the tracker export (.xlsx) the daily page reads
+diff/                      an export to CHECK that page against, plus
+                           delta.json (tab -> day, gid, reported figures)
 certs/                     fetched CA bundle (gitignored; `make trust`)
 data/raw/                  cached HTTP responses (gitignored)
 data/processed/            runs.json + fetch_state.json (gitignored)
