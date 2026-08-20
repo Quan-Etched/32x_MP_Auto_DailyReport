@@ -22,7 +22,10 @@
   <p class="lede">
     Every base-level test item each software release measures, and what changed
     between releases — added, removed, retyped, re-scoped, or shifted.
-    <strong>Click a release</strong> for its full item list and diff.
+    <strong>Click a release</strong> for its full item list and diff. Below the
+    releases, the same question one level up: <strong>which suite YAML in
+    etched-ai/sw each station runs</strong>, how that is known, and how the
+    cases it defines compare to the ones the logs carry.
   </p>
 
   <div class="banner" id="notice" hidden></div>
@@ -88,6 +91,21 @@
       <div id="src-body"></div>
     </section>
 
+    <!-- TOPOLOGY: the same question one level up. The section above profiles
+         releases for the two stations somebody had already written a file path
+         down for; this derives the whole station-to-YAML map out of the sw
+         tree, and says how each mapping is known. -->
+    <section class="card full" id="map-view" style="margin-top:26px">
+      <div class="card-head">
+        <div>
+          <h2>Which suite YAML each station runs
+            <span class="src-tag">from source</span></h2>
+          <p class="sub" id="map-sub"></p>
+        </div>
+      </div>
+      <div id="map-body"></div>
+    </section>
+
   </main>
 
   <footer class="notes">
@@ -121,6 +139,7 @@
 <script src="data/release_source.js"></script>
 <script src="releases.js"></script>
 <script src="releasesrc.js"></script>
+<script src="suitemap.js"></script>
 <script src="update.js"></script>
 </body>
 </html>

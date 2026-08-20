@@ -690,6 +690,71 @@ def cmd_archive(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_suite_map(args: argparse.Namespace) -> int:
+    """Which suite YAML each station runs, and how the cases compare."""
+    from . import suite_map
+
+    from . import build_release_source as brs
+
+    try:
+        repo = brs.repo_path(args.repo)
+    except brs.RepoUnavailable as exc:
+        print("No sw clone: {}".format(exc), file=sys.stderr)
+        return 1
+
+    bundle = suite_map.build(repo, days=args.days or suite_map.DEFAULT_DAYS,
+                             ref=args.ref)
+    counts, tree = bundle["counts"], bundle["tree"]
+    print("etched-ai/sw at {} — {} {} {}".format(
+        tree["ref"], tree["commit"], tree.get("committedAt") or "",
+        tree.get("subject") or ""))
+    if tree.get("aheadOfWorkingTree"):
+        print("  (the checkout on disk is {} on {}, which is not what this "
+              "describes)".format(tree["workingHead"], tree["workingBranch"]))
+    print("{} suite configs in {}; {} attributed to a station "
+          "({} deployed by BUILD, {} pinned in a script)".format(
+              counts["files"], bundle["suiteRoot"], counts["attributed"],
+              counts["deployed"], counts["pinned"]))
+    for gone in bundle.get("pinsGone") or []:
+        print("  pin gone: {} no longer defines {}".format(
+            gone["source"], gone["constant"]))
+    print()
+    for station in bundle["stations"]:
+        runs = ", ".join("{} {}".format(count, source)
+                         for source, count in sorted(station["runs"].items()))
+        print("{:<16} {:<7} {}".format(station["label"], station["controller"],
+                                       runs))
+        for suite in station["suites"]:
+            print("   {:<10} {:<58} {:>3} cases".format(
+                suite["tier"], suite["file"], suite["caseCount"]))
+            print("   {:<10} {}".format("", suite["evidence"]))
+        cover = station["coverage"]
+        if cover["comparable"]:
+            print("   {:<10} {} of {} cases seen in a log; {} defined and "
+                  "unseen, {} seen and not defined".format(
+                      "coverage", cover["exercised"], cover["defined"],
+                      len(cover["dark"]), len(cover["extra"])))
+            if args.cases:
+                for kind in ("dark", "extra"):
+                    for name in cover[kind]:
+                        print("   {:<10} {} {}".format(
+                            "", "-" if kind == "dark" else "+", name))
+        print()
+
+    if bundle["unmatched"]:
+        print("Ran, and no suite config in the tree accounts for it:")
+        for row in bundle["unmatched"]:
+            print("   {:<16} {:<46} {:>4} runs  ({})".format(
+                row["station"], row["suite"], row["runs"], row["source"]))
+        print()
+
+    packaged = [row for row in bundle["unrun"] if row["packaged"]]
+    print("{} suite configs BUILD packages that no run in the window names "
+          "(and {} it does not package at all)".format(
+              len(packaged), len(bundle["unrun"]) - len(packaged)))
+    return 0
+
+
 def cmd_release_source(args: argparse.Namespace) -> int:
     """What each release contains, read from the source it was built from."""
     from pathlib import Path as _Path
@@ -709,6 +774,13 @@ def cmd_release_source(args: argparse.Namespace) -> int:
     path = brs.write_bundle(bundle)
     print("Release source ({:.0f} KB, {} releases) -> {}".format(
         path.stat().st_size / 1024, len(bundle["releases"]), path))
+    mapped = bundle.get("suiteMap") or {}
+    if mapped.get("stations"):
+        counts = mapped.get("counts") or {}
+        print("  station map: {} stations, {} of {} suite configs "
+              "attributed, {} suite names unplaced".format(
+                  len(mapped["stations"]), counts.get("attributed"),
+                  counts.get("files"), len(mapped.get("unmatched") or [])))
     for release in bundle["releases"]:
         print("  {:<46} {:>3} cases  {:>3} runs  {}{}".format(
             release["suite"][:46], release["caseCount"], release["runs"],
@@ -1061,6 +1133,21 @@ def _build_parser() -> argparse.ArgumentParser:
     relsrc.add_argument("--repo", default=None,
                         help="path to a clone of etched-ai/sw")
     relsrc.set_defaults(handler=cmd_release_source)
+
+    smap = subparsers.add_parser(
+        "suite-map",
+        help="which suite YAML each station runs, derived from the sw tree")
+    smap.add_argument("--days", type=int, default=None)
+    smap.add_argument("--repo", default=None,
+                      help="path to a clone of etched-ai/sw")
+    smap.add_argument("--ref", default=None,
+                      help="ref in the sw clone to read (default: the first of "
+                           "origin/master, origin/main, master, main, HEAD "
+                           "that resolves)")
+    smap.add_argument("--cases", action="store_true",
+                      help="also list the cases a station's YAML defines that "
+                           "no log shows, and the reverse")
+    smap.set_defaults(handler=cmd_suite_map)
 
     retest = subparsers.add_parser(
         "retest", help="retests split from new builds, in the line's own format")

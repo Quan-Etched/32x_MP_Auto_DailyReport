@@ -83,10 +83,17 @@ rsync -av --progress data/processed/items.sqlite data/processed/fetch_state.json
 # showing last week's as though it were this week's.
 
 # One step runs only on a laptop: `make release-source` reads the suite YAML
-# out of a clone of etched-ai/sw at each release's commit, and the box has no
-# such clone (2.4 GB, and no reason to). Run it on the Mac, commit
-# dashboard/data/release_source.js, and the box publishes what it finds. The
-# box's own `make build` prints "Release source skipped" and carries on.
+# out of a clone of etched-ai/sw — at each release's commit for the release
+# profile, and at origin/master for the station-to-YAML map — and the box has
+# no such clone (2.4 GB, and no reason to). Run it on the Mac, commit
+# release_profile/release_source.js (dashboard/data/ is generated and
+# gitignored; the committed copy outside it is what travels), and the box's
+# build copies that into place. The box's own `make build` prints "Release
+# source from the committed copy" and carries on.
+#
+# `make suite-map` prints the same station-to-YAML derivation in a terminal and
+# writes nothing — for reading it, or for checking a pin after somebody renames
+# a constant in sw. `make release-source` is what puts it on the page.
 
 # The pages, and which source each one is:
 #   index.html   station yield from the controllers  <- the default

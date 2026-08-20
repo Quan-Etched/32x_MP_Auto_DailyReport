@@ -380,19 +380,28 @@ src/factory/
   compare.py          measures the gap between the two, at build time
   build_history.py    new build or retest, and what a unit failed last time
   version.py          which build made a page: release, commit, repo
+  build_release_source.py  what each release contains, from the sw tree at the
+                      commit its suite name carries
+  suite_map.py        which suite YAML each station runs, and how we know:
+                      BUILD's deploy_suite entries, the paths release scripts
+                      pin, each file's own suite_name / run_name, then the
+                      station registry — read at origin/master, not at the
+                      builder's checkout
   chips.py            per-chip verdicts inside a fixture run
   requests.py         what we need from other systems, and probes for it
   build_dailyexcel.py compiles the line's tracker tabs from daily/*.xlsx
   control.py          the /api routes behind the Update button
   cli.py              trust | levels | runs | inspect | collect | demo
                       | build | refresh | status | report | items
-                      | dailyexcel | serve
+                      | dailyexcel | release-source | suite-map | serve
 
 dashboard/
   styles.css          palette + chrome (light/dark as role tokens)
   index.html + stations.js + stations.css   station yield (landing)
   hourly.html + app.js                      hourly rates
   releases.html + releases.js + releases.css  test items by release
+  releasesrc.js       what each release contains, read from source
+  suitemap.js         which suite YAML each station runs, with the evidence
   runs.html + runtable.js + runs.css        raw run table (the drill-down)
   dailyexcel.html + dailysheet.js + dailyexcel.css   the line's daily tracker
   requests.html + requests.js + requests.css   asks against other systems

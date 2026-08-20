@@ -10,7 +10,8 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        dailyexcel requests pega-stations release-source retest fpy weekly weekly-deck archive \
+        dailyexcel requests pega-stations release-source suite-map retest fpy weekly \
+        weekly-deck archive \
         weekly-snapshot schedule-weekly-install schedule-weekly-uninstall \
         schedule-weekly-status schedule-weekly-install-macos \
         schedule-weekly-uninstall-macos schedule-weekly-status-macos \
@@ -29,6 +30,7 @@ help:
 	@echo "make items [STATION=..]  flatten test cases to numeric test items"
 	@echo "make dailyexcel         compile daily/*.xlsx (MLT/HTT tracker) into the dashboard"
 	@echo "make requests           re-check what we need from other systems"
+	@echo "make suite-map [CASES=1] which suite YAML each station runs, from the sw tree"
 	@echo "make schedule-install   install the hourly job (launchd / systemd timer)"
 	@echo "make schedule-weekly-install  install the Sunday 21:00 snapshot job"
 	@echo "make weekly-snapshot    run that snapshot now: collect, deck, archive, publish"
@@ -111,6 +113,13 @@ pega-stations:
 # and the bundle it writes is committed for the box to publish.
 release-source:
 	$(PY) -m factory.cli release-source
+
+# Which suite YAML each station runs, derived from the sw tree: the file, the
+# fact that ties it to the station's runs, and how its cases compare to the
+# case names the logs carry. Printed here; `make release-source` is what puts
+# it on the page, since the two share one committed bundle.
+suite-map:
+	$(PY) -m factory.cli suite-map $(if $(CASES),--cases,)
 
 # Retests split from new builds, in the line's own Retest-tab format.
 retest:

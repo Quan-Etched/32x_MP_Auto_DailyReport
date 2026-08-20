@@ -302,3 +302,113 @@ tr.clickable th:first-child::after { content: " ›"; color: var(--text-muted); 
   text-underline-offset: 3px;
   text-decoration-thickness: 2px;
 }
+
+/* ------------------------------------ the station-to-YAML map, from source ---
+ *
+ * A mapping is worth exactly as much as the fact behind it, so the evidence
+ * tier is styled as prominently as the file path and is the one place on this
+ * page where colour is load-bearing. It is a STATUS ramp, not a categorical
+ * one: the tiers are ordered by consequence (a BUILD file says so / the
+ * filename looked right), and drawing them from the interchangeable series
+ * slots would say they are alternatives rather than a ladder. */
+.tier {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+  cursor: help;
+}
+.tier.t-pinned   { color: var(--success-text); }
+.tier.t-deployed { color: var(--success-text); }
+.tier.t-declared { color: var(--accent-solid); }
+.tier.t-run_name { color: var(--accent-solid); }
+.tier.t-filename { color: var(--status-warning); }
+.tier.t-registry { color: var(--status-serious); }
+.tier.t-variant  { color: var(--status-serious); }
+
+.map-legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+
+.map-card {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-solid);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  background: var(--surface-1);
+}
+/* Not a station. Dashed, so it reads as a holding pen rather than a stage. */
+.map-card.engineering { border-left-style: dashed; border-left-color: var(--axis); }
+
+.map-card-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.map-station { font-size: 14px; }
+.map-ctl {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; color: var(--text-muted);
+  border: 1px solid var(--border); border-radius: 3px; padding: 0 5px;
+}
+.map-runs {
+  font-size: 11.5px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums; white-space: nowrap; cursor: help;
+}
+
+/* Every suite row is ruled off, including the first — that rule also
+   separates the rows from the station heading above them. */
+.map-suite { margin-top: 10px; padding-top: 9px; border-top: 1px dashed var(--border); }
+.map-suite-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.map-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px; color: var(--accent-solid); overflow-wrap: anywhere;
+}
+.map-evidence, .map-facts, .map-note, .map-nocover {
+  font-size: 11.5px; color: var(--text-secondary);
+  margin: 4px 0 0; line-height: 1.55; max-width: 92ch;
+}
+.map-facts { color: var(--text-muted); }
+.map-warn { font-size: 11.5px; color: var(--status-warning); margin: 4px 0 0;
+            line-height: 1.55; max-width: 92ch; }
+
+/* Coverage: the YAML's cases against the case names the logs carry. Three
+   segments, and only the first is a "good" one — the other two are questions,
+   which is why neither is red. */
+.map-cover { margin-top: 10px; }
+.map-bar { display: flex; height: 8px; border-radius: 999px; overflow: hidden;
+           background: var(--grid); }
+.map-seg.seen  { background: var(--status-good); }
+.map-seg.dark  { background: var(--axis); }
+.map-seg.extra { background: var(--sequential-350); }
+.map-cover-keys { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 5px; }
+.map-key { font-size: 11.5px; color: var(--text-secondary);
+           font-variant-numeric: tabular-nums; }
+.map-key::before {
+  content: ""; display: inline-block; width: 8px; height: 8px;
+  border-radius: 2px; margin-right: 5px; vertical-align: baseline;
+}
+.map-key.seen::before  { background: var(--status-good); }
+.map-key.dark::before  { background: var(--axis); }
+.map-key.extra::before { background: var(--sequential-350); }
+
+.map-cases { margin-top: 7px; }
+.map-cases > summary { font-size: 12px; color: var(--accent-solid); cursor: pointer; }
+.map-cases ul { margin: 6px 0 0; padding-left: 18px; display: flex;
+                flex-direction: column; gap: 2px; }
+.map-cases li { font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                font-size: 11px; color: var(--text-secondary); }
+
+.map-obs { border-collapse: collapse; margin-top: 7px; font-size: 11.5px; }
+.map-obs.wide { width: 100%; }
+.map-obs th { text-align: left; font-weight: 600; color: var(--text-muted);
+              padding: 2px 12px 4px 0; border-bottom: 1px solid var(--border); }
+.map-obs td { padding: 2px 12px 2px 0; color: var(--text-secondary);
+              vertical-align: top; }
+.map-obs td.mono, .map-obs td.fixtures {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
+}
+.map-obs td.fixtures { color: var(--text-muted); }
+.map-obs td.num, .map-obs th.num {
+  text-align: right; font-variant-numeric: tabular-nums; padding-right: 14px;
+}
+
+/* Wide content scrolls inside itself; the page body never scrolls sideways. */
+.map-view-scroll, #map-body { overflow-x: auto; }

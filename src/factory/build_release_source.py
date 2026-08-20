@@ -223,6 +223,14 @@ def _walk(tree: Any) -> Dict[str, Any]:
             "runName": tree.get("run_name") if isinstance(tree, dict) else None}
 
 
+#: The suite-tree reader, under a public name because ``suite_map`` shares it.
+#:
+#: Both sections of the releases page count a file's test cases, and a file
+#: that came out at 59 in one and 58 in the other would be worse than not
+#: having the second section at all. One reader, one count.
+walk_suite = _walk
+
+
 def _scan(text: str) -> Dict[str, Any]:
     """Fallback: every ``- name: ClassName`` the file mentions."""
     names = re.findall(r"^\s*-?\s*name:\s*([A-Z][A-Za-z0-9]*)\s*$", text, re.M)
@@ -268,14 +276,27 @@ def build_bundle(days: int = DEFAULT_DAYS,
             "inManualList": _in_manual_list(station, release["suite"]),
         }))
 
+    # Which suite YAML each *station* runs, derived from the same clone. Rides
+    # this bundle rather than getting one of its own: both halves are read from
+    # sw, both are unbuildable on the dashboard host, and one committed file is
+    # one thing to keep current instead of two that can disagree.
+    from . import suite_map as _suite_map
+    try:
+        mapped = _suite_map.build(root)
+    except Exception as exc:                              # noqa: BLE001
+        mapped = {"error": str(exc)[:200], "stations": []}
+
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "generatedAt": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "build": version.describe(),
         "window": {"days": days},
         "repo": {"path": str(root), "head": _git(root, "rev-parse",
-                                                 "--short", "HEAD").strip()},
+                                                 "--short", "HEAD").strip(),
+                 "committedAt": _commit_meta(root, "HEAD").get("date"),
+                 "subject": _commit_meta(root, "HEAD").get("subject")},
         "sources": SUITE_SOURCE,
+        "suiteMap": mapped,
         "manualList": {"versions": {k: list(v) for k, v in MANUAL_LIST.items()},
                        "source": MANUAL_LIST_SOURCE},
         "releases": profiled,
