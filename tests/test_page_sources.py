@@ -52,6 +52,63 @@ def data_scripts(name):
     return re.findall(r'src="(data/[a-z0-9_]+\.js)"', text)
 
 
+#: page -> the page-specific scripts that reach into its DOM. Shared scripts
+#: (update.js, theme.js) are left out: they run on every page and each one
+#: guards for the elements it wants.
+DOM_SCRIPTS = {
+    "index.html": ["stations.js"],
+    "ocp.html": ["stations.js"],
+    "dailyexcel.html": ["dailysheet.js"],
+    "delta.html": ["delta.js"],
+    "week.html": ["week.js"],
+    "flow.html": ["flow.js"],
+    "retest.html": ["retest.js"],
+    "releases.html": ["releasesrc.js", "suitemap.js"],
+}
+
+#: ``byId('x')`` and ``getElementById('x')``, including the literal prefix of a
+#: built-up id like ``byId('body-' + stage.key)``.
+ELEMENT_LOOKUP = re.compile(
+    r"(?:byId|getElementById)\(\s*'([A-Za-z0-9_-]+)'")
+
+
+def element_ids(name):
+    return set(re.findall(r'id="([^"]+)"', (DASHBOARD / name).read_text(
+        encoding="utf-8")))
+
+
+class DomWiringTest(unittest.TestCase):
+    """Every element a page's script reaches for exists in that page.
+
+    Renaming an element and missing one lookup does not fail loudly. The delta
+    page's guard kept asking for ``#table-body`` after the single table became
+    ``#body-mlt`` and ``#body-htt``: getElementById returned null, init returned,
+    and the page rendered every static heading and not one row — so it looked
+    built and was empty. Nothing threw, nothing 404'd, and it took a screenshot
+    to notice.
+
+    A whole-page check would need a DOM. This does not: it is a string match
+    between the ids a page declares and the ids its script asks for, which is
+    exactly the join that broke.
+    """
+
+    def test_every_id_a_page_script_asks_for_exists_in_the_page(self):
+        for page, scripts in DOM_SCRIPTS.items():
+            ids = element_ids(page)
+            for script in scripts:
+                source = (DASHBOARD / script).read_text(encoding="utf-8")
+                for wanted in sorted(set(ELEMENT_LOOKUP.findall(source))):
+                    with self.subTest(page=page, script=script, id=wanted):
+                        # A built-up id ("body-" + stage) only has its prefix in
+                        # the source, so it is enough that some real id starts
+                        # with it — the point is that the prefix is not stale.
+                        self.assertTrue(
+                            wanted in ids
+                            or any(one.startswith(wanted) for one in ids),
+                            "{} asks for #{}, which {} does not define".format(
+                                script, wanted, page))
+
+
 class PageSourceTest(unittest.TestCase):
     def test_each_page_loads_exactly_its_own_bundle(self):
         for page, bundle in EXPECTED.items():

@@ -1091,6 +1091,28 @@
    * page. It sits on the caption because that is where the table already says
    * where its rows came from, and "rebuilt from pega3" is exactly the claim the
    * comparison checks. */
+  /* The masthead link, pointed at a day that has a comparison.
+   *
+   * Always the current day where that day has one; otherwise the most recent
+   * day that does, because a link that goes nowhere is worse than no link and
+   * hiding it on twenty days out of twenty-one is how the caption version came
+   * to be invisible. Hidden only when no day has a comparison at all. */
+  function wireDeltaCta(tab) {
+    var link = byId('delta-link');
+    if (!link) return;
+    var days = (DATA.deltaDays || []).slice().sort();
+    if (!days.length) { link.hidden = true; return; }
+    var day = (tab && tab.day && days.indexOf(tab.day) !== -1)
+      ? tab.day : days[days.length - 1];
+    link.hidden = false;
+    link.setAttribute('href', 'delta.html#day=' + day);
+    link.textContent = 'Excel vs Dashboard \u2192';
+    link.setAttribute('title',
+      day === (tab || {}).day
+        ? 'the line\u2019s own tab for ' + day + ' against this table, unit by unit'
+        : 'the sheet comparison — ' + day + ' is the latest day with one');
+  }
+
   function deltaLink(tab) {
     var days = DATA.deltaDays || [];
     if (!tab.day || days.indexOf(tab.day) === -1) return null;
@@ -1420,6 +1442,7 @@
     renderTable(current);          /* renders the summary from the same rows */
     renderL10(current);            /* and L10 under it, where the day has any */
     renderL11(current);            /* and L11 under that */
+    wireDeltaCta(current);         /* and the masthead's link to the comparison */
     document.title = 'Daily tracker — ' + (current.day || current.label);
   }
 
