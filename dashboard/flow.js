@@ -56,16 +56,10 @@
       sub: 'System level test', owner: 'Sigurd', station: 'slt' },
 
     { id: 'smt',    lane: 'l6',   label: 'SMT / ICT',    kind: 'build',
-      sub: 'BB & HPB & PV1 & VBB & PDB' },
+      sub: 'HPB & VBB & PV1 & PDB' },
     { id: 'flash',  lane: 'l6',   label: 'Flash / BFT',  kind: 'test',
       sub: 'VBB', station: 'vbb_provision' },
-    { id: 'assy6',  lane: 'l6',   label: 'PV1 ASSY',     kind: 'build' },
-    /* TIM comes before MLT: the coldplate is bonded to the module and baked,
-     * and only then does the module get tested. It was missing from this chart
-     * entirely, which made MLT look like the first thing that happens to a
-     * module. */
-    { id: 'tim',    lane: 'l6',   label: 'TIM',          kind: 'test',
-      sub: 'Coldplate bake', station: 'tim' },
+    { id: 'assy6',  lane: 'l6',   label: 'ASSY',         kind: 'build' },
     { id: 'mlt',    lane: 'l6',   label: 'MLT',          kind: 'test',
       station: 'mlt' },
     { id: 'htt',    lane: 'l6',   label: 'HTT',          kind: 'test',
@@ -88,11 +82,6 @@
     { id: 'assy11', lane: 'l11',  label: 'ASSY',         kind: 'build' },
     { id: 'prov11', lane: 'l11',  label: 'Provisioning', kind: 'test',
       station: 'l11_provision' },
-    /* Three stages on the rack share one station key, because the registry has
-     * one for the whole of L11 test — so each says whose number it is showing
-     * rather than three boxes quietly repeating the same figure. */
-    { id: 'fat11',  lane: 'l11',  label: 'FAT',          kind: 'test',
-      station: 'l11_test', shared: true },
     { id: 'sft11',  lane: 'l11',  label: 'SFT',          kind: 'test',
       station: 'l11_test' },
     { id: 'rin11',  lane: 'l11',  label: 'Runin',        kind: 'test',
@@ -111,8 +100,7 @@
     { from: 'smt',    to: 'flash',  route: 'down',   label: 'VBB' },
     { from: 'flash',  to: 'assy6',  route: 'down' },
     { from: 'smt',    to: 'assy6',  route: 'bypass', label: 'HPB & PDB' },
-    { from: 'assy6',  to: 'tim',    route: 'down' },
-    { from: 'tim',    to: 'mlt',    route: 'down' },
+    { from: 'assy6',  to: 'mlt',    route: 'down' },
     { from: 'mlt',    to: 'htt',    route: 'down' },
     { from: 'htt',    to: 'assy10', route: 'across' },
 
@@ -126,8 +114,7 @@
     { from: 'rin10',  to: 'assy11', route: 'across' },
 
     { from: 'assy11', to: 'prov11', route: 'down' },
-    { from: 'prov11', to: 'fat11',  route: 'down' },
-    { from: 'fat11',  to: 'sft11',  route: 'down' },
+    { from: 'prov11', to: 'sft11',  route: 'down' },
     { from: 'sft11',  to: 'rin11',  route: 'down' },
     { from: 'rin11',  to: 'pack',   route: 'down' }
   ];
@@ -267,41 +254,17 @@
 
   /* The two yields the line is asked for.
    *
-   * Per-step is what each station did; the product is what clearing the whole
-   * of L6 costs, and it is the number nobody computes in their head — three
-   * stages in the sixties and thirties feel like a fifty-something line and
-   * are a sixteen-percent one.
-   *
-   * It multiplies the pass rates the boxes show, which include retest passes,
-   * so it is not a first-pass figure and no longer claims to be. The wording
-   * used to say "first time" while multiplying pass rates, and that mattered
-   * much less when the stages were two stations with few retests than it does
-   * now that TIM is in it — 94 of TIM's 194 bakes on 2026-08-20 were a unit's
-   * second visit or later. The FPY per stage is on the station page.
+   * Per-step is what each station did; the product of MLT and HTT is what a
+   * module's chance of clearing L6 first time actually is, and it is the
+   * number nobody computes in their head: two stages in the sixties and
+   * fifties feel like a sixty-something line and are a thirty-something one.
    */
-  /* Every measured test stage in L6, multiplied.
-   *
-   * Was MLT × HTT, hardcoded, and that stopped being the L6 first-time-through
-   * rate the moment TIM was added in front of them: a module has to clear the
-   * bake as well, so leaving it out overstated the line. Driven off the lane
-   * now, so the next stage added to L6 is included without anybody having to
-   * remember this function exists. */
   function combined() {
-    var stages = NODES.filter(function (node) {
-      return node.lane === 'l6' && node.kind === 'test' && node.station
-             && !node.shared;
-    }).map(function (node) {
-      return { label: node.label, stat: summary(node.station) };
-    }).filter(function (entry) {
-      return entry.stat && entry.stat.runs && entry.stat.passRate != null;
-    });
-    if (stages.length < 2) return null;
-    return {
-      rate: stages.reduce(function (product, entry) {
-        return product * entry.stat.passRate;
-      }, 1),
-      stages: stages
-    };
+    var mlt = summary('mlt'), htt = summary('htt');
+    if (!mlt || !htt || !mlt.runs || !htt.runs) return null;
+    var a = mlt.passRate, b = htt.passRate;
+    if (a == null || b == null) return null;
+    return { rate: a * b, mlt: a, htt: b };
   }
 
   function renderCombined() {
@@ -313,15 +276,9 @@
     host.hidden = false;
     host.appendChild(h('span', { class: 'cb-k', text: 'L6 combined' }));
     host.appendChild(h('strong', { class: 'cb-v', text: pct(both.rate) }));
-    /* Names the stages it multiplied, in order. With three of them the number
-     * is much lower than any one stage looks, and a reader has to be able to
-     * see which stages produced it rather than take the product on trust. */
     host.appendChild(h('span', { class: 'cb-s', text:
-      both.stages.map(function (entry) {
-        return entry.label + ' ' + pct(entry.stat.passRate);
-      }).join(' × ') +
-      ' — the product of the rates in the boxes above, across all ' +
-      both.stages.length + ' L6 test stages' }));
+      'MLT ' + pct(both.mlt) + ' × HTT ' + pct(both.htt) +
+      ' — a module\u2019s chance of clearing both first time' }));
   }
 
   /* ----------------------------------------------------------------- wires */

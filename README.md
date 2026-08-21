@@ -407,6 +407,7 @@ dashboard/
   styles.css          palette + chrome (light/dark as role tokens)
   index.html + stations.js + stations.css   station yield (landing)
   hourly.html + app.js                      hourly rates
+  flowfull.html + flowfull.js + flowfull.css  the line's chart drawn whole
   releases.html + releases.js + releases.css  test items by release
   releasesrc.js       what each release contains, read from source
   suitemap.js         which suite YAML each station runs, with the evidence

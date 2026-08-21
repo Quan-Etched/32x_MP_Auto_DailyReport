@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comprehensive test flow</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="flow.css">
+  <link rel="stylesheet" href="flowfull.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Comprehensive test flow</h1>
+    <span class="meta" id="meta"></span>
+    <span class="build" id="build" title="Which build of the analysis produced this page"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" href="flow.html">← Test flow</a>
+    <a class="theme-toggle" href="index.html">Station yield →</a>
+    <a class="theme-toggle" href="dailyexcel.html">Daily tracker →</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <p class="flow-intro">
+    The line's own flowchart, drawn whole: every board through its own SMT/ICT,
+    the module chain from PV1 assembly up through <strong>TIM</strong>, and the
+    2U and 4U paths kept apart. A stage is <strong>green</strong> when it
+    produces a yield; grey when it builds or moves something without testing it.
+    Where this dashboard has the numbers they are printed in the box.
+  </p>
+
+  <!-- Deliberately no combined figure here. The summary chart carries one for
+       MLT × HTT, which is the number the line quotes; inventing a second
+       product over a different set of stages would give two "L6 combined"
+       figures on one site that disagree. -->
+  <div class="flow-legend" id="legend"></div>
+
+  <div class="flow-canvas wide" id="canvas">
+    <svg class="flow-wires" id="wires" aria-hidden="true"></svg>
+    <div class="flow-lanes" id="lanes"></div>
+  </div>
+
+  <footer class="notes">
+    <p id="footer-meta"></p>
+    <p>
+      The same boxes as <a href="flow.html">the summary chart</a>, with the
+      detail that one leaves out: five SMT/ICT boards rather than one box, TIM
+      between PV1 assembly and MLT, 4U ASSY and 2U ASSY as separate paths, and
+      FAT on the rack. None of the five SMT/ICT boards reports to a controller,
+      so those boxes carry no number — the summary chart draws them as one for
+      that reason, and this one draws them apart because the line's chart does.
+    </p>
+    <p>
+      Yields cover <span id="window-days">this week</span> from the station
+      controllers — pega2 for VBB, pega6 for TIM, pega3 for the module stages,
+      pega4 for L10, pega5 for L11 — counted one row per unit, not one per
+      fixture. WST, FT and SLT sit with Sigurd and are not collected here.
+    </p>
+  </footer>
+
+</div>
+
+<script src="data/pega_stations.js"></script>
+<script src="flowfull.js"></script>
+<script src="theme.js"></script>
+<script src="update.js"></script>
+</body>
+</html>

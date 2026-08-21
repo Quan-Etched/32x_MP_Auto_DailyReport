@@ -24,6 +24,7 @@ EXPECTED = {
     "weekly.html": "data/weekly.js",
     "week.html": "data/weekly.js",
     "flow.html": "data/pega_stations.js",
+    "flowfull.html": "data/pega_stations.js",
     "retest.html": "data/retest.js",
     # The comparison page loads only the comparison. The tracker's own bundle
     # is deliberately not here: the day view needs one link, and pulling 600 KB
@@ -63,6 +64,7 @@ DOM_SCRIPTS = {
     "delta.html": ["delta.js"],
     "week.html": ["week.js"],
     "flow.html": ["flow.js"],
+    "flowfull.html": ["flowfull.js"],
     "retest.html": ["retest.js"],
     "releases.html": ["releasesrc.js", "suitemap.js"],
 }
@@ -199,12 +201,15 @@ class LinkTest(unittest.TestCase):
             self.skipTest("no station bundle built")
         views = json.loads(
             bundle.read_text().split("= ", 1)[1].rstrip().rstrip(";"))["views"]
-        flow = (DASHBOARD / "flow.js").read_text(encoding="utf-8")
-        keys = re.findall(r"station:\s*'([a-z0-9_]+)'", flow)
-        self.assertTrue(keys, "no station keys found in flow.js")
-        for key in dict.fromkeys(keys):
-            with self.subTest(station=key):
-                self.assertIn(key, views)
+        # Both charts, because they are two files that name station keys and
+        # only one of them used to be checked.
+        for name in ("flow.js", "flowfull.js"):
+            source = (DASHBOARD / name).read_text(encoding="utf-8")
+            keys = re.findall(r"station:\s*'([a-z0-9_]+)'", source)
+            self.assertTrue(keys, "no station keys found in " + name)
+            for key in dict.fromkeys(keys):
+                with self.subTest(chart=name, station=key):
+                    self.assertIn(key, views)
 
     def test_the_flowchart_links_at_the_default_station_page(self):
         flow = (DASHBOARD / "flow.js").read_text(encoding="utf-8")

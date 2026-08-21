@@ -1,0 +1,35 @@
+/* The comprehensive chart. Inherits every box, wire and lane style from
+ * flow.css — the two charts must look like the same drawing at two zoom
+ * levels, not like two drawings — and adds only what branching needs. */
+
+/* A grid, not a stack. This is the whole structural difference: PV1 SMT/ICT
+ * and PV1 ASSY share a row, SFT and Runin share a row, and the summary chart's
+ * one-column-per-lane layout cannot express either. */
+.lane-grid {
+  display: grid;
+  gap: 14px 18px;
+  align-items: stretch;
+  justify-items: stretch;
+}
+
+/* Wider than the summary chart because it has twice the columns. Scrolls
+   inside itself rather than making the page scroll sideways. */
+.flow-canvas.wide { overflow-x: auto; }
+.flow-canvas.wide .flow-lanes { min-width: 1180px; }
+
+/* Dashed exactly where the line's own chart dashes: a stage on the drawing
+   that is not always in the route. Not a status — a dashed box still carries
+   its yield if it has one. */
+.box.dashed { border-style: dashed; }
+
+/* The one wire the line's chart picks out in blue: PDB into the 2U assembly.
+   Kept because losing it would lose a distinction somebody drew on purpose. */
+.wire.w-lead { stroke: var(--series-1); stroke-width: 2; }
+.wire.w-dashed { stroke-dasharray: 5 4; }
+
+/* Legend swatch for the dashed case. */
+.lg-sw.dashed { border-style: dashed; }
+
+/* A shared figure needs saying every time it is repeated: 2U appears in both
+   L10 lanes and three rack stages share one station key. */
+.box-note { font-size: 10.5px; }
