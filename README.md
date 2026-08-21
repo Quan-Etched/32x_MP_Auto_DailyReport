@@ -407,7 +407,11 @@ dashboard/
   styles.css          palette + chrome (light/dark as role tokens)
   index.html + stations.js + stations.css   station yield (landing)
   hourly.html + app.js                      hourly rates
-  flowfull.html + flowfull.js + flowfull.css  the line's chart drawn whole
+  flowchart.js        the grid flowchart renderer, shared by the two branching
+                      charts — flow.html keeps its own and stays frozen
+  flowfull.html + flowfull.js  the line's chart drawn whole
+  flowe2e.html + flowe2e.js    every insertion, including the ones nobody
+                      collects — Flash and BFT apart, CK and PDB checkpoints
   releases.html + releases.js + releases.css  test items by release
   releasesrc.js       what each release contains, read from source
   suitemap.js         which suite YAML each station runs, with the evidence

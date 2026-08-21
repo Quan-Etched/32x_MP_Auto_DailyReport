@@ -33,3 +33,14 @@
 /* A shared figure needs saying every time it is repeated: 2U appears in both
    L10 lanes and three rack stages share one station key. */
 .box-note { font-size: 10.5px; }
+
+
+/* A checkpoint rather than a stage: CK on the way into 4U assembly, PDB on the
+   way into 2U. Small because they are a gate, not an insertion — drawn the same
+   size as MLT they would claim the same weight. */
+.box.small {
+  padding: 6px 9px;
+  align-self: center;
+}
+.box.small .box-label { font-size: 12px; }
+.box.small .box-note { font-size: 10px; }

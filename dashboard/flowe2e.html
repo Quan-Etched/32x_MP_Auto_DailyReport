@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>End-to-end test flow</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="flow.css">
+  <link rel="stylesheet" href="flowfull.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>End-to-end test flow</h1>
+    <span class="meta" id="meta"></span>
+    <span class="build" id="build" title="Which build of the analysis produced this page"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" href="flow.html">← Test flow</a>
+    <a class="theme-toggle" href="flowfull.html">Comprehensive</a>
+    <a class="theme-toggle" href="index.html">Station yield →</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <p class="flow-intro">
+    Every insertion on the line, including the ones the other two charts fold
+    into a neighbour: <strong>Flash</strong> and <strong>BFT</strong> as separate
+    tests, the <strong>CK</strong> and <strong>PDB</strong> checkpoints, and the
+    2U test named for the level it runs at. A stage is <strong>green</strong>
+    when it produces a yield; grey when it builds or moves something. Where this
+    dashboard has the numbers they are in the box, and where it does not the box
+    says so.
+  </p>
+
+  <div class="flow-legend" id="legend"></div>
+
+  <div class="flow-canvas wide" id="canvas">
+    <svg class="flow-wires" id="wires" aria-hidden="true"></svg>
+    <div class="flow-lanes" id="lanes"></div>
+  </div>
+
+  <footer class="notes">
+    <p id="footer-meta"></p>
+    <p>
+      This is the chart to read when the question is <em>what is actually
+      measured</em>, because it is the one where an unmeasured stage gets its own
+      box instead of hiding inside a neighbour's. Three of them:
+      <strong>BFT</strong> — I2C, UART, GPIO, power-on sequence, PRBS
+      (ETCH-39584) — reports to no controller, and drawn together with Flash it
+      shared the VBB provisioning yield, which lent a number to a test nobody
+      measures. <strong>CK</strong> and <strong>PDB</strong> are checkpoints on
+      the way into assembly and are not collected either.
+    </p>
+    <p>
+      <strong>Flash</strong> is ROT OTP, the production certificate and the
+      bootloader lock, which is what this repo's VBB provisioning runs are — so
+      that box, and only that box, carries the number. The 2U test appears twice
+      because it runs twice: <strong>2U Component</strong> at the 2U/4U stage and
+      <strong>2U System</strong> at 6U, one station key behind both, and each box
+      says whose figure it is showing.
+    </p>
+    <p>
+      Yields cover <span id="window-days">this week</span> from the station
+      controllers — pega2 for VBB, pega6 for TIM, pega3 for the module stages,
+      pega4 for L10, pega5 for L11 — counted one row per unit, not one per
+      fixture. WST, FT and SLT sit with Sigurd and are not collected here.
+    </p>
+  </footer>
+
+</div>
+
+<script src="data/pega_stations.js"></script>
+<script src="flowchart.js"></script>
+<script src="flowe2e.js"></script>
+<script src="theme.js"></script>
+<script src="update.js"></script>
+</body>
+</html>
