@@ -19,6 +19,7 @@ EXPECTED = {
     "index.html": "data/pega_stations.js",      # default: the controllers
     "ocp.html": "data/stations.js",             # second opinion: OCP Logs
     "runs.html": "data/runs_pega.js",
+    "customize.html": "data/runs_pega.js",
     "ocpruns.html": "data/runs.js",
     "dailyexcel.html": "data/dailyexcel.js",
     "weekly.html": "data/weekly.js",
@@ -62,6 +63,7 @@ DOM_SCRIPTS = {
     "dailyexcel.html": ["dailysheet.js"],
     "weekly.html": ["weeklysummary.js"],
     "delta.html": ["delta.js"],
+    "customize.html": ["customize.js"],
     "week.html": ["week.js"],
     "flow.html": ["flow.js"],
     "flowfull.html": ["flowfull.js"],

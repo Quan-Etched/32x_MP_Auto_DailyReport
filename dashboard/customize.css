@@ -1,0 +1,95 @@
+/* Customize: pick days and stations, take the CSV.
+ *
+ * Three numbered steps down the page rather than one control bar. The order is
+ * the order the choices constrain each other — the station counts depend on the
+ * days, and what you can download depends on both — so the page reads top to
+ * bottom and nothing above ever depends on something below it. */
+
+.lede { margin: 0 0 16px; font-size: 13.5px; color: var(--text-secondary);
+        max-width: 84ch; }
+
+.quick { display: flex; gap: 6px; flex-wrap: wrap; }
+.view-toggle.on { border-color: var(--accent-solid); color: var(--accent-solid); }
+
+/* The download is the one button on the page that does something irreversible
+   in the sense that matters — it hands over a file somebody will quote — so it
+   is the only accented control here. */
+.view-toggle.primary {
+  border-color: var(--accent-solid);
+  color: var(--accent-solid);
+  font-weight: 600;
+}
+.view-toggle.primary:hover { background: var(--accent-solid); color: var(--page); }
+.view-toggle.primary[disabled] {
+  border-color: var(--border); color: var(--text-muted);
+  font-weight: 400; cursor: default; background: none;
+}
+
+/* ----------------------------------------------------------------- pickers */
+
+.pickers { display: flex; gap: 22px; flex-wrap: wrap; }
+.picker { display: flex; flex-direction: column; gap: 4px; }
+.picker-k {
+  font-size: 11.5px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.picker input {
+  font: inherit; font-size: 13px;
+  color: var(--text-primary); background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 6px; padding: 5px 9px;
+}
+.picker input:focus { outline: 2px solid var(--accent-solid); outline-offset: 1px; }
+
+/* ---------------------------------------------------------------- stations */
+
+.checks {
+  display: grid; gap: 6px 14px;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+}
+.check {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 5px 10px; cursor: pointer;
+}
+.check:hover { border-color: var(--accent-solid); }
+.check input { margin: 0; }
+.check-k { flex: 1; }
+/* A station with no runs in the chosen days is dimmed, not removed: it
+   disappearing as you move the dates would read as the list being unstable,
+   and "no runs here" is itself an answer. */
+.check.empty { opacity: 0.55; }
+.check-n {
+  font-size: 11.5px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ tables */
+
+.cz-table { border-collapse: collapse; width: 100%; font-size: 12px;
+            margin-top: 12px; }
+.cz-table th {
+  text-align: left; font-weight: 600; color: var(--text-muted);
+  padding: 4px 14px 6px 0; border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.cz-table td {
+  padding: 4px 14px 4px 0; color: var(--text-secondary);
+  border-bottom: 1px solid var(--border); vertical-align: top;
+}
+.cz-table td.num, .cz-table th.num {
+  text-align: right; font-variant-numeric: tabular-nums; padding-right: 18px;
+}
+.cz-table td.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+}
+.tone-pass { color: var(--success-text); }
+.tone-fail { color: var(--status-critical); }
+
+.cz-note {
+  font-size: 12px; color: var(--text-muted); margin: 14px 0 0;
+  line-height: 1.6; max-width: 92ch;
+}
+
+@media print { .quick, .pickers, .checks { display: none; } }

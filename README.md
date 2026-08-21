@@ -414,6 +414,9 @@ dashboard/
   runs.html + runtable.js + runs.css        raw run table (the drill-down)
   dailyexcel.html + dailysheet.js + dailyexcel.css   the line's daily tracker
   delta.html + delta.js + delta.css   that sheet vs this repo, unit by unit
+  customize.html + customize.js + customize.css   pick UTC days and stations,
+                      take the CSV — the day is derived from each run's epoch,
+                      never from the bundle's factory-local `day`
   requests.html + requests.js + requests.css   asks against other systems
   l10.html            the L10 tracker (same renderer as the module one)
   direct.html         station yield from the controllers (same renderer again)

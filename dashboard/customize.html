@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Customize — pick a range and stations, take the CSV</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="stations.css">
+  <link rel="stylesheet" href="customize.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Customize</h1>
+    <span class="meta" id="meta"></span>
+    <span class="build" id="build" title="Which build of the analysis produced this page"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" href="index.html">← Station yield</a>
+    <a class="theme-toggle" href="runs.html">Raw runs →</a>
+    <a class="theme-toggle" href="dailyexcel.html">Daily tracker →</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <p class="lede">
+    Pick a range of days and the stations you want, then take the CSV. Every
+    unit run the controllers recorded in that window, one row each.
+    <strong>Days are UTC</strong> — the same boundary the daily tracker uses, so
+    a figure from here and a figure from there cover the same hours.
+  </p>
+
+  <div class="banner" id="notice" hidden></div>
+
+  <main id="content">
+
+    <section class="card full">
+      <div class="card-head">
+        <div>
+          <h2>1 · Days</h2>
+          <p class="sub" id="range-sub"></p>
+        </div>
+        <span class="spacer"></span>
+        <div class="quick" id="quick"></div>
+      </div>
+      <div class="pickers">
+        <label class="picker">
+          <span class="picker-k">From (UTC)</span>
+          <input type="date" id="from">
+        </label>
+        <label class="picker">
+          <span class="picker-k">To (UTC)</span>
+          <input type="date" id="to">
+        </label>
+      </div>
+    </section>
+
+    <section class="card full" style="margin-top:16px">
+      <div class="card-head">
+        <div>
+          <h2>2 · Stations</h2>
+          <p class="sub" id="stations-sub"></p>
+        </div>
+        <span class="spacer"></span>
+        <div class="quick" id="station-quick"></div>
+      </div>
+      <div class="checks" id="stations"></div>
+    </section>
+
+    <section class="card full" style="margin-top:16px">
+      <div class="card-head">
+        <div>
+          <h2>3 · Take it</h2>
+          <p class="sub" id="take-sub"></p>
+        </div>
+        <span class="spacer"></span>
+        <div class="quick" id="download"></div>
+      </div>
+      <div class="sheet-summary" id="tiles"></div>
+      <div class="table-wrap">
+        <table class="cz-table" id="breakdown">
+          <thead id="breakdown-head"></thead>
+          <tbody id="breakdown-body"></tbody>
+        </table>
+      </div>
+      <p class="cz-note" id="preview-note"></p>
+      <div class="table-wrap">
+        <table class="cz-table" id="preview">
+          <thead id="preview-head"></thead>
+          <tbody id="preview-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="notes">
+    <p id="footer-meta"></p>
+    <p>
+      One row per unit run, straight from the station controllers — so a fixture
+      of eight modules is eight rows, not one. Status is the controller's own
+      verdict. <strong>Attempt</strong> counts that unit's visits to that
+      station across everything collected, not just the window you picked, so a
+      row saying attempt 3 means the third overall.
+    </p>
+    <p>
+      The day column here is UTC. The run table's own day column is
+      factory-local (America/Los_Angeles), which is deliberate there and would
+      put a run at 17:00 local on the previous day — worth knowing if you
+      compare the two by eye.
+    </p>
+  </footer>
+
+</div>
+
+<script src="data/runs_pega.js"></script>
+<script src="tablecsv.js"></script>
+<script src="customize.js"></script>
+<script src="theme.js"></script>
+<script src="update.js"></script>
+</body>
+</html>
