@@ -400,6 +400,105 @@ class CandidateDaysTest(unittest.TestCase):
         self.assertIn("2026-01-02", days)
 
 
+
+class CarriedHistoryTest(unittest.TestCase):
+    """A stage the unit did not run today still shows what it did before.
+
+    The case that found this: 268524660000006 passed MLT at 16:58 on 2026-08-20
+    and came back for HTT at 00:52 on 08-21. Its 08-21 row therefore had a blank
+    MLT cell — correctly, it ran no MLT that day — but no history behind it
+    either, so the row could not tell "passed yesterday" from "never ran", and
+    it was reported as a missing result. The MLT pass was on the 08-20 tab all
+    along; the row people were reading just could not say so.
+
+    History was only attached for stations the unit ran *that day*, which is
+    exactly the wrong condition: the blank cell is the one that needs it.
+    """
+
+    #: Two stations, the shape the derived tabs use.
+    COLUMNS = [{"key": key, "title": title} for key, title in (
+        ("A", "Date"), ("B", "SN"), ("D", "DUT PN"),
+        ("E", "MLT Results"), ("Ev", "MLT Version"),
+        ("F", "MLT Failure Test Case"), ("G", "FI Test Link"),
+        ("H", "HTT Results"), ("Hv", "HTT Version"),
+        ("I", "HTT Failure Test Case"), ("J", "FI Test Link"),
+        ("K", "Jira"))]
+
+    def build(self):
+        """One unit, HTT today and MLT yesterday, through the real row builder."""
+        import unittest.mock as mock
+
+        units = {"268524660000006": {
+            "pn": "1500027-B",
+            "htt": {"status": "pass", "fail": "", "short": "b1be42a0",
+                    "url": "http://pega3:3000/suite_run/htt_x?slot_number=4",
+                    "suite": "htt_2026.226.0-gitfe7ab71c"}}}
+        versions = {"mlt": set(), "htt": {"htt_2026.226.0-gitfe7ab71c"}}
+        history = {
+            "mlt": {"268524660000006": [
+                {"day": "2026-08-20", "status": "pass",
+                 "url": "http://pega3:3000/suite_run/mlt_x?slot_number=4",
+                 "suite": "mlt_2026.231.0-git91a99a1f-tpm-permanent"}]},
+            "htt": {},
+        }
+        with mock.patch.object(build_dailyexcel, "_pega_units",
+                               return_value=(units, versions, 1, {}, {})), \
+             mock.patch.object(build_dailyexcel, "_seen_before",
+                               return_value=history), \
+             mock.patch.object(build_dailyexcel, "_derived_columns",
+                               return_value=self.COLUMNS):
+            return build_dailyexcel._pega_tab("2026-08-21", None)  # noqa: SLF001
+
+    def serial_cell(self):
+        tab = self.build()
+        keys = [column["key"] for column in tab["columns"]]
+        return tab["rows"][0][keys.index("B")], tab, keys
+
+    def test_the_blank_stage_carries_its_history(self):
+        cell, _tab, _keys = self.serial_cell()
+        self.assertIn("mlt", cell.get("history") or {},
+                      "the MLT pass from the day before has to reach the row")
+        attempt = cell["history"]["mlt"][0]
+        self.assertEqual((attempt["day"], attempt["status"]),
+                         ("2026-08-20", "pass"))
+
+    def test_the_stage_it_did_run_is_unaffected(self):
+        cell, tab, keys = self.serial_cell()
+        self.assertEqual(tab["rows"][0][keys.index("H")]["v"], "Passed")
+
+    def test_the_cell_for_the_stage_it_did_not_run_stays_blank(self):
+        """The fix is about history, not about inventing a verdict. A unit that
+        ran no MLT today has no MLT result today, and filling one in from
+        yesterday would double-count it on two days."""
+        _cell, tab, keys = self.serial_cell()
+        self.assertEqual(tab["rows"][0][keys.index("E")], {})
+
+    def test_a_unit_the_line_saw_yesterday_is_not_new_input(self):
+        cell, _tab, _keys = self.serial_cell()
+        self.assertFalse(cell["new"])
+        self.assertEqual((cell.get("seen") or {}).get("mlt"), "2026-08-20")
+
+    def test_a_genuinely_first_visit_is_still_new(self):
+        import unittest.mock as mock
+
+        units = {"268524660000099": {
+            "pn": "1500027-B",
+            "mlt": {"status": "pass", "fail": "", "short": "z", "url": "u",
+                    "suite": "mlt_2026.231.0"}}}
+        with mock.patch.object(build_dailyexcel, "_pega_units",
+                               return_value=(units, {"mlt": set(), "htt": set()},
+                                             1, {}, {})), \
+             mock.patch.object(build_dailyexcel, "_seen_before",
+                               return_value={"mlt": {}, "htt": {}}), \
+             mock.patch.object(build_dailyexcel, "_derived_columns",
+                               return_value=self.COLUMNS):
+            tab = build_dailyexcel._pega_tab("2026-08-21", None)  # noqa: SLF001
+        keys = [column["key"] for column in tab["columns"]]
+        cell = tab["rows"][0][keys.index("B")]
+        self.assertTrue(cell["new"])
+        self.assertNotIn("history", cell)
+
+
 if __name__ == "__main__":
     unittest.main()
 

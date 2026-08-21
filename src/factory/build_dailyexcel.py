@@ -776,8 +776,12 @@ def _add_sheet_versions(tab: Dict[str, Any],
             suite = (unit.get(station) or {}).get("suite")
             if suite:
                 row[at[version_col]] = {"v": suite}
+            # Same rule as the derived path: a station the unit has a past at
+            # gets its history, whether or not it ran there today. A blank cell
+            # with "P1 08-20" beside it says something a blank cell alone
+            # cannot.
             past = history.get(station, {}).get(dut) or []
-            if past and (unit.get(station) or suite):
+            if past:
                 serial.setdefault("seen", {})[station] = past[-1]["day"]
                 serial.setdefault("history", {})[station] = _trim_history(past)
         serial["new"] = "seen" not in serial
@@ -1165,9 +1169,22 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
         # A day's yield is read as "how did today's build go", and a unit
         # returning from Monday answers a different question.
         serial: Dict[str, Any] = {"v": dut}
+        # Every station the serial has a past at, not only the ones it ran
+        # today.
+        #
+        # This used to skip a station the unit had no run at on this day, and
+        # that is precisely the case somebody asks about: 268524660000006
+        # passed MLT at 16:58 on 08-20 and came back for HTT at 00:52 on 08-21,
+        # so its 08-21 row had a blank MLT cell, no history behind it, and no
+        # way to tell "passed yesterday" from "never ran". The result was never
+        # missing — it is on the 08-20 tab — but the row that people were
+        # reading could not say so.
+        #
+        # The per-column counts are unaffected: they key on
+        # ``seen[station]`` only for cells that carry a verdict, and a station
+        # the unit did not run today is blank. What changes is that the blank
+        # now carries its own history, which is the whole point of the column.
         for station, _result, _fail, _link in DERIVED_STATIONS:
-            if station not in unit:
-                continue
             past = history.get(station, {}).get(dut) or []
             if past:
                 serial.setdefault("seen", {})[station] = past[-1]["day"]
