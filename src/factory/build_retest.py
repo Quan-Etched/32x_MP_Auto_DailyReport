@@ -51,8 +51,13 @@ from . import build_dailyexcel, config, pega, version
 #: lengthens rather than sliding.
 WINDOW_START = "2026-08-07"
 
-#: The two module stations, in the order a unit meets them.
-STATIONS = (("mlt", "MLT"), ("htt", "HTT"))
+#: The module stations, in the order a unit meets them.
+#:
+#: TIM first: the coldplate is bonded and baked before the module is tested, so
+#: a unit that comes back to MLT may well have been through the bake twice too.
+#: It earns its place here on volume alone — 94 of the 194 bakes on 2026-08-20
+#: were a unit's second visit or later.
+STATIONS = (("tim", "TIM"), ("mlt", "MLT"), ("htt", "HTT"))
 
 GRADED = ("pass", "fail")
 

@@ -158,6 +158,41 @@ class RootCauseTest(unittest.TestCase):
         self.assertFalse(rootcause.is_container(None))
 
 
+
+class TimTest(unittest.TestCase):
+    """TIM, the coldplate bake, between PV1 assembly and MLT."""
+
+    def test_the_bake_suite_and_the_stage_name_both_resolve(self):
+        """The suite is called `baking`; nothing in it says TIM. Same shape as
+        HTT running under rdqs_sweep_training, and the same reason both
+        spellings are accepted."""
+        self.assertEqual(stations.classify("module", "baking"), "tim")
+        self.assertEqual(stations.classify("module", "tim"), "tim")
+
+    def test_it_sits_before_mlt_because_the_line_does(self):
+        """A module is baked and then tested. Ordered after it, the flow chart
+        and every ordered breakdown would put the bake after the test."""
+        order = {station["key"]: station["order"]
+                 for station in stations.registry()}
+        self.assertLess(order["tim"], order["mlt"])
+        self.assertLess(order["tim"], order["htt"])
+        self.assertGreater(order["tim"], order["vbb_provision"])
+
+    def test_it_draws_from_the_module_level(self):
+        self.assertIn("module", stations.BY_KEY["tim"].levels)
+
+    def test_the_controller_is_named_so_the_page_can_say_where_it_came_from(self):
+        self.assertEqual(stations.BY_KEY["tim"].controller, "pega6")
+
+    def test_the_note_records_the_reversed_serial_convention(self):
+        """The one fact about this station that will bite whoever touches it
+        next, so it has to be written down beside the station and not only in a
+        commit message."""
+        note = stations.BY_KEY["tim"].note
+        self.assertIn("dut_part_number", note)
+        self.assertIn("uut_serial_number", note)
+
+
 if __name__ == "__main__":
     unittest.main()
 

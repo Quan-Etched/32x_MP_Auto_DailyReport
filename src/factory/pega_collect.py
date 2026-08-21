@@ -47,10 +47,32 @@ log = logging.getLogger(__name__)
 #: slots. Order is the order the line runs, so the payload reads top to bottom.
 HOSTS: Tuple[Tuple[str, str, bool], ...] = (
     ("pega2", "l6", False),        # VBB provisioning
+    ("pega6", "module", True),     # TIM — two ovens, sixteen slots each
     ("pega3", "module", True),     # MLT, HTT, chip screening, SLT — eight slots
     ("pega4", "l10", False),       # FAT, SFT, RIN, 2U — one chassis
     ("pega5", "l11", False),       # provisioning and test
 )
+
+#: Controllers that put the module serial in ``dut_part_number`` rather than in
+#: the participant list.
+#:
+#: pega6 is the odd one out and it is worth being explicit. Everywhere else the
+#: unit under test *is* the thing the participant list names, so
+#: ``pega.participants`` is the right reader. At the bake the unit under test is
+#: a module bolted to a coldplate, and pega6 records the coldplate as the
+#: participant (a 12-digit serial) and the module in ``dut_part_number`` (15
+#: digits). Read it the usual way and every TIM result is filed under a
+#: coldplate, which then matches no MLT row and looks like missing data.
+SERIAL_FROM_ENTRY = ("pega6",)
+
+#: A module serial as every other station spells it: fifteen digits.
+#:
+#: Needed because ``dut_part_number`` on pega6 has not always held one. Before
+#: 2026-08-20 the bake logged a six-character coldplate or lot code there
+#: (SW5VZ8), so a run from those days has no module to attribute to. Those runs
+#: still count — the bake happened — they simply cannot be traced to a unit, and
+#: guessing would be worse than saying so.
+MODULE_SERIAL = re.compile(r"^\d{15}$")
 
 #: A version stamp and everything after it: ``mlt_2026.220.0-git2f1c2f23`` and
 #: ``…_validation`` alike reduce to ``mlt``.
@@ -281,9 +303,30 @@ def _records_for(entry: Dict[str, Any], detail: Dict[str, Any], host: str,
     ended = _epoch(entry.get("end_time"))
     duration = entry.get("duration_seconds")
 
+    parts = pega.participants(detail)
+
+    # pega6's participant is the coldplate; the module is on the list entry. Only
+    # where the run drove one participant: with several there is no way to say
+    # which of them the single entry-level serial belongs to, and inventing an
+    # answer would put one unit's bake on another's row.
+    entry_serial = str(entry.get("dut_part_number") or "").strip()
+    override = (host in SERIAL_FROM_ENTRY and len(parts) == 1
+                and MODULE_SERIAL.match(entry_serial))
+
+    # The slot filter on the test cases exists to separate eight chips' results
+    # inside one fixture run, and it does that by reading a chip index off each
+    # test id. The bake has no chip index on any of its ids — its three cases
+    # are read_modbus_temperature, poll_modbus_temperature and
+    # validate_coldplate_temperature — so filtering by slot drops every one of
+    # them and the unit comes out with a verdict and no test behind it.
+    #
+    # So the filter is applied only where there is something to separate.
+    per_chip = any(chips.chip_of(case.get("test_id") or "") is not None
+                   for case in detail.get("test_cases") or [])
+
     out = []
-    for part in pega.participants(detail):
-        slot = part["slot"] if per_slot else None
+    for part in parts:
+        slot = part["slot"] if (per_slot and per_chip) else None
         record = {
             # One record per unit, so the id has to name the unit too — two
             # slots of one fixture are two runs here and must not collide.
@@ -292,7 +335,10 @@ def _records_for(entry: Dict[str, Any], detail: Dict[str, Any], host: str,
             "level": level,
             "suite": suite,
             "version": suite,
-            "dutSerial": part["dut"],
+            "dutSerial": entry_serial if override else part["dut"],
+            # Kept whichever way round it came, because at the bake the carrier
+            # is a real object somebody can go and find.
+            "carrierSerial": part["dut"] if override else None,
             "startTs": started,
             "endTs": ended,
             "durationSec": duration,

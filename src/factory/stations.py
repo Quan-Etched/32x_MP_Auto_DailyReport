@@ -101,6 +101,38 @@ class Station:
 #: Ordered as the line runs: module test -> chip screening -> SLT -> L10 -> L11.
 STATIONS: List[Station] = [
     Station(
+        key="tim", label="TIM", level="module", order=8,
+        patterns=[r"^baking$", r"^tim$"],
+        controller="pega6",
+        note="Thermal interface material bake, between PV1 assembly and MLT — "
+             "the first test a module sees after the chip is attached to its "
+             "coldplate.\n\n"
+             "The suite is called `baking`, not TIM: pega6 drives two ovens "
+             "(pt2_baking_station1 and 2) of sixteen slots each, and its three "
+             "test cases are read_modbus_temperature, "
+             "poll_modbus_temperature and validate_coldplate_temperature. "
+             "Both spellings are accepted here for the same reason every other "
+             "station takes two — the day somebody renames the suite to `tim` "
+             "should not zero the station.\n\n"
+             "**pega6 reverses the serial convention.** On pega3 the module "
+             "serial is `uut_serial_number` and `dut_part_number` is a part "
+             "number (1500027-B). On pega6 it is the other way round: "
+             "`dut_part_number` carries the 15-digit module serial and "
+             "`uut_serial_number` carries the 12-digit coldplate. Checked, not "
+             "assumed — of the 194 baking runs on 2026-08-20, 48 of the "
+             "dut_part_number values are serials pega3 also recorded at MLT or "
+             "HTT that day, and none of the uut_serial_number values are. "
+             "Reading the participant list the way the other controllers are "
+             "read would file every TIM result under a coldplate.\n\n"
+             "**Unit-level joining only works from 2026-08-20.** Before that "
+             "the station logged a six-character code (SW5VZ8, SW5V3J) in the "
+             "same field — a coldplate or TIM lot, not a module. So 08-20 has "
+             "193 of 194 runs on a module serial and 08-19 has 5 of 61. The "
+             "runs before the switch are real and counted; they just cannot be "
+             "traced to a unit, and the page says so rather than dropping "
+             "them.",
+    ),
+    Station(
         key="mlt", label="MLT", levels=("module", "slt"), order=10,
         patterns=[r"^mlt$", r"^sohu_mlt", r"^mlt_\d+$"],
         controller="pega3",

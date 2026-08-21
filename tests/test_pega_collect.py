@@ -109,6 +109,97 @@ class RecordTest(unittest.TestCase):
         self.assertEqual(got[0]["runId"], self.ENTRY["suite_run_id"])
 
 
+class BakeRecordTest(unittest.TestCase):
+    """pega6 puts the module serial where every other controller puts a part
+    number, and its test ids carry no chip index.
+
+    Both are easy to get wrong in the same direction — quietly. Read the
+    participant list the way pega3's is read and every TIM result is filed
+    under a coldplate serial, which then matches no MLT row and looks exactly
+    like the controller missing data. Apply the slot filter to test cases that
+    have no slot in their ids and the unit comes out with a verdict and nothing
+    behind it.
+    """
+
+    ENTRY = {"suite_run_id": "baking_run_d931db42", "suite_name": "baking",
+             "start_time": "2026-08-20T10:19:43Z",
+             "end_time": "2026-08-20T11:03:09Z",
+             "duration_seconds": 2605.88,
+             "station_id": "pt2_baking_station2",
+             # The module. On pega3 this field holds "1500027-B".
+             "dut_part_number": "268524700000018"}
+    DETAIL = {"participating": [
+                  # The coldplate the module is bolted to, not the module.
+                  {"dut_sn": "268563200097", "slot_number": 14,
+                   "status": "failed"}],
+              "test_cases": [
+                  {"test_id": "baking_run_d931db42_read_coldplate",
+                   "test_name": "read_modbus_temperature", "status": "passed"},
+                  {"test_id": "baking_run_d931db42_validate_coldplate_temperature",
+                   "test_name": "validate_coldplate_temperature",
+                   "status": "failed"}]}
+
+    def records(self, entry=None, detail=None):
+        return pega_collect._records_for(          # noqa: SLF001
+            entry or self.ENTRY, detail or self.DETAIL, "pega6", "module",
+            "tim", True)
+
+    def test_the_module_serial_wins_over_the_participant(self):
+        got = self.records()
+        self.assertEqual(got[0]["dutSerial"], "268524700000018")
+
+    def test_the_carrier_is_kept_rather_than_thrown_away(self):
+        """A coldplate is a real object somebody can go and find."""
+        self.assertEqual(self.records()[0]["carrierSerial"], "268563200097")
+
+    def test_test_cases_survive_when_no_id_carries_a_chip_index(self):
+        """The slot filter has nothing to separate here, so it must not run."""
+        got = self.records()
+        self.assertEqual(len(got[0]["tests"]), 2)
+        self.assertEqual([f["display"] for f in got[0]["failures"]],
+                         ["validate_coldplate_temperature"])
+
+    def test_a_six_character_lot_code_is_not_mistaken_for_a_serial(self):
+        """Before 2026-08-20 the bake logged SW5VZ8 in that field. Falling back
+        to the participant is right there — the run happened and it is about a
+        coldplate — and treating the lot code as a module would be worse."""
+        entry = dict(self.ENTRY, dut_part_number="SW5VZ8")
+        got = self.records(entry=entry)
+        self.assertEqual(got[0]["dutSerial"], "268563200097")
+        self.assertIsNone(got[0]["carrierSerial"])
+
+    def test_a_multi_participant_run_never_takes_the_entry_serial(self):
+        """One entry-level serial cannot be shared out between several
+        participants without putting one unit's bake on another's row."""
+        detail = dict(self.DETAIL, participating=[
+            {"dut_sn": "268563200097", "slot_number": 14, "status": "failed"},
+            {"dut_sn": "268563200098", "slot_number": 15, "status": "passed"}])
+        got = self.records(detail=detail)
+        self.assertEqual([r["dutSerial"] for r in got],
+                         ["268563200097", "268563200098"])
+
+    def test_pega3_still_splits_its_cases_by_slot(self):
+        """The new rule must not switch the chip filter off where it is needed —
+        that would give all eight slots of a fixture every chip's failures."""
+        got = pega_collect._records_for(           # noqa: SLF001
+            RecordTest.ENTRY, RecordTest.DETAIL, "pega3", "module", "mlt", True)
+        self.assertEqual([len(r["tests"]) for r in got], [1, 1])
+
+
+class BakeStationTest(unittest.TestCase):
+    def test_the_bake_suite_resolves_to_tim(self):
+        self.assertEqual(pega_collect.station_of("pega6", "baking"), "tim")
+
+    def test_a_renamed_suite_would_still_resolve(self):
+        """The registry takes both spellings, so the day somebody renames the
+        suite to `tim` does not zero the station."""
+        self.assertEqual(pega_collect.station_of("pega6", "tim"), "tim")
+
+    def test_pega6_is_collected(self):
+        self.assertIn("pega6", [host for host, _level, _slots
+                                in pega_collect.HOSTS])
+
+
 class AttemptTest(unittest.TestCase):
     def test_attempts_are_numbered_per_station_not_per_level(self):
         # Four L10 stages share the level `l10`. Keying on the level would call
