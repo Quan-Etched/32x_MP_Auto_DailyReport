@@ -97,6 +97,33 @@ class RolledTest(unittest.TestCase):
         self.assertAlmostEqual(totals["rolledFpy"], 0.5 * 0.75)
         self.assertEqual(sorted(totals["rolledOver"]), ["HTT", "MLT"])
 
+    def test_a_station_outside_the_scope_stays_out_however_readable(self):
+        """The failure this pins actually happened.
+
+        The rolled figure multiplied every stage with a readable cohort, so the
+        week TIM started reporting it silently became TIM x MLT x HTT and W34's
+        headline read 19.7% where the line quotes 55.4%. A headline that changes
+        meaning because a new station came online is worse than one with a
+        stated scope — so the scope is a list, and this is the test that fails
+        when something joins it without the pages being re-labelled.
+        """
+        bundle = self.bundle(self.many("mlt", 40, 20) +
+                             self.many("htt", 40, 30) +
+                             self.many("tim", 40, 40))
+        totals = bundle["totals"]
+        self.assertEqual(sorted(totals["rolledOver"]), ["HTT", "MLT"])
+        self.assertAlmostEqual(totals["rolledFpy"], 0.5 * 0.75)
+
+        tim = [row for row in bundle["rows"] if row["key"] == "tim"][0]
+        self.assertEqual(1.0, tim["fpy"], "TIM is still measured and published")
+        self.assertTrue(tim["readable"])
+        self.assertNotIn("TIM", [item["label"] for item
+                                 in totals["excludedThin"]],
+                         "out of scope is not the same as too thin to read")
+
+    def test_the_scope_is_the_module_line(self):
+        self.assertEqual(("mlt", "htt"), build_fpy.ROLLED_STATIONS)
+
     def test_a_one_unit_stage_cannot_take_the_line_to_zero(self):
         """One unit ran at a stage and it failed. Multiplying by its 0%
         reports the whole line at 0% — arithmetically correct, entirely false.
