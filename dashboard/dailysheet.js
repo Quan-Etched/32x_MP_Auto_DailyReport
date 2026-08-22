@@ -527,11 +527,13 @@
                  + 'record');
     }
 
-    /* The count opens the units it is about, each linking to the HTT run on the
-     * controller. A number that cannot be followed to a record is a number the
+    /* The units are shown, not offered. Each links to the run on the
+     * controller: a number that cannot be followed to a record is a number the
      * reader has to take on faith, and this one is an accusation about the
-     * line's routing — it has to be checkable. */
-    var list = h('div', { class: 'fm-list', hidden: 'hidden' });
+     * line's routing. Behind a click it was a claim with its evidence folded
+     * up, and nobody clicked. The count still collapses the list for the days
+     * when it is long. */
+    var list = h('div', { class: 'fm-list' });
     wrong.all.forEach(function (entry) {
       list.appendChild(h('div', { class: 'fm-unit' }, [
         h('span', { class: 'fm-sn', text: entry.dut }),
@@ -553,8 +555,7 @@
     });
 
     var toggle = h('button', { type: 'button', class: 'fm-count',
-      'aria-expanded': 'false',
-      title: 'show the units, with a link to each run on the controller' },
+      'aria-expanded': 'true', title: 'hide the units' },
       [h('strong', { text: wrong.total + ' unit' +
                            (wrong.total === 1 ? '' : 's') })]);
     toggle.addEventListener('click', function () {
@@ -581,7 +582,6 @@
         'counts and the weekly page does not.' }));
     }
     host.appendChild(head);
-    host.appendChild(list);
 
     var group = h('div', { class: 'fm-group', role: 'group',
                            'aria-label': 'HTT population' });
@@ -605,6 +605,10 @@
       group.appendChild(button);
     });
     host.appendChild(group);
+    /* The units go last, under the two buttons: they are the thing being
+     * chosen about, and "the 1 above" in the Correct flow caption has to point
+     * at something the reader has already met. */
+    host.appendChild(list);
   }
 
   function renderSummary(tab, rows, els) {
@@ -1379,44 +1383,6 @@
     ]));
   }
 
-  /* The link to this day's sheet comparison, on the days there is one.
-   *
-   * Only those days: the list comes from diff/delta.json via the bundle, and
-   * offering the link on all twenty-one would send most readers to an empty
-   * page. It sits on the caption because that is where the table already says
-   * where its rows came from, and "rebuilt from pega3" is exactly the claim the
-   * comparison checks. */
-  /* The masthead link, pointed at a day that has a comparison.
-   *
-   * Always the current day where that day has one; otherwise the most recent
-   * day that does, because a link that goes nowhere is worse than no link and
-   * hiding it on twenty days out of twenty-one is how the caption version came
-   * to be invisible. Hidden only when no day has a comparison at all. */
-  function wireDeltaCta(tab) {
-    var link = byId('delta-link');
-    if (!link) return;
-    var days = (DATA.deltaDays || []).slice().sort();
-    if (!days.length) { link.hidden = true; return; }
-    var day = (tab && tab.day && days.indexOf(tab.day) !== -1)
-      ? tab.day : days[days.length - 1];
-    link.hidden = false;
-    link.setAttribute('href', 'delta.html#day=' + day);
-    link.textContent = 'Excel vs Dashboard \u2192';
-    link.setAttribute('title',
-      day === (tab || {}).day
-        ? 'the line\u2019s own tab for ' + day + ' against this table, unit by unit'
-        : 'the sheet comparison — ' + day + ' is the latest day with one');
-  }
-
-  function deltaLink(tab) {
-    var days = DATA.deltaDays || [];
-    if (!tab.day || days.indexOf(tab.day) === -1) return null;
-    return h('a', {
-      class: 'delta-link', href: 'delta.html#day=' + tab.day,
-      title: 'the line\u2019s own tab for this day against this table, unit by unit'
-    }, [document.createTextNode('compare with the sheet \u2192')]);
-  }
-
   function renderCaption(tab, showing, els) {
     els = els || el;
     var total = (tab.rows || []).length;
@@ -1424,16 +1390,10 @@
       ? (tab.day || tab.label) + ', rebuilt from ' +
         (((tab.derivedFrom || {}).source === 'pega3') ? 'pega3' : 'EOS')
       : (tab.day || tab.label) + ', as recorded by the line';
-    var compare = deltaLink(tab);
-
     els.caption.innerHTML = '';
     if (showing === total) {
       els.caption.appendChild(document.createTextNode(
         total + ' units — ' + source));
-      if (compare) {
-        els.caption.appendChild(document.createTextNode(' · '));
-        els.caption.appendChild(compare);
-      }
       return;
     }
 
@@ -1449,10 +1409,6 @@
       renderTable(tab);
     });
     els.caption.appendChild(reset);
-    if (compare) {
-      els.caption.appendChild(document.createTextNode(' · '));
-      els.caption.appendChild(compare);
-    }
   }
 
   /* What this unit already did here, one link per prior attempt.
@@ -1737,7 +1693,6 @@
     renderTable(current);          /* renders the summary from the same rows */
     renderL10(current);            /* and L10 under it, where the day has any */
     renderL11(current);            /* and L11 under that */
-    wireDeltaCta(current);         /* and the masthead's link to the comparison */
     document.title = 'Daily tracker — ' + (current.day || current.label);
   }
 

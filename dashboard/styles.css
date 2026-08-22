@@ -144,6 +144,21 @@ body {
 
 .masthead .spacer { flex: 1 1 auto; }
 
+/* One accented destination, beside the title rather than at the end of a row of
+   twelve pill buttons that all look alike. The all-hands view was reported as
+   not findable at all, which is what happens to a link styled as one option
+   among many. */
+.masthead-jump {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-solid);
+  text-decoration: none;
+  border-bottom: 1.5px solid var(--accent-solid);
+  padding-bottom: 1px;
+  white-space: nowrap;
+}
+.masthead-jump:hover { border-bottom-width: 2.5px; }
+
 .theme-toggle {
   border: 1px solid var(--border);
   background: var(--surface-1);

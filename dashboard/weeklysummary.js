@@ -44,7 +44,8 @@
 
     var head = h('tr', {});
     head.appendChild(h('th', { scope: 'col', text: 'Week' }));
-    head.appendChild(h('th', { scope: 'col', class: 'n', text: 'Rolled' }));
+    head.appendChild(h('th', { scope: 'col', class: 'n',
+                               text: 'Rolled MLT \u00d7 HTT' }));
     cols.forEach(function (col) {
       head.appendChild(h('th', { scope: 'col', class: 'n', text: col.label }));
     });
@@ -117,8 +118,11 @@
     }
 
     byId('sources').appendChild(h('p', { class: 'src', text:
-      'Rolled first-pass is the product of the steps that had enough units to '
-      + 'read — named on each week’s own page. VBB provisioning is '
+      'Rolled first-pass is MLT \u00d7 HTT — the accumulated module yield, and '
+      + 'only that. TIM has its own column and is not in the product: it '
+      + 'started reporting in W34, and rolling it in would have moved every '
+      + 'week’s headline for a reason that has nothing to do with the line. '
+      + 'VBB provisioning is '
       + 'excluded: a real stage, but not part of the product test flow. WST '
       + 'and FT are Sigurd’s and are asked for weekly in '
       + '#production-test-eng; they appear on a week’s page once '

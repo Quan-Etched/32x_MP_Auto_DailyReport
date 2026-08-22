@@ -1,6 +1,7 @@
 # factory_data_analysis — no dependencies beyond Python 3.9+ stdlib.
 
 PY      ?= python3
+ANNOTATE_PORT ?= 8766
 export PYTHONPATH := src
 PORT    ?= 8787
 LEVEL   ?= l10
@@ -10,8 +11,8 @@ STATION ?= l10_sft
 
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
-        dailyexcel requests pega-stations release-source suite-map delta reconcile \
-        retest fpy \
+        dailyexcel requests pega-stations release-source suite-map reconcile \
+        errors annotate error-catalogue fpy \
         weekly \
         weekly-deck ramp-deck archive \
         weekly-snapshot schedule-weekly-install schedule-weekly-uninstall \
@@ -33,8 +34,9 @@ help:
 	@echo "make dailyexcel         compile daily/*.xlsx (MLT/HTT tracker) into the dashboard"
 	@echo "make requests           re-check what we need from other systems"
 	@echo "make suite-map [CASES=1] which suite YAML each station runs, from the sw tree"
-	@echo "make delta              the hand-kept sheet in diff/ vs this repo's own reading"
 	@echo "make reconcile [DAY=..] OCP vs the controllers run by run, + a CSV of the gaps"
+	@echo "make errors           failing test cases joined to the error-code sheet"
+	@echo "make annotate         the service the admin error table posts its edits to"
 	@echo "make schedule-install   install the hourly job (launchd / systemd timer)"
 	@echo "make schedule-weekly-install  install the Sunday 21:00 snapshot job"
 	@echo "make weekly-snapshot    run that snapshot now: collect, deck, archive, publish"
@@ -110,13 +112,29 @@ dailyexcel:
 pega-stations:
 	$(PY) -m factory.cli pega-stations
 
-# Mark each run as a new build or a retest, with what a returning unit failed
-# last time. Also part of `make build`.
 # Profile each release's test cases from the sw source tree. Needs a clone of
 # etched-ai/sw (FACTORY_SW_REPO, default ~/project/sw), so it runs on a laptop
 # and the bundle it writes is committed for the box to publish.
 release-source:
 	$(PY) -m factory.cli release-source
+
+# Failing test cases joined to the error-code catalogue, for section 4 of the
+# customize page. Also part of `make build`.
+errors:
+	$(PY) -m factory.cli errors
+
+# The service the customize page's admin mode posts to: it writes
+# errors/annotations.json and commits it. Runs where somebody can commit, which
+# is a laptop — the box has no writable backend and no sudo to add one. Ctrl-C
+# to stop.
+annotate:
+	$(PY) tools/annotate_server.py $(ANNOTATE_PORT)
+
+# Re-read the line's error-code sheet into errors/catalogue.json. By hand, after
+# the sheet changes: the committed copy is what every build reads, so no build
+# depends on Google being up. SHEET=diff/error-codes.csv
+error-catalogue:
+	$(PY) tools/refresh_error_catalogue.py $(SHEET)
 
 # Which suite YAML each station runs, derived from the sw tree: the file, the
 # fact that ties it to the station's runs, and how its cases compare to the
@@ -125,12 +143,6 @@ release-source:
 suite-map:
 	$(PY) -m factory.cli suite-map $(if $(CASES),--cases,)
 
-# The hand-kept sheet in diff/ against this repo's own reading of the same day.
-# Needs an export in diff/ (FACTORY_DIFF_XLSX overrides) plus diff/delta.json
-# for the tab-to-gid map. Also runs as part of `make build`; this is for
-# iterating on a new export, or for reading the comparison in a terminal.
-delta:
-	$(PY) -m factory.cli delta
 
 # OCP against the controllers, run by run, for one day, plus a CSV of the units
 # each source is missing. Reads the two published run bundles, so `make build`
@@ -139,9 +151,6 @@ delta:
 reconcile:
 	$(PY) -m factory.cli reconcile $(if $(DAY),--day $(DAY),)
 
-# Retests split from new builds, in the line's own Retest-tab format.
-retest:
-	$(PY) -m factory.cli retest
 
 # End-to-end first-pass yield, one row per test step — the weekly summary.
 fpy:

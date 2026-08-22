@@ -2,123 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sheet vs dashboard — delta</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="stations.css">
-  <link rel="stylesheet" href="dailyexcel.css">
-  <link rel="stylesheet" href="delta.css">
+  <title>Excel vs Dashboard</title>
+  <!-- Retired 2026-08-22. The comparison had done its job: it settled that the
+       gap between the line's hand-kept workbook and this dashboard was a
+       cut-off time, not a disagreement about any unit. Kept as a redirect
+       because the address was handed out in Slack, and a dead link there reads
+       as the whole comparison having been wrong. -->
+  <meta http-equiv="refresh" content="0; url=dailyexcel.html">
+  <link rel="canonical" href="dailyexcel.html">
+  <script>
+    /* A meta refresh drops the #fragment, and every link handed out carried
+       one — #day=2026-08-20. The daily tracker takes the same fragment. */
+    (function () {
+      var target = 'dailyexcel.html';
+      location.replace(location.hash ? target + location.hash : target);
+    })();
+  </script>
 </head>
 <body>
-<div class="wrap">
-
-  <header class="masthead">
-    <h1>Delta</h1>
-    <span class="meta" id="meta"></span>
-    <span class="build" id="build" title="Which build of the analysis produced this page"></span>
-    <span class="spacer"></span>
-    <a class="theme-toggle" id="back" href="dailyexcel.html">← Daily tracker</a>
-    <a class="theme-toggle" id="sheet-link" href="#" target="_blank"
-       rel="noopener noreferrer" hidden>Open the sheet ↗</a>
-    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
-  </header>
-
-  <p class="lede">
-    The line's own tracker tab against this repo's reading of the same day, unit
-    by unit. Neither side is treated as truth: the sheet is the judgement of the
-    people at the fixture, the dashboard is the controllers' record of what they
-    ran, and each knows things the other does not.
-  </p>
-
-  <!-- The cut time, first, because it accounts for most of the gap on its own.
-       "29 units missing" and "29 units ran after the sheet was put down" are the
-       same number and completely different news. -->
-  <div class="banner" id="cut" hidden></div>
-  <div class="banner" id="notice" hidden></div>
-
-  <nav class="daycal" id="daytabs" aria-label="Day"></nav>
-
-  <main id="content">
-
-    <!-- Three readings of one day, side by side and never added together. -->
-    <section class="card full">
-      <div class="card-head">
-        <div>
-          <h2>The same day, three ways</h2>
-          <p class="sub" id="yield-sub"></p>
-        </div>
-      </div>
-      <div class="delta-yields" id="yields"></div>
-      <div id="reconcile"></div>
-    </section>
-
-    <!-- One table per stage, because a unit reaches MLT and HTT separately and
-         a row carrying both has no single subject: on 08-20 the sheet holds 78
-         MLT verdicts and 49 HTT ones, and asking "is this unit in Excel" has a
-         different answer depending on which you mean. Each table therefore
-         lists the units either side has a verdict for AT THAT STAGE, and gets
-         its own CSV. -->
-    <section class="card full stage-block" id="stage-mlt" style="margin-top:16px">
-      <div class="card-head">
-        <div>
-          <h2>MLT</h2>
-          <p class="sub" id="sub-mlt"></p>
-        </div>
-        <span class="spacer"></span>
-        <div class="delta-filters" id="view-mlt"></div>
-        <!-- Built in the browser from the rows on screen, so the file cannot
-             disagree with the table it came from. -->
-        <div class="delta-filters" id="download-mlt"></div>
-      </div>
-      <div class="table-wrap">
-        <table class="delta-table" id="table-mlt">
-          <thead id="head-mlt"></thead>
-          <tbody id="body-mlt"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="card full stage-block" id="stage-htt" style="margin-top:16px">
-      <div class="card-head">
-        <div>
-          <h2>HTT</h2>
-          <p class="sub" id="sub-htt"></p>
-        </div>
-        <span class="spacer"></span>
-        <div class="delta-filters" id="view-htt"></div>
-        <div class="delta-filters" id="download-htt"></div>
-      </div>
-      <div class="table-wrap">
-        <table class="delta-table" id="table-htt">
-          <thead id="head-htt"></thead>
-          <tbody id="body-htt"></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="card full" style="margin-top:16px">
-      <div class="card-head">
-        <div>
-          <h2>What each kind of delta means</h2>
-          <p class="sub">And which side it puts the question to</p>
-        </div>
-      </div>
-      <div id="legend"></div>
-    </section>
-
-  </main>
-
-  <footer class="notes">
-    <p id="footer-meta"></p>
-    <p id="footer-caveats"></p>
-  </footer>
-
-</div>
-
-<script src="data/delta.js"></script>
-<script src="tablecsv.js"></script>
-<script src="delta.js"></script>
-<script src="theme.js"></script>
-<script src="update.js"></script>
+  <p>The Excel vs Dashboard comparison has been retired.
+     <a href="dailyexcel.html">Go to the daily tracker</a>.</p>
 </body>
 </html>

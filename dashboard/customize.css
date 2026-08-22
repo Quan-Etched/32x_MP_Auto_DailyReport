@@ -93,3 +93,106 @@
 }
 
 @media print { .quick, .pickers, .checks { display: none; } }
+
+/* ------------------------------------------------------ 4 · error codes ---
+ *
+ * A failure table read by people deciding what to fix, and edited in place by
+ * three of them. Two things it must never do: make a guess look like a
+ * diagnosis, and make an empty note look like "nothing wrong here".
+ */
+
+#err-table { table-layout: auto; }
+
+/* The code, and under it the test case it came from. The case is the certain
+   part on a row with several candidate codes, so it is always shown. */
+.ec-codes { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.ec-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  white-space: nowrap;
+}
+/* One of several. Dashed, because a solid box around two codes reads as two
+   findings rather than one unresolved question. */
+.ec-code-maybe { border-style: dashed; font-weight: 500; }
+.ec-maybe-note { font-size: 10.5px; color: var(--text-muted); white-space: nowrap; }
+.ec-none { color: var(--text-muted); }
+.ec-case {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.ec-fi {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11.5px;
+  color: var(--accent-solid);
+}
+
+/* Recorded text, and the absence of it. "—" rather than blank: an empty cell
+   reads as "no problem", and every row here is a problem. */
+.ec-said { color: var(--text-primary); }
+.ec-blank { color: var(--text-muted); }
+.ec-note-cell { min-width: 12ch; max-width: 32ch; vertical-align: top; }
+
+.ec-edit {
+  width: 100%;
+  min-height: 2.2em;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  resize: vertical;
+}
+.ec-edit:focus {
+  outline: none;
+  border-color: var(--accent-solid);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-solid) 25%, transparent);
+}
+
+/* An edited row, before it is saved. Marked on the row rather than the cell:
+   the question at Save time is which rows are about to be written. */
+.ec-dirty > td {
+  background: color-mix(in srgb, var(--accent-solid) 7%, transparent);
+}
+
+.ec-admin { border-color: var(--accent-solid); color: var(--accent-solid); }
+.ec-who { font-size: 12px; color: var(--text-secondary); align-self: center; }
+.ec-save.on {
+  border-color: var(--accent-solid);
+  color: var(--accent-solid);
+  font-weight: 600;
+}
+
+.ec-manual {
+  width: 100%;
+  margin-top: 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px;
+}
+
+.ec-cat { color: var(--accent-solid); font-weight: 600; }
+#err-unknown { color: var(--text-secondary); }
+
+/* The admin banner's two tones. `.banner` alone is amber, which is right for a
+   warning and wrong for "saved" — a green confirmation and a red refusal have
+   to be tellable apart at a glance, because the difference is whether the work
+   was written. */
+.banner.ok  { border-left-color: var(--status-good); }
+.banner.bad { border-left-color: var(--status-critical); }
+.banner.bad p { margin: 0; }

@@ -1,0 +1,3997 @@
+{
+ "codes": [
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "PingAllP2pPairsTestCase"
+   ],
+   "code": "EC-160401000009",
+   "component": "Undefined",
+   "message": "Resource not SSH",
+   "source": "L11 Test",
+   "type": "Initial"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionPrimaryRms"
+   ],
+   "code": "EC-16040106000d",
+   "component": "RMS",
+   "message": "Primary RMS provision: no ssh_target",
+   "source": "L11 Test",
+   "type": "Initial"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionCdu",
+    "ProvisionPdu",
+    "ProvisionComputeServer",
+    "ProvisionRedundantRms"
+   ],
+   "code": "EC-160401060015",
+   "component": "RMS",
+   "message": "Provision CDU/PDU/compute/RMS2: no ssh",
+   "source": "L11 Test",
+   "type": "Initial"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "CduHealthCheckTestCase",
+    "PduHealthCheckTestCase"
+   ],
+   "code": "EC-16040106001f",
+   "component": "RMS",
+   "message": "CDU/PDU health: no ssh_target",
+   "source": "L11 Test",
+   "type": "Initial"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "SohuServerBmcPowerCycle"
+   ],
+   "code": "EC-160401070030",
+   "component": "BMC",
+   "message": "BMC power-cycle wrapper: no ssh_target",
+   "source": "L11 Test",
+   "type": "Initial"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "SohuServerFirmwareInventoryCheck"
+   ],
+   "code": "EC-160401070033",
+   "component": "BMC",
+   "message": "Firmware check: no ssh_target",
+   "source": "L11 Test",
+   "type": "Initial"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "CheckSystemClockTestCase"
+   ],
+   "code": "EC-160402000001",
+   "component": "Undefined",
+   "message": "Runner date failed",
+   "source": "L11 Test",
+   "type": "Connection"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "PingAllP2pPairsTestCase"
+   ],
+   "code": "EC-16040200000a",
+   "component": "Undefined",
+   "message": "SSH resource missing",
+   "source": "L11 Test",
+   "type": "Connection"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "PingAllP2pPairsTestCase"
+   ],
+   "code": "EC-16040200000b",
+   "component": "Undefined",
+   "message": "SSH resource open error",
+   "source": "L11 Test",
+   "type": "Connection"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "PingAllP2pPairsTestCase"
+   ],
+   "code": "EC-16040200000c",
+   "component": "Undefined",
+   "message": "Ping mesh failure",
+   "source": "L11 Test",
+   "type": "Connection"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "SohuServerBmcPowerCycle"
+   ],
+   "code": "EC-160402020032",
+   "component": "CPU",
+   "message": "Host SSH not up after power-on",
+   "source": "L11 Test",
+   "type": "Connection"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionPdu"
+   ],
+   "code": "EC-160402040019",
+   "component": "PDU",
+   "message": "PDU unreachable (ping)",
+   "source": "L11 Test",
+   "type": "Connection"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionCdu"
+   ],
+   "code": "EC-160402050018",
+   "component": "CDU",
+   "message": "CDU unreachable (ping)",
+   "source": "L11 Test",
+   "type": "Connection"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "CheckSystemClockTestCase"
+   ],
+   "code": "EC-160402060003",
+   "component": "RMS",
+   "message": "RMS date over SSH failed",
+   "source": "L11 Test",
+   "type": "Connection"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionPrimaryRms"
+   ],
+   "code": "EC-160402060013",
+   "component": "RMS",
+   "message": "MTS apt proxy unreachable locally",
+   "source": "L11 Test",
+   "type": "Connection"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionPrimaryRms"
+   ],
+   "code": "EC-160402060014",
+   "component": "RMS",
+   "message": "RMS cannot reach apt proxy",
+   "source": "L11 Test",
+   "type": "Connection"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "SwitchInventoryCheckTestCase",
+    "MgmtSwitchRedundancyTestCase"
+   ],
+   "code": "EC-1604020a002a",
+   "component": "ToR Switch",
+   "message": "Switch eAPI curl failed",
+   "source": "L11 Test",
+   "type": "Connection"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionComputeServer"
+   ],
+   "code": "EC-16040302001d",
+   "component": "CPU",
+   "message": "Compute server provisioning failed",
+   "source": "L11 Test",
+   "type": "Provision"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionPrimaryRms"
+   ],
+   "code": "EC-160403060010",
+   "component": "RMS",
+   "message": "Ansible playbook failed",
+   "source": "L11 Test",
+   "type": "Provision"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionPrimaryRms"
+   ],
+   "code": "EC-160403060011",
+   "component": "RMS",
+   "message": "Image import to RMS failed",
+   "source": "L11 Test",
+   "type": "Provision"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionPrimaryRms"
+   ],
+   "code": "EC-160403060012",
+   "component": "RMS",
+   "message": "Cleanup of images failed",
+   "source": "L11 Test",
+   "type": "Provision"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionCdu",
+    "ProvisionPdu",
+    "ProvisionRedundantRms"
+   ],
+   "code": "EC-16040306001a",
+   "component": "RMS",
+   "message": "Rack-controller provisioning task failed",
+   "source": "L11 Test",
+   "type": "Provision"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "SwitchZtpTriggerTestCase"
+   ],
+   "code": "EC-1604030b0006",
+   "component": "Mgmt switch",
+   "message": "ZTP container start failed",
+   "source": "L11 Test",
+   "type": "Provision"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "SwitchZtpTriggerTestCase"
+   ],
+   "code": "EC-1604030b0007",
+   "component": "Mgmt switch",
+   "message": "ZTP container stop failed",
+   "source": "L11 Test",
+   "type": "Provision"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "_SohuServerScopedBomMixin"
+   ],
+   "code": "EC-160404020035",
+   "component": "CPU",
+   "message": "Per-server BOM scope: missing server_id",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "PduHealthCheckTestCase",
+    "PduInventoryCheckTestCase"
+   ],
+   "code": "EC-160404040023",
+   "component": "PDU",
+   "message": "PDU resource not PduConnection",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "PduInventoryCheckTestCase"
+   ],
+   "code": "EC-16040404002e",
+   "component": "PDU",
+   "message": "No PDU in BOM",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "MgmtSwitchRedundancyTestCase"
+   ],
+   "code": "EC-160404040039",
+   "component": "PDU",
+   "message": "PDU resource invalid for redundancy test",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "TorSwitchRedundancyTestCase"
+   ],
+   "code": "EC-16040404003e",
+   "component": "PDU",
+   "message": "PDU resource invalid for ToR test",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionCdu"
+   ],
+   "code": "EC-160404050017",
+   "component": "CDU",
+   "message": "CDU interface / entity mismatch",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "CduHealthCheckTestCase",
+    "CduInventoryCheckTestCase"
+   ],
+   "code": "EC-160404050022",
+   "component": "CDU",
+   "message": "CDU resource not CduConnection",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "CduInventoryCheckTestCase"
+   ],
+   "code": "EC-16040405002c",
+   "component": "CDU",
+   "message": "No CDU in BOM",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "CheckSystemClockTestCase"
+   ],
+   "code": "EC-160404060005",
+   "component": "RMS",
+   "message": "Clock skew over tolerance",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionPrimaryRms"
+   ],
+   "code": "EC-16040406000e",
+   "component": "RMS",
+   "message": "Vault / inputs validation failed",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionPrimaryRms"
+   ],
+   "code": "EC-16040406000f",
+   "component": "RMS",
+   "message": "No provisioning images found",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionCdu",
+    "ProvisionPdu"
+   ],
+   "code": "EC-160404060016",
+   "component": "RMS",
+   "message": "Unknown rack entity",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionRedundantRms"
+   ],
+   "code": "EC-16040406001e",
+   "component": "RMS",
+   "message": "Redundant RMS vault/data error",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "CduHealthCheckTestCase",
+    "PduHealthCheckTestCase"
+   ],
+   "code": "EC-160404060020",
+   "component": "RMS",
+   "message": "RMS SSH resource wrong type",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "CduHealthCheckTestCase",
+    "PduHealthCheckTestCase"
+   ],
+   "code": "EC-160404060021",
+   "component": "RMS",
+   "message": "Rack controller port missing",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "RmsInventoryCheckTestCase"
+   ],
+   "code": "EC-160404060028",
+   "component": "RMS",
+   "message": "RMS BOM missing",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "RmsInventoryCheckTestCase"
+   ],
+   "code": "EC-160404060029",
+   "component": "RMS",
+   "message": "RMS inventory mismatch",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "SohuServerFirmwareInventoryCheck"
+   ],
+   "code": "EC-160404070034",
+   "component": "BMC",
+   "message": "Firmware version mismatch",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "SwitchInventoryCheckTestCase"
+   ],
+   "code": "EC-1604040a002b",
+   "component": "ToR Switch",
+   "message": "Switch BOM mismatch",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "TorSwitchRedundancyTestCase"
+   ],
+   "code": "EC-1604040a003b",
+   "component": "ToR Switch",
+   "message": "No ToR switches in registry",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "TorSwitchRedundancyTestCase"
+   ],
+   "code": "EC-1604040a003c",
+   "component": "ToR Switch",
+   "message": "ToR switch ID not in registry",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "TorSwitchRedundancyTestCase"
+   ],
+   "code": "EC-1604040a003d",
+   "component": "ToR Switch",
+   "message": "ToR switch lacks pdu_connections",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "MgmtSwitchRedundancyTestCase"
+   ],
+   "code": "EC-1604040b0036",
+   "component": "Mgmt switch",
+   "message": "Mgmt switch ID not in registry",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "MgmtSwitchRedundancyTestCase"
+   ],
+   "code": "EC-1604040b0037",
+   "component": "Mgmt switch",
+   "message": "Mgmt switch lacks pdu_connections",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "MgmtSwitchRedundancyTestCase"
+   ],
+   "code": "EC-1604040b0038",
+   "component": "Mgmt switch",
+   "message": "Cannot resolve mgmt switch peer",
+   "source": "L11 Test",
+   "type": "Config"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "CheckSystemClockTestCase"
+   ],
+   "code": "EC-160406000002",
+   "component": "Undefined",
+   "message": "Runner epoch parse failed",
+   "source": "L11 Test",
+   "type": "Function"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "PingAllP2pPairsTestCase"
+   ],
+   "code": "EC-160406000008",
+   "component": "Undefined",
+   "message": "Need \u22652 ping targets",
+   "source": "L11 Test",
+   "type": "Function"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "CheckSystemClockTestCase"
+   ],
+   "code": "EC-160406060004",
+   "component": "RMS",
+   "message": "RMS epoch parse failed",
+   "source": "L11 Test",
+   "type": "Function"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionPdu"
+   ],
+   "code": "EC-16060504001c",
+   "component": "PDU",
+   "message": "PDU post-provision health bad",
+   "source": "L11 Test",
+   "type": "Function"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "PduHealthCheckTestCase"
+   ],
+   "code": "EC-160605040025",
+   "component": "PDU",
+   "message": "PDU health aggregate failure",
+   "source": "L11 Test",
+   "type": "Function"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "PduInventoryCheckTestCase"
+   ],
+   "code": "EC-16060504002f",
+   "component": "PDU",
+   "message": "PDU inventory mismatch",
+   "source": "L11 Test",
+   "type": "Function"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "ProvisionCdu"
+   ],
+   "code": "EC-16060505001b",
+   "component": "CDU",
+   "message": "CDU post-provision health bad",
+   "source": "L11 Test",
+   "type": "Function"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "CduHealthCheckTestCase"
+   ],
+   "code": "EC-160605050024",
+   "component": "CDU",
+   "message": "CDU health aggregate failure",
+   "source": "L11 Test",
+   "type": "Function"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "CduInventoryCheckTestCase"
+   ],
+   "code": "EC-16060505002d",
+   "component": "CDU",
+   "message": "CDU inventory mismatch",
+   "source": "L11 Test",
+   "type": "Function"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "SohuServerBmcPowerCycle"
+   ],
+   "code": "EC-160607070031",
+   "component": "BMC",
+   "message": "BMC power-cycle sequence failed",
+   "source": "L11 Test",
+   "type": "Function"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "TorSwitchRedundancyTestCase"
+   ],
+   "code": "EC-16060a0a003f",
+   "component": "ToR Switch",
+   "message": "ToR redundancy failed (aggregate)",
+   "source": "L11 Test",
+   "type": "Function"
+  },
+  {
+   "action": "Undefined",
+   "bugs": "",
+   "cases": [
+    "MgmtSwitchRedundancyTestCase"
+   ],
+   "code": "EC-16060b0b003a",
+   "component": "Mgmt switch",
+   "message": "Mgmt switch redundancy failed (aggregate)",
+   "source": "L11 Test",
+   "type": "Function"
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBiosVersion",
+    "CheckBiosBootOrder"
+   ],
+   "code": "TH-BIOS-0001-S5Q9",
+   "component": "BIOS",
+   "message": "Expected BIOS version or boot-order configuration could not be loaded; no BIOS verdict is available.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBiosVersion"
+   ],
+   "code": "TH-BIOS-0002-S4Q9",
+   "component": "BIOS",
+   "message": "The running BIOS version could not be queried.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBiosVersion"
+   ],
+   "code": "TH-BIOS-0003-S4Q9",
+   "component": "BIOS",
+   "message": "BIOS version output was empty, incomplete, or could not be parsed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBiosVersion"
+   ],
+   "code": "TH-BIOS-0004-S5Q9",
+   "component": "BIOS",
+   "message": "The running BIOS version does not match the expected L10 release.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBiosBootOrder"
+   ],
+   "code": "TH-BIOS-0005-S4Q9",
+   "component": "BIOS",
+   "message": "The configured BIOS boot order could not be queried.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBiosBootOrder"
+   ],
+   "code": "TH-BIOS-0006-S5Q9",
+   "component": "BIOS",
+   "message": "The BIOS boot order does not match the required L10 configuration.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "SohuServerBiosUpdate"
+   ],
+   "code": "TH-BIOS-0007-S4Q9",
+   "component": "BIOS",
+   "message": "The server BIOS update command failed or did not complete successfully.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "SohuServerBiosUpdate"
+   ],
+   "code": "TH-BIOS-0008-S4Q9",
+   "component": "BIOS",
+   "message": "The BIOS did not report the requested version after update and reboot.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheck",
+    "BmcCheckFanLocation",
+    "BmcCheckFanControl"
+   ],
+   "code": "TH-BMC-0001-S5Q9",
+   "component": "BMC",
+   "message": "Expected BMC/product configuration could not be loaded; no BMC comparison verdict is available.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheck"
+   ],
+   "code": "TH-BMC-0002-S4Q9",
+   "component": "BMC",
+   "message": "The BMC inventory or management query command failed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheck"
+   ],
+   "code": "TH-BMC-0003-S4Q9",
+   "component": "BMC",
+   "message": "BMC inventory output was incomplete or could not be parsed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheck"
+   ],
+   "code": "TH-BMC-0004-S2Q9",
+   "component": "BMC",
+   "message": "BMC-reported platform vendor, product, or model identity does not match expected configuration.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheck"
+   ],
+   "code": "TH-BMC-0005-S2Q9",
+   "component": "BMC",
+   "message": "The BMC management IP address or MAC address does not match the expected server configuration.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheck"
+   ],
+   "code": "TH-BMC-0006-S5Q9",
+   "component": "BMC",
+   "message": "The running BMC firmware version does not match the expected L10 release.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheckFanLocation"
+   ],
+   "code": "TH-BMC-0007-S4Q9",
+   "component": "BMC",
+   "message": "The BMC command to program fan locations failed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheckFanLocation"
+   ],
+   "code": "TH-BMC-0008-S4Q9",
+   "component": "BMC",
+   "message": "Programmed fan-location data could not be read back from the BMC.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheckFanControl"
+   ],
+   "code": "TH-BMC-0009-S5Q9",
+   "component": "BMC",
+   "message": "BMC fan-zone, PWM, or sensor configuration needed by the fan-control test is missing or invalid.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheckFanControl"
+   ],
+   "code": "TH-BMC-0010-S4Q9",
+   "component": "BMC",
+   "message": "The BMC sensor query failed or returned no usable fan/thermal readings.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Retry",
+   "bugs": "",
+   "cases": [
+    "BmcConnectivityCheck"
+   ],
+   "code": "TH-BMC-0011-S4Q6",
+   "component": "BMC",
+   "message": "BMC connectivity validation observed packet loss or could not complete the configured reachability check.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "SohuServerBmcFirmwareUpdate",
+    "SohuServerBiosUpdate",
+    "PsuFirmwareUpdate",
+    "CpldFirmwareUpdate",
+    "L10VBBUpdate",
+    "BmcPowerCycle"
+   ],
+   "code": "TH-BMC-0012-S4Q9",
+   "component": "BMC",
+   "message": "An SSH session to the BMC could not be established for the requested operation.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "SohuServerBmcFirmwareUpdate",
+    "SohuServerBiosUpdate",
+    "PsuFirmwareUpdate",
+    "CpldFirmwareUpdate",
+    "L10VBBUpdate"
+   ],
+   "code": "TH-BMC-0013-S4Q9",
+   "component": "BMC",
+   "message": "The firmware image or update configuration could not be staged to the BMC.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "SohuServerBmcFirmwareUpdate"
+   ],
+   "code": "TH-BMC-0014-S4Q9",
+   "component": "BMC",
+   "message": "The BMC firmware update command failed or did not complete successfully.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "SohuServerBmcFirmwareUpdate"
+   ],
+   "code": "TH-BMC-0015-S4Q9",
+   "component": "BMC",
+   "message": "The BMC did not report the requested firmware version after update.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "SetPowerCycleInterval"
+   ],
+   "code": "TH-BMC-0016-S4Q9",
+   "component": "BMC",
+   "message": "The requested BMC power-cycle interval could not be configured.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "StoreSystemLogStates",
+    "CheckSystemLogStates"
+   ],
+   "code": "TH-BMC-0017-S4Q9",
+   "component": "BMC",
+   "message": "The BMC system-event log could not be read or parsed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckSystemLogStates"
+   ],
+   "code": "TH-BMC-0018-S4Q9",
+   "component": "BMC",
+   "message": "A new critical BMC/SEL event was detected between the stored baseline and the post-test log state.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheck",
+    "BmcCheckFanLocation",
+    "BmcCheckFanControl"
+   ],
+   "code": "TH-BMC-0019-S4Q9",
+   "component": "BMC",
+   "message": "A required low-level BMC raw command failed or returned no response.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "SohuServerBmcFirmwareUpdate",
+    "SohuServerBiosUpdate",
+    "PsuFirmwareUpdate",
+    "CpldFirmwareUpdate",
+    "L10VBBUpdate"
+   ],
+   "code": "TH-BMC-0020-S5Q9",
+   "component": "BMC",
+   "message": "The BMC update flow could not resolve the server model or target-specific update configuration.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-33573: C2cLinkupTestCase Failure",
+   "cases": [
+    "C2cLinkupTestCase",
+    "C2cLinkupMultiChipTestCase",
+    "C2cThroughputTestCase",
+    "C2cThroughputMultiChipTestCase"
+   ],
+   "code": "TH-C2C-0001-S2Q9",
+   "component": "C2C",
+   "message": "C2C lanes failed to train or link up within the timeout: RX equalization did not converge after its configured attempts, or the link-up test reported one or more datalinks/lanes down.",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-33915: C2cIntegrityTestCase failure",
+   "cases": [
+    "C2cIntegrityTestCase",
+    "C2cIntegrityMultiChipTestCase"
+   ],
+   "code": "TH-C2C-0002-S2Q9",
+   "component": "C2C",
+   "message": "Bit-by-bit C2C loopback comparison found a data mismatch on at least one datalink/lane.",
+   "source": "1X Module Test",
+   "type": "Data"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-32191: C2cIntegrityTestCase/C2cThroughputTestCase Failures",
+   "cases": [
+    "C2cThroughputTestCase",
+    "C2cThroughputMultiChipTestCase"
+   ],
+   "code": "TH-C2C-0003-S2Q9",
+   "component": "C2C",
+   "message": "The large C2C transfer did not meet its acceptance criteria: measured throughput below the configured percentage of line rate (90% in the 1X suite), or the post-FEC uncorrected error fraction above its limit.",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "C2cLaneMarginTestCase",
+    "C2cFirCdrSweepMultiChipTestCase"
+   ],
+   "code": "TH-C2C-0004-S4Q9",
+   "component": "C2C",
+   "message": "Worst per-lane minimum BER from the eye-diagram sweep exceeded the configured ber_threshold; the SERDES margin spec is not final.",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "C2cPrbsMultiChipTestCase"
+   ],
+   "code": "TH-C2C-0005-S2Q9",
+   "component": "C2C",
+   "message": "The C2C PRBS run completed but the observed bit-error count or rate exceeded the configured acceptance limit.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "C2cFirCdrSweepMultiChipTestCase",
+    "C2cPrbsMultiChipTestCase"
+   ],
+   "code": "TH-C2C-0006-S4Q9",
+   "component": "C2C",
+   "message": "The FIR/CDR or PRBS test did not produce complete, parseable lane results, so the C2C verdict is inconclusive.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Retry",
+   "bugs": "",
+   "cases": [
+    "CpuStress"
+   ],
+   "code": "TH-CPU-0001-S2Q6",
+   "component": "CPU",
+   "message": "stress-ng CPU stress failed because a stressor/verification error occurred or the tool returned its workload-failure status.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CpuStress"
+   ],
+   "code": "TH-CPU-0003-S5Q9",
+   "component": "CPU",
+   "message": "stress-ng is not installed or cannot be executed on the target; no CPU verdict is available (ERROR disposition; excluded from DUT yield).",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Retry",
+   "bugs": "",
+   "cases": [
+    "CpuStress"
+   ],
+   "code": "TH-CPU-0004-S4Q6",
+   "component": "CPU",
+   "message": "stress-ng returned an execution, initialization, option, resource, unsupported-stressor, or signal error rather than a CPU workload verdict.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckCpu"
+   ],
+   "code": "TH-CPU-0005-S4Q9",
+   "component": "CPU",
+   "message": "The CPU inventory command failed; no CPU BOM verdict is available.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckCpu"
+   ],
+   "code": "TH-CPU-0006-S4Q9",
+   "component": "CPU",
+   "message": "The CPU inventory output was malformed or could not be parsed into processor records.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckCpu"
+   ],
+   "code": "TH-CPU-0007-S2Q9",
+   "component": "CPU",
+   "message": "The discovered processor count does not match the expected L10 BOM.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckCpu"
+   ],
+   "code": "TH-CPU-0008-S2Q9",
+   "component": "CPU",
+   "message": "A processor part number or manufacturer does not match the expected L10 BOM.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckCpu"
+   ],
+   "code": "TH-CPU-0009-S2Q9",
+   "component": "CPU",
+   "message": "A processor core count or thread count does not match the expected L10 BOM.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckCpu"
+   ],
+   "code": "TH-CPU-0010-S4Q9",
+   "component": "CPU",
+   "message": "A processor base or maximum clock reported by inventory does not match the expected L10 BOM.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckDisk",
+    "DiskFormat",
+    "DiskSmart",
+    "DiskStress"
+   ],
+   "code": "TH-DISK-0001-S4Q9",
+   "component": "Disk",
+   "message": "The block-device or NVMe inventory command failed; no storage verdict is available.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckDisk",
+    "DiskFormat",
+    "DiskStress"
+   ],
+   "code": "TH-DISK-0002-S4Q9",
+   "component": "Disk",
+   "message": "Block-device or NVMe inventory output was malformed or could not be parsed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckDisk",
+    "DiskSmart"
+   ],
+   "code": "TH-DISK-0003-S2Q9",
+   "component": "Disk",
+   "message": "No storage devices were detected although the L10 BOM requires disks.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckDisk"
+   ],
+   "code": "TH-DISK-0004-S2Q9",
+   "component": "Disk",
+   "message": "The discovered disk count does not match the expected L10 BOM.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckDisk"
+   ],
+   "code": "TH-DISK-0005-S2Q9",
+   "component": "Disk",
+   "message": "A disk model, serial number, namespace, or capacity does not match the expected L10 BOM.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckDisk"
+   ],
+   "code": "TH-DISK-0006-S4Q9",
+   "component": "Disk",
+   "message": "Installed drives do not satisfy the required homogeneous model/capacity configuration.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "DiskFormat",
+    "DiskStress"
+   ],
+   "code": "TH-DISK-0007-S5Q9",
+   "component": "Disk",
+   "message": "The test could not reliably identify the host boot device and therefore could not safely select data drives.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "DiskFormat",
+    "DiskSmart",
+    "DiskStress"
+   ],
+   "code": "TH-DISK-0008-S5Q9",
+   "component": "Disk",
+   "message": "No eligible non-boot NVMe device remained after discovery and configured exclusions.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "DiskFormat"
+   ],
+   "code": "TH-DISK-0009-S2Q9",
+   "component": "NVMe SSD",
+   "message": "An expected NVMe controller has no usable namespace and automatic formatting is disabled.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "DiskFormat"
+   ],
+   "code": "TH-DISK-0010-S4Q9",
+   "component": "NVMe SSD",
+   "message": "The NVMe format or namespace creation command failed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "DiskFormat"
+   ],
+   "code": "TH-DISK-0011-S2Q9",
+   "component": "NVMe SSD",
+   "message": "The expected NVMe namespace was still absent after the format/namespace operation completed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "DiskSmart"
+   ],
+   "code": "TH-DISK-0012-S2Q9",
+   "component": "NVMe SSD",
+   "message": "An NVMe device self-test completed with a failure or did not complete successfully.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "DiskSmart"
+   ],
+   "code": "TH-DISK-0013-S4Q9",
+   "component": "NVMe SSD",
+   "message": "SMART/health data could not be read for an eligible NVMe device.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "DiskSmart"
+   ],
+   "code": "TH-DISK-0014-S2Q9",
+   "component": "NVMe SSD",
+   "message": "The NVMe SMART critical-warning field is non-zero.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "DiskSmart"
+   ],
+   "code": "TH-DISK-0015-S2Q9",
+   "component": "NVMe SSD",
+   "message": "NVMe available spare is below the device or configured threshold.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "DiskSmart"
+   ],
+   "code": "TH-DISK-0016-S2Q9",
+   "component": "NVMe SSD",
+   "message": "NVMe SMART reports one or more media/data-integrity errors.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "DiskSmart"
+   ],
+   "code": "TH-DISK-0017-S4Q9",
+   "component": "NVMe SSD",
+   "message": "NVMe temperature is outside the configured safe operating range.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "DiskSmart"
+   ],
+   "code": "TH-DISK-0018-S2Q9",
+   "component": "NVMe SSD",
+   "message": "NVMe percentage-used or wear indicator exceeds the configured acceptance limit.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Retry",
+   "bugs": "",
+   "cases": [
+    "DiskStress"
+   ],
+   "code": "TH-DISK-0019-S2Q6",
+   "component": "Disk",
+   "message": "The fio disk stress workload returned a workload-failure status for an eligible drive.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "DiskStress"
+   ],
+   "code": "TH-DISK-0020-S4Q9",
+   "component": "Disk",
+   "message": "fio output was missing or could not be parsed into valid per-drive results.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "RETRY",
+   "bugs": "ETCH-35873: SohuDmaTestCase failure",
+   "cases": [
+    "SohuDmaTestCase",
+    "SohuDmaMultiChipTestCase"
+   ],
+   "code": "TH-DMA-0001-S2Q6",
+   "component": "DMA",
+   "message": "Host-chip DMA data-path test failure",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuHostRebootTestCase",
+    "BmcPowerCycle",
+    "BmcConnectivityCheck"
+   ],
+   "code": "TH-ENV-0001-S4Q9",
+   "component": "ENV",
+   "message": "The station host or its BMC did not answer ping or SSH after boot, so no module test could start.",
+   "source": "1X Module Test",
+   "type": "Network"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "ChromaTelemetryCheckTestCase",
+    "EvalBoardPowerTestCase",
+    "VfioProxyVersionTestCase",
+    "CheckPexFirmwareVersionTestCase"
+   ],
+   "code": "TH-ENV-0002-S4Q9",
+   "component": "ENV",
+   "message": "Station fixture/setup check failed (Chroma telemetry / eval board power / vfio-proxy or PEX version)",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-35552: CheckPexFirmwareVersionTestCase failure",
+   "cases": [
+    "CheckPexFirmwareVersionTestCase",
+    "CheckPlxDaemonFirmwareVersion",
+    "UpdatePlxDaemonFirmwareVersion"
+   ],
+   "code": "TH-ENV-0003-S4Q9",
+   "component": "ENV",
+   "message": "PLX daemon reported no PEX switches",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "0",
+   "cases": [
+    "ReloadKernelModuleTestCase",
+    "PcieTeardownTestCase",
+    "PcieRescanTestCase",
+    "SetSkipFlrOnOpenCloseTestCase",
+    "SohuLogReaderActivateTestCase",
+    "LogReaderCaptureTestCase",
+    "PublishBootloaderTypeTestCase",
+    "SoftwareProvisioning",
+    "BroadcomUpdateFwAndConfigure"
+   ],
+   "code": "TH-ENV-0004-S4Q9",
+   "component": "ENV",
+   "message": "A host driver/setup utility step failed: kernel module reload, PCIe teardown or bus rescan, sysfs parameter write, or log-reader activation returned non-zero.",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "ModelRegistryNfsMountTestCase"
+   ],
+   "code": "TH-ENV-0005-S4Q9",
+   "component": "Model Registry",
+   "message": "The model-registry NFS share could not be mounted or validated on the L10 host.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "StageModelRegistryToShmTestCase",
+    "SohuMlpTp8TestCase",
+    "SohuLlama70bForwardIteratedTestCase",
+    "SohuLlama70bHp8ForwardIteratedTestCase",
+    "SohuLlamaTp8InferenceMaxTestCase",
+    "Llama8bFp8Tp1SmokeTestCase"
+   ],
+   "code": "TH-ENV-0006-S5Q9",
+   "component": "Model Registry",
+   "message": "A required model-registry artifact or model path is missing or unreadable.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "StageModelRegistryToShmTestCase"
+   ],
+   "code": "TH-ENV-0007-S4Q9",
+   "component": "Shared Memory",
+   "message": "The required model artifact could not be copied or staged into shared memory.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "FreeModelRegistryFromShmTestCase"
+   ],
+   "code": "TH-ENV-0008-S4Q9",
+   "component": "Shared Memory",
+   "message": "The staged model could not be removed from shared memory during cleanup.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-34843: SohuHotReloadFirmwareUpdateTestCase failure",
+   "cases": [
+    "SohuFirmwareUpdateTestCase",
+    "SohuHotReloadFirmwareUpdateTestCase",
+    "SohuSecureBootRecoveryUpdateTestCase",
+    "MultiChipSohuHotReloadFirmwareUpdateTestCase"
+   ],
+   "code": "TH-FW-0001-S2Q9",
+   "component": "FW",
+   "message": "Sohu app firmware update failed or ASIC not pingable after update",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuFirmwareUpdateTestCase",
+    "MultiChipSohuHotReloadFirmwareUpdateTestCase"
+   ],
+   "code": "TH-FW-0002-S4Q9",
+   "component": "FW",
+   "message": "The ASIC booted application firmware after the update, but the running image hash does not match the hash in the image package that was just staged.",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "ETCH-35585: BootloaderResultTestCase failures",
+   "cases": [
+    "ProgramSecureBootloaderTestCase",
+    "BootloaderResultTestCase"
+   ],
+   "code": "TH-FW-0003-S2Q6",
+   "component": "FW",
+   "message": "Bootloader programming failed (flash program fail or no ping after program)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "ETCH-35586: ProgramSecureBootloaderTestCase failure",
+   "cases": [
+    "ProgramSecureBootloaderTestCase"
+   ],
+   "code": "TH-FW-0004-S4Q6",
+   "component": "FW",
+   "message": "JTAG image load/verify failed (ICCM verify mismatch)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "WARM_REBOOT",
+   "bugs": "",
+   "cases": [
+    "VbbFirmwareUpdateTestCase",
+    "RetimerFirmwareUpdateTestCase",
+    "L10VBBUpdate"
+   ],
+   "code": "TH-FW-0005-S5Q2",
+   "component": "FW",
+   "message": "Fixture firmware update failed (golden VBB / retimer): OpenOCD flash, ST-Link adapter, post-flash UART/RPC ready check, or application firmware-hash verification did not succeed.",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "DetectBoardDvfsProfileTestCase",
+    "SohuSetClockProfileMultiChipTestCase"
+   ],
+   "code": "TH-FW-0006-S5Q9",
+   "component": "FW",
+   "message": "Board DVFS profile detection or application failed",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "",
+   "cases": [
+    "SohuSecureBootRecoveryUpdateTestCase"
+   ],
+   "code": "TH-FW-0007-S2Q6",
+   "component": "FW",
+   "message": "PLDM update did not complete within timeout \u2014 device likely not responding over Sohu UART in recovery mode",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "",
+   "cases": [
+    "SohuSecureBootRecoveryUpdateTestCase"
+   ],
+   "code": "TH-FW-0008-S2Q6",
+   "component": "FW",
+   "message": "Secure-boot recovery PLDM update failed (strap sequence or pldm_ua error; update possibly rejected)",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuHotReloadFirmwareUpdateTestCase",
+    "MultiChipSohuHotReloadFirmwareUpdateTestCase"
+   ],
+   "code": "TH-FW-0009-S5Q9",
+   "component": "FW",
+   "message": "Hot reload could not start, so no firmware was written",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckOs",
+    "CheckKernelVersion",
+    "CheckSohuFwVersion",
+    "CheckPsuFirmwareVersion",
+    "CheckCpldBpFirmwareVersion"
+   ],
+   "code": "TH-FW-0010-S5Q9",
+   "component": "Firmware",
+   "message": "Expected host or component version data could not be loaded; no version verdict is available.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckOs"
+   ],
+   "code": "TH-FW-0011-S4Q9",
+   "component": "Host OS",
+   "message": "The host operating-system release could not be queried.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckOs"
+   ],
+   "code": "TH-FW-0012-S4Q9",
+   "component": "Host OS",
+   "message": "Operating-system release output was incomplete or could not be parsed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckOs"
+   ],
+   "code": "TH-FW-0013-S5Q9",
+   "component": "Host OS",
+   "message": "The host operating-system release does not match the required L10 image.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckKernelVersion"
+   ],
+   "code": "TH-FW-0014-S4Q9",
+   "component": "Host Kernel",
+   "message": "The running host kernel version could not be queried.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckKernelVersion"
+   ],
+   "code": "TH-FW-0015-S4Q9",
+   "component": "Host Kernel",
+   "message": "Kernel version output was empty or could not be parsed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckKernelVersion"
+   ],
+   "code": "TH-FW-0016-S5Q9",
+   "component": "Host Kernel",
+   "message": "The running host kernel does not match the required L10 release.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckSohuFwVersion"
+   ],
+   "code": "TH-FW-0017-S4Q9",
+   "component": "Sohu Firmware",
+   "message": "The running Sohu firmware version could not be queried.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckSohuFwVersion"
+   ],
+   "code": "TH-FW-0018-S5Q9",
+   "component": "Sohu Firmware",
+   "message": "The running Sohu firmware version does not match the required L10 release.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckPsuFirmwareVersion"
+   ],
+   "code": "TH-FW-0019-S4Q9",
+   "component": "PSU Firmware",
+   "message": "One or more PSU firmware versions could not be queried.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckPsuFirmwareVersion"
+   ],
+   "code": "TH-FW-0020-S5Q9",
+   "component": "PSU Firmware",
+   "message": "A PSU firmware version does not match the required L10 release.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckCpldBpFirmwareVersion"
+   ],
+   "code": "TH-FW-0021-S4Q9",
+   "component": "CPLD Firmware",
+   "message": "The backplane/CPLD firmware version could not be queried.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckCpldBpFirmwareVersion"
+   ],
+   "code": "TH-FW-0022-S5Q9",
+   "component": "CPLD Firmware",
+   "message": "The backplane/CPLD firmware version does not match the required L10 release.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "PsuFirmwareUpdate"
+   ],
+   "code": "TH-FW-0023-S4Q9",
+   "component": "PSU Firmware",
+   "message": "The PSU firmware update command failed or did not complete successfully.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "PsuFirmwareUpdate"
+   ],
+   "code": "TH-FW-0024-S4Q9",
+   "component": "PSU Firmware",
+   "message": "A PSU did not report the requested firmware version after update.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CpldFirmwareUpdate"
+   ],
+   "code": "TH-FW-0025-S4Q9",
+   "component": "CPLD Firmware",
+   "message": "The CPLD/backplane firmware update command failed or did not complete successfully.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CpldFirmwareUpdate"
+   ],
+   "code": "TH-FW-0026-S4Q9",
+   "component": "CPLD Firmware",
+   "message": "The CPLD/backplane did not report the requested firmware version after update.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "SoftwareProvisioning"
+   ],
+   "code": "TH-FW-0027-S4Q9",
+   "component": "Host Software",
+   "message": "The L10 host software provisioning workflow failed to apply the required software state.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "InstallLinuxPackagesTestCase"
+   ],
+   "code": "TH-FW-0028-S4Q9",
+   "component": "Host Software",
+   "message": "A required Linux package could not be installed or configured.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "UpdateSohuBootloader"
+   ],
+   "code": "TH-FW-0029-S4Q9",
+   "component": "Sohu Bootloader",
+   "message": "The Sohu bootloader update command failed or the device was not usable after programming.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "UpdateSohuBootloader"
+   ],
+   "code": "TH-FW-0030-S4Q9",
+   "component": "Sohu Bootloader",
+   "message": "The running Sohu bootloader does not match the requested image after update.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckSystemLogStates"
+   ],
+   "code": "TH-FW-0031-S4Q9",
+   "component": "Host Software",
+   "message": "A new critical host kernel, service, or system event was detected after the L10 workload.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "No act",
+   "bugs": "",
+   "cases": [
+    "any",
+    "L10",
+    "test",
+    "case",
+    "(harness-level)"
+   ],
+   "code": "TH-HAR-0001-S4Q0",
+   "component": "Harness",
+   "message": "The test exceeded its configured timeout and was terminated before producing a verdict (ABORTED disposition).",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuSecureBootRecoveryUpdateTestCase",
+    "ServerNestedTestCase",
+    "SohuSnapTestCase",
+    "VfioProxyVersionTestCase",
+    "SohuWeightLoadTestCase",
+    "SltModuleNestedTestCase",
+    "CpuStress",
+    "MemoryStressNg",
+    "MemoryStress",
+    "IoStress",
+    "ExecBinaryTestCase"
+   ],
+   "code": "TH-HAR-0002-S5Q9",
+   "component": "Harness",
+   "message": "A test case was invoked with invalid or unsupported arguments and rejected the run before touching the DUT.",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuSecureBootRecoveryUpdateTestCase",
+    "SohuWeightLoadTestCase",
+    "VbbFirmwareUpdateTestCase",
+    "CpuStress",
+    "MemoryStressNg",
+    "MemoryStress",
+    "IoStress",
+    "LoopbackTopologyTest",
+    "NetworkBwRdmaTest",
+    "ModelRegistryNfsMountTestCase",
+    "StageModelRegistryToShmTestCase",
+    "SohuServerBmcFirmwareUpdate",
+    "SohuServerBiosUpdate",
+    "PsuFirmwareUpdate",
+    "CpldFirmwareUpdate",
+    "L10VBBUpdate",
+    "InstallLinuxPackagesTestCase",
+    "UpdatePlxDaemonFirmwareVersion",
+    "BroadcomUpdateFwAndConfigure",
+    "UpdateSohuBootloader",
+    "MultiChipSohuHotReloadFirmwareUpdateTestCase",
+    "ExecBinaryTestCase"
+   ],
+   "code": "TH-HAR-0003-S5Q9",
+   "component": "Harness",
+   "message": "Tool/binary/data file the test depends on is missing on the test system (test-system ERROR \u2014 excluded from module yield)",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "ServerNestedTestCase",
+    "SltModuleNestedTestCase",
+    "RunInStress"
+   ],
+   "code": "TH-HAR-0004-S4Q9",
+   "component": "HAR",
+   "message": "Nested suite failed to launch or complete orchestration (child test failures carry their own codes)",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "Retry",
+   "bugs": "",
+   "cases": [
+    "IoStress",
+    "ExecBinaryTestCase",
+    "CpldDiagnosticsRemoteTestCase"
+   ],
+   "code": "TH-HAR-0005-S4Q6",
+   "component": "Harness",
+   "message": "A test-owned command or binary failed to execute and did not produce a domain-specific DUT verdict.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "IoStress",
+    "ExecBinaryTestCase"
+   ],
+   "code": "TH-HAR-0006-S4Q9",
+   "component": "Harness",
+   "message": "A test tool completed without complete, parseable metrics needed to determine the result.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "StoreSystemLogStates",
+    "CheckSystemLogStates",
+    "ExecBinaryTestCase"
+   ],
+   "code": "TH-HAR-0007-S4Q9",
+   "component": "Harness",
+   "message": "Expected test output, state, or result artifacts were not produced.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "RunInStress",
+    "IoStress",
+    "NetworkBwRdmaTest"
+   ],
+   "code": "TH-HAR-0008-S5Q9",
+   "component": "Harness",
+   "message": "A required test precondition was not satisfied, so the test did not exercise the DUT as intended.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "LoopbackTopologyTest",
+    "NetworkBwRdmaTest",
+    "FreeModelRegistryFromShmTestCase"
+   ],
+   "code": "TH-HAR-0009-S4Q9",
+   "component": "Harness",
+   "message": "Test cleanup failed and may have left processes, mounts, namespaces, files, or device state behind.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "StoreSystemLogStates"
+   ],
+   "code": "TH-HAR-0010-S4Q9",
+   "component": "Harness",
+   "message": "The pre-test system-log baseline could not be captured.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckSystemLogStates"
+   ],
+   "code": "TH-HAR-0011-S4Q9",
+   "component": "Harness",
+   "message": "System-log state could not be queried, parsed, or compared with the stored baseline.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "No act",
+   "bugs": "",
+   "cases": [
+    "any",
+    "L10",
+    "test",
+    "case",
+    "(harness-level)"
+   ],
+   "code": "TH-HAR-9998-S3Q0",
+   "component": "Harness",
+   "message": "A test returned TestFailedError without a specific TH identity; this catch-all is a taxonomy-health failure and must be replaced by a specific code.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "any",
+    "L10",
+    "test",
+    "case",
+    "(harness-level)"
+   ],
+   "code": "TH-HAR-9999-S3Q9",
+   "component": "Harness",
+   "message": "An unhandled exception escaped the test and was wrapped by the harness; the traceback is retained in the per-test log (ERROR disposition).",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-33885: Power Virus failures \\[was SohuPmbistTestCase failures\\]",
+   "cases": [
+    "SohuPmbistTestCase",
+    "SohuPmbistMultiChipTestCase"
+   ],
+   "code": "TH-HBM-0001-S2Q9",
+   "component": "HBM",
+   "message": "HBM PMBIST failure",
+   "source": "1X Module Test",
+   "type": "Memory"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuRdqsSweepTrainingTestCase"
+   ],
+   "code": "TH-HBM-0003-S4Q9",
+   "component": "HBM",
+   "message": "HBM training/eye margin below threshold (tentative)",
+   "source": "1X Module Test",
+   "type": "Memory"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "ETCH-35299: SohuMtcStressTestCase failures",
+   "cases": [
+    "SohuMtcStressTestCase",
+    "SohuMtcStressMultiChipTestCase"
+   ],
+   "code": "TH-HBM-0004-S2Q6",
+   "component": "HBM",
+   "message": "HBM MTC stress test failure",
+   "source": "1X Module Test",
+   "type": "Memory"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuHbmBandwidthTestCase",
+    "SohuDmaTestCase",
+    "SohuDmaMultiChipTestCase"
+   ],
+   "code": "TH-HBM-0005-S2Q9",
+   "component": "HBM",
+   "message": "PCIe-to-HBM read or write throughput on the side under test did not reach the configured min_bandwidth_gb_s floor.",
+   "source": "1X Module Test",
+   "type": "Memory"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-35587: SohuLaneRepairTestCase failure",
+   "cases": [
+    "SohuLaneRepairTestCase",
+    "SohuLaneRepairMultiChipTestCase"
+   ],
+   "code": "TH-HBM-0006-S2Q9",
+   "component": "HBM",
+   "message": "HBM lane repair failed - no passing repair found",
+   "source": "1X Module Test",
+   "type": "Memory"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuHbmDeviceIdTestCase",
+    "SohuHbmDeviceIdMultiChipTestCase"
+   ],
+   "code": "TH-HBM-0007-S2Q9",
+   "component": "HBM",
+   "message": "HBM device ID read failure or mismatch",
+   "source": "1X Module Test",
+   "type": "Data"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuLaneRepairTestCase",
+    "SohuLaneRepairMultiChipTestCase"
+   ],
+   "code": "TH-HBM-0008-S4Q9",
+   "component": "HBM",
+   "message": "HBM lane repair sweep did not complete, so repairability was never established",
+   "source": "1X Module Test",
+   "type": "Memory"
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "RunInStress",
+    "ExecBinaryTestCase"
+   ],
+   "code": "TH-INFRA-0001-S4Q9",
+   "component": "Test Infrastructure",
+   "message": "The configured racksim service or simulated server endpoint is unavailable.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CpldDiagnosticsRemoteTestCase",
+    "ExecBinaryTestCase"
+   ],
+   "code": "TH-INFRA-0002-S4Q9",
+   "component": "Test Infrastructure",
+   "message": "The infrastructure transport used to execute a remote L10 operation failed before a DUT verdict was obtained.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "ModelRegistryNfsMountTestCase",
+    "BmcConnectivityCheck"
+   ],
+   "code": "TH-INFRA-0003-S4Q9",
+   "component": "Test Infrastructure",
+   "message": "A required station-side network path, route, or service endpoint is unavailable.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "StageModelRegistryToShmTestCase",
+    "RunInStress"
+   ],
+   "code": "TH-INFRA-0004-S4Q9",
+   "component": "Test Infrastructure",
+   "message": "A station-side resource limit prevented the L10 test from running or completing.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckMemory"
+   ],
+   "code": "TH-MEM-0001-S4Q9",
+   "component": "Host Memory",
+   "message": "The host memory inventory command failed; no DIMM verdict is available.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckMemory"
+   ],
+   "code": "TH-MEM-0002-S4Q9",
+   "component": "Host Memory",
+   "message": "The host memory inventory output was malformed or could not be parsed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckMemory"
+   ],
+   "code": "TH-MEM-0003-S2Q9",
+   "component": "Host Memory",
+   "message": "No populated DIMMs were detected although the L10 BOM requires host memory.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckMemory"
+   ],
+   "code": "TH-MEM-0004-S2Q9",
+   "component": "Host Memory",
+   "message": "The number of populated DIMMs does not match the expected L10 BOM.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckMemory"
+   ],
+   "code": "TH-MEM-0005-S2Q9",
+   "component": "Host Memory",
+   "message": "A DIMM manufacturer, part number, serial number, location, or capacity does not match the expected BOM.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckMemory"
+   ],
+   "code": "TH-MEM-0006-S4Q9",
+   "component": "Host Memory",
+   "message": "The installed DIMMs are not homogeneous where the platform configuration requires matching parts and capacities.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Retry",
+   "bugs": "",
+   "cases": [
+    "MemoryStressNg",
+    "MemoryStress"
+   ],
+   "code": "TH-MEM-0007-S2Q6",
+   "component": "Host Memory",
+   "message": "The host memory stress workload reported data errors, verification failures, or a workload-failure exit status.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "MemoryStressNg",
+    "MemoryStress"
+   ],
+   "code": "TH-MEM-0008-S4Q9",
+   "component": "Host Memory",
+   "message": "The memory stress tool completed without usable result statistics or produced malformed metrics, so the verdict is inconclusive.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "IoStress"
+   ],
+   "code": "TH-MEM-0009-S5Q9",
+   "component": "Host Memory",
+   "message": "The host NUMA/SNC topology does not provide the nodes required by the configured cross-NUMA I/O stress.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Retry",
+   "bugs": "",
+   "cases": [
+    "IoStress"
+   ],
+   "code": "TH-MEM-0010-S2Q6",
+   "component": "Host Memory",
+   "message": "The cross-NUMA stream or memory-transfer workload failed its execution or acceptance criteria.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "RETRY",
+   "bugs": "ETCH-35586: ProgramSecureBootloaderTestCase failure",
+   "cases": [
+    "ProgramSecureBootloaderTestCase",
+    "CpldDiagnosticsTestCase",
+    "CpldDiagnosticsRemoteTestCase"
+   ],
+   "code": "TH-MEZZ-0001-S2Q6",
+   "component": "MEZZ",
+   "message": "Mezz/eval CPLD register access or write failure",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "",
+   "cases": [
+    "MezzanineI2cAlertsTestCase"
+   ],
+   "code": "TH-MEZZ-0002-S2Q6",
+   "component": "MEZZ",
+   "message": "Unexpected mezzanine I2C alert asserted",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckNic",
+    "CheckLomNicMac",
+    "LoopbackTopologyTest",
+    "NetworkBwRdmaTest",
+    "CheckNicAsicRails"
+   ],
+   "code": "TH-NIC-0001-S5Q9",
+   "component": "NIC",
+   "message": "The expected NIC/BOM/network configuration could not be loaded; no NIC verdict is available.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckNic",
+    "CheckLomNicMac",
+    "LoopbackTopologyTest",
+    "NetworkBwRdmaTest"
+   ],
+   "code": "TH-NIC-0002-S4Q9",
+   "component": "NIC",
+   "message": "NIC inventory or interface discovery failed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckNic",
+    "CheckInterfaceLinkStatus",
+    "CheckNetdReadiness"
+   ],
+   "code": "TH-NIC-0003-S4Q9",
+   "component": "NIC",
+   "message": "The NIC discovery/netd service or its Unix-domain socket was not ready or reachable.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckNic"
+   ],
+   "code": "TH-NIC-0004-S2Q9",
+   "component": "NIC",
+   "message": "The discovered NIC count does not match the expected L10 BOM.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckNic"
+   ],
+   "code": "TH-NIC-0005-S2Q9",
+   "component": "NIC",
+   "message": "A NIC vendor, device, name, speed capability, or expected grouping does not match configuration.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckNic"
+   ],
+   "code": "TH-NIC-0006-S4Q9",
+   "component": "NIC",
+   "message": "Multiple NIC records resolve to the same PCI address.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckNic"
+   ],
+   "code": "TH-NIC-0007-S2Q9",
+   "component": "NIC",
+   "message": "A NIC that is not present in the expected L10 configuration was discovered.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckLomNicMac"
+   ],
+   "code": "TH-NIC-0008-S2Q9",
+   "component": "LOM NIC",
+   "message": "The configured LAN-on-motherboard interface was not found.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckLomNicMac"
+   ],
+   "code": "TH-NIC-0009-S2Q9",
+   "component": "LOM NIC",
+   "message": "The LAN-on-motherboard MAC address does not match the expected service/BOM value.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBroadcomDrivers"
+   ],
+   "code": "TH-NIC-0010-S4Q9",
+   "component": "NIC",
+   "message": "The installed NIC driver or firmware version could not be queried.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBroadcomDrivers"
+   ],
+   "code": "TH-NIC-0011-S5Q9",
+   "component": "NIC",
+   "message": "The installed NIC kernel driver does not match the required L10 release.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBroadcomDrivers"
+   ],
+   "code": "TH-NIC-0012-S5Q9",
+   "component": "NIC",
+   "message": "The installed NIC firmware does not match the required L10 release.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBroadcomDrivers"
+   ],
+   "code": "TH-NIC-0013-S4Q9",
+   "component": "NIC",
+   "message": "NIC driver/firmware version output was incomplete or could not be parsed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Retry",
+   "bugs": "",
+   "cases": [
+    "CheckInterfaceLinkStatus",
+    "LoopbackTopologyTest"
+   ],
+   "code": "TH-NIC-0014-S2Q6",
+   "component": "NIC",
+   "message": "A required NIC interface has no carrier or is not operationally up.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckNetdReadiness"
+   ],
+   "code": "TH-NIC-0015-S4Q9",
+   "component": "NIC",
+   "message": "netd did not reach its ready state within the configured wait interval.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckNetdReadiness"
+   ],
+   "code": "TH-NIC-0016-S5Q9",
+   "component": "NIC",
+   "message": "The active bond slave reported by netd is not the configured expected interface.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "LoopbackTopologyTest",
+    "NetworkBwRdmaTest"
+   ],
+   "code": "TH-NIC-0017-S2Q9",
+   "component": "NIC",
+   "message": "A configured loopback NIC group does not contain the expected number of interfaces.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "LoopbackTopologyTest",
+    "NetworkBwRdmaTest"
+   ],
+   "code": "TH-NIC-0018-S5Q9",
+   "component": "NIC",
+   "message": "A configured loopback client/server index is outside the discovered NIC group.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "LoopbackTopologyTest",
+    "NetworkBwRdmaTest"
+   ],
+   "code": "TH-NIC-0019-S2Q9",
+   "component": "NIC",
+   "message": "A required interface has no RDMA device binding or the configured group has no RDMA-capable interface.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "LoopbackTopologyTest",
+    "NetworkBwRdmaTest"
+   ],
+   "code": "TH-NIC-0020-S4Q9",
+   "component": "NIC",
+   "message": "The test could not configure the loopback pair IP, MTU, namespace, neighbor, or interface state.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "LoopbackTopologyTest",
+    "NetworkBwRdmaTest"
+   ],
+   "code": "TH-NIC-0021-S4Q9",
+   "component": "NIC",
+   "message": "A required IPv4 RoCE v2 GID could not be found for one or both interfaces in the pair.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Retry",
+   "bugs": "",
+   "cases": [
+    "LoopbackTopologyTest"
+   ],
+   "code": "TH-NIC-0022-S2Q6",
+   "component": "NIC",
+   "message": "The short RDMA loopback probe failed to establish traffic or returned a workload failure.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "NetworkBwRdmaTest"
+   ],
+   "code": "TH-NIC-0023-S5Q9",
+   "component": "NIC",
+   "message": "No valid RDMA-capable client/server pair remained after discovery and topology validation.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "NetworkBwRdmaTest"
+   ],
+   "code": "TH-NIC-0024-S4Q9",
+   "component": "NIC",
+   "message": "The ib_write_bw server process could not be started for an RDMA pair.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Retry",
+   "bugs": "",
+   "cases": [
+    "NetworkBwRdmaTest"
+   ],
+   "code": "TH-NIC-0025-S2Q6",
+   "component": "NIC",
+   "message": "The ib_write_bw client timed out or returned a non-zero status for an RDMA pair.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "NetworkBwRdmaTest"
+   ],
+   "code": "TH-NIC-0026-S4Q9",
+   "component": "NIC",
+   "message": "The RDMA bandwidth tool did not emit a parseable average-bandwidth result.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "NetworkBwRdmaTest"
+   ],
+   "code": "TH-NIC-0027-S2Q9",
+   "component": "NIC",
+   "message": "Measured RDMA bandwidth for a configured pair is below the configured percentage of expected line rate.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckNicAsicRails"
+   ],
+   "code": "TH-NIC-0028-S5Q9",
+   "component": "NIC ASIC Rails",
+   "message": "The expected NIC ASIC rail limits could not be loaded from product configuration.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckNicAsicRails"
+   ],
+   "code": "TH-NIC-0029-S4Q9",
+   "component": "NIC ASIC Rails",
+   "message": "A required NIC ASIC voltage-rail reading is unavailable or reported as not applicable.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckNicAsicRails"
+   ],
+   "code": "TH-NIC-0030-S2Q9",
+   "component": "NIC ASIC Rails",
+   "message": "A NIC ASIC voltage rail is below its configured minimum or above its configured maximum.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BroadcomUpdateFwAndConfigure"
+   ],
+   "code": "TH-NIC-0031-S4Q9",
+   "component": "NIC",
+   "message": "The Broadcom NIC firmware update command failed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BroadcomUpdateFwAndConfigure"
+   ],
+   "code": "TH-NIC-0032-S4Q9",
+   "component": "NIC",
+   "message": "Required NIC port, driver, or firmware configuration could not be applied.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BroadcomUpdateFwAndConfigure"
+   ],
+   "code": "TH-NIC-0033-S4Q9",
+   "component": "NIC",
+   "message": "NIC firmware or configuration did not match the requested state after update.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "LoopbackTopologyTest",
+    "NetworkBwRdmaTest"
+   ],
+   "code": "TH-NIC-0034-S4Q9",
+   "component": "NIC",
+   "message": "A required interface MAC address could not be read while constructing a loopback/RDMA pair.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Retry",
+   "bugs": "",
+   "cases": [
+    "LoopbackTopologyTest"
+   ],
+   "code": "TH-NIC-0035-S2Q6",
+   "component": "NIC",
+   "message": "A carrier-down interface did not recover after the configured link-speed/FEC recovery sequence.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "RETRY",
+   "bugs": "",
+   "cases": [
+    "SohuPcieAerCheckTestCase",
+    "SohuPcieRateChangeTestCase",
+    "CheckPcieTopology"
+   ],
+   "code": "TH-PCIE-0001-S2Q6",
+   "component": "PCIE",
+   "message": "PCIe link state mismatch (not L0 / Gen5 / x16)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "ETCH-34150: Power Virus failures \\[was SohuPcieAerCheckTestCase failures\\]",
+   "cases": [
+    "SohuPcieAerCheckTestCase",
+    "SohuPcieRateChangeTestCase"
+   ],
+   "code": "TH-PCIE-0002-S2Q6",
+   "component": "PCIE",
+   "message": "PCIe AER errors detected (correctable or uncorrectable)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuPcieCsramThroughputTestCase",
+    "SohuDmaTestCase",
+    "SohuDmaMultiChipTestCase"
+   ],
+   "code": "TH-PCIE-0003-S2Q9",
+   "component": "PCIE",
+   "message": "PCIe-\\>CSRAM DMA throughput below threshold (50GB/s)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuDmaTestCase",
+    "SohuDmaMultiChipTestCase"
+   ],
+   "code": "TH-PCIE-0004-S2Q9",
+   "component": "PCIE",
+   "message": "PCIe-\\>HBM DMA data integrity mismatch",
+   "source": "1X Module Test",
+   "type": "Data"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuDmaTestCase",
+    "SohuDmaMultiChipTestCase"
+   ],
+   "code": "TH-PCIE-0005-S2Q9",
+   "component": "PCIE",
+   "message": "PCIe-\\>HBM DMA throughput below threshold (16GB/s)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "",
+   "cases": [
+    "SohuPcieRateChangeTestCase"
+   ],
+   "code": "TH-PCIE-0006-S2Q6",
+   "component": "PCIE",
+   "message": "PCIe speed change failed (Gen5\\<-\\>Gen1 transition)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "",
+   "cases": [
+    "SohuPcieLaneMarginTestCase"
+   ],
+   "code": "TH-PCIE-0007-S4Q6",
+   "component": "PCIE",
+   "message": "PCIe lane margin below threshold (EH\\>25mV EW\\>0.2UI tentative)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "ETCH-35872: Chips not enumerated by RPC proxy",
+   "cases": [
+    "PcieSetupTestCase",
+    "SohuVfioPingTestCase",
+    "SohuSaScreeningTestCase",
+    "CheckPcieTopology",
+    "SohuVfioPingMultiChipTestCase"
+   ],
+   "code": "TH-PCIE-0008-S2Q6",
+   "component": "PCIE",
+   "message": "Sohu endpoint not enumerated (absent from PCIe tree / RPC proxy)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "",
+   "cases": [
+    "PcieSetupTestCase"
+   ],
+   "code": "TH-PCIE-0009",
+   "component": "PCIE",
+   "message": "No root ports above PEX switch upstream ports with vendor:device 1000:c030 found",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckPcieTopology"
+   ],
+   "code": "TH-PCIE-0009-S5Q9",
+   "component": "PCIe",
+   "message": "The expected PCIe topology or device specification could not be loaded; no PCIe DUT verdict is available.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckPcieTopology"
+   ],
+   "code": "TH-PCIE-0010-S4Q9",
+   "component": "PCIe",
+   "message": "The PCIe inventory command failed, so the test could not enumerate devices or links.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckPcieTopology"
+   ],
+   "code": "TH-PCIE-0011-S4Q9",
+   "component": "PCIe",
+   "message": "The PCIe inventory output was empty, incomplete, or could not be parsed into a reliable topology.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckPcieTopology"
+   ],
+   "code": "TH-PCIE-0012-S5Q9",
+   "component": "PCIe",
+   "message": "The configured PCIe topology contains invalid or conflicting device identifiers, counts, or topology indices.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Retry",
+   "bugs": "",
+   "cases": [
+    "CheckPcieTopology"
+   ],
+   "code": "TH-PCIE-0013-S2Q6",
+   "component": "PCIe",
+   "message": "The discovered PCIe device count or parent/child topology does not match the expected server topology.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckPcieTopology"
+   ],
+   "code": "TH-PCIE-0014-S2Q9",
+   "component": "PCIe",
+   "message": "A discovered PCIe device has an unexpected vendor ID, device ID, subsystem ID, or configured device name.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckPcieTopology"
+   ],
+   "code": "TH-PCIE-0015-S4Q9",
+   "component": "PCIe",
+   "message": "Two expected or discovered PCIe devices resolve to the same bus/device/function address.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckPlxDaemonFirmwareVersion"
+   ],
+   "code": "TH-PCIE-0016-S4Q9",
+   "component": "PLX switch",
+   "message": "The PLX daemon firmware/version query failed or returned no usable switch information.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckPlxDaemonFirmwareVersion"
+   ],
+   "code": "TH-PCIE-0017-S5Q9",
+   "component": "PLX switch",
+   "message": "The PLX daemon or switch firmware version does not match the expected L10 release.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "UpdatePlxDaemonFirmwareVersion"
+   ],
+   "code": "TH-PCIE-0018-S4Q9",
+   "component": "PLX switch",
+   "message": "The PLX daemon firmware update or activation command failed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "UpdatePlxDaemonFirmwareVersion"
+   ],
+   "code": "TH-PCIE-0019-S4Q9",
+   "component": "PLX switch",
+   "message": "PLX daemon firmware did not report the requested version after the update completed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "WARM_REBOOT",
+   "bugs": "",
+   "cases": [
+    "CheckPsuHealth"
+   ],
+   "code": "TH-PWR-0001-S4Q2",
+   "component": "PWR",
+   "message": "Station PSU load imbalance \\>5% or PGOOD failure",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuPowerTelemetryTestCase",
+    "SohuVrmTestCase",
+    "SohuVmTestCase"
+   ],
+   "code": "TH-PWR-0002-S4Q9",
+   "component": "PWR",
+   "message": "Power telemetry unavailable (VBB / VRM / VM sensor RPC / collectors not responding, or expected VM sensors missing from the reading response).",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuPowerTelemetryTestCase",
+    "SohuVrmTestCase"
+   ],
+   "code": "TH-PWR-0003-S2Q9",
+   "component": "PWR",
+   "message": "Power data out of the qualified range, or CPLD reports an active VRM FSM fault on the mezzanine.",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-34151: SohuVmTestCase failure",
+   "cases": [
+    "SohuVmTestCase"
+   ],
+   "code": "TH-PWR-0004-S2Q9",
+   "component": "PWR",
+   "message": "VM sensor reading outside +/-5% of nominal",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuVmTestCase"
+   ],
+   "code": "TH-PWR-0005-S2Q9",
+   "component": "PWR",
+   "message": "Voltage rail adjustment not reflected in VM readback",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-32910: SohuLlamaMttTestCase Failures",
+   "cases": [
+    "SohuLlamaMttTestCase"
+   ],
+   "code": "TH-PWR-0006-S4Q9",
+   "component": "PWR",
+   "message": "Vmin above rated limit for SA/SAU rail",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-32910: SohuLlamaMttTestCase Failures",
+   "cases": [
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusMultiChipTestCase"
+   ],
+   "code": "TH-PWR-0007-S2Q9",
+   "component": "PWR",
+   "message": "Unexpected DVFS rampdown event during workload",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "ETCH-33918: SohuSecureBootRecoveryUpdateTestCase failure",
+   "cases": [
+    "BootloaderResultTestCase"
+   ],
+   "code": "TH-PWR-0008-S2Q6",
+   "component": "PWR",
+   "message": "Module failed to power on (indicators off / rail fault or short)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcPowerCycle"
+   ],
+   "code": "TH-PWR-0009-S4Q9",
+   "component": "Power",
+   "message": "The BMC power-cycle command returned a failure.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcPowerCycle"
+   ],
+   "code": "TH-PWR-0010-S2Q9",
+   "component": "Power",
+   "message": "The host remained reachable after the BMC power-off step and did not enter the expected off state.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcPowerCycle"
+   ],
+   "code": "TH-PWR-0011-S2Q9",
+   "component": "Power",
+   "message": "The host did not become reachable within the configured interval after BMC power-on.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "SohuHostRebootTestCase"
+   ],
+   "code": "TH-PWR-0012-S4Q9",
+   "component": "Power",
+   "message": "The host reboot request failed before the reboot transition could be observed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "SohuHostRebootTestCase"
+   ],
+   "code": "TH-PWR-0013-S4Q9",
+   "component": "Power",
+   "message": "The host never became unreachable after the reboot request, so the expected reboot transition was not observed.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "SohuHostRebootTestCase"
+   ],
+   "code": "TH-PWR-0014-S2Q9",
+   "component": "Power",
+   "message": "The host did not return to a reachable and usable state within the configured reboot recovery interval.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuChipIdTestCase"
+   ],
+   "code": "TH-SN-0001-S2Q9",
+   "component": "SN",
+   "message": "Chip/module ID read failure or mismatch vs genealogy",
+   "source": "1X Module Test",
+   "type": "Data"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "ProgramSecureBootloaderTestCase",
+    "BootloaderResultTestCase"
+   ],
+   "code": "TH-SOHU-0001-S2Q9",
+   "component": "SOHU",
+   "message": "ASIC reset deassert failed",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-35300: SaSortRampupHbmSingleChipTestCase failures",
+   "cases": [
+    "SohuFlrTestCase",
+    "SohuVfioPingTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuPingTestCase",
+    "SohuVfioPingMultiChipTestCase",
+    "SohuFlrMultiChipTestCase"
+   ],
+   "code": "TH-SOHU-0002-S2Q9",
+   "component": "SOHU",
+   "message": "Sohu not pingable / no response from firmware",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuSecureBootRecoveryUpdateTestCase"
+   ],
+   "code": "TH-SOHU-0003-S2Q9",
+   "component": "SOHU",
+   "message": "PLDM sensor discoverability or sanity check failed",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-35872: Chips not enumerated by RPC proxy",
+   "cases": [
+    "SohuI2cTestCase"
+   ],
+   "code": "TH-SOHU-0004-S2Q9",
+   "component": "SOHU",
+   "message": "Mezzanine I2C transaction failed (controller bring-up, mux select, board-type read, or device probe)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuGpioTestCase"
+   ],
+   "code": "TH-SOHU-0005-S2Q9",
+   "component": "SOHU",
+   "message": "MCPU GPIO operation failed or read back the wrong value",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuUartTestCase"
+   ],
+   "code": "TH-SOHU-0006-S2Q9",
+   "component": "SOHU",
+   "message": "UART ping log message absent or content mismatch",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuJtagTestCase"
+   ],
+   "code": "TH-SOHU-0007-S2Q9",
+   "component": "SOHU",
+   "message": "JTAG check failed (debug session could not be established, or a readback did not match)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuEfuseTestCase"
+   ],
+   "code": "TH-SOHU-0008-S2Q9",
+   "component": "SOHU",
+   "message": "eFuse region read failed",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuEfuseTestCase"
+   ],
+   "code": "TH-SOHU-0009-S2Q9",
+   "component": "SOHU",
+   "message": "eFuse WS/FT / MBIST repair / SA repair status incomplete",
+   "source": "1X Module Test",
+   "type": "Data"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuBusConnectivityTestCase"
+   ],
+   "code": "TH-SOHU-0010-S2Q9",
+   "component": "SOHU",
+   "message": "CSR read-write-verify-restore failed",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuSramMemoryTestCase",
+    "SohuSramMemoryMultiChipTestCase"
+   ],
+   "code": "TH-SOHU-0011-S2Q9",
+   "component": "SOHU",
+   "message": "On-chip SRAM test failure (stuck bits / readback mismatch)",
+   "source": "1X Module Test",
+   "type": "Memory"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-34131: SohuPowerVirusTestCase failures",
+   "cases": [
+    "SaSortRampupHbmSingleChipTestCase"
+   ],
+   "code": "TH-SOHU-0012-S2Q9",
+   "component": "SOHU",
+   "message": "SA matmul numeric mismatch vs reference (ULP\\!=0)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-35940: 267693980000009 - Failed RunAllAttnTestsSingleChipTestCase",
+   "cases": [
+    "RunAllAttnTestsSingleChipTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase"
+   ],
+   "code": "TH-SOHU-0014-S2Q9",
+   "component": "SOHU",
+   "message": "Attention/SAU numeric mismatch vs funcsim",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-35548: SohuPowerVirusThermalTestCase failures",
+   "cases": [
+    "KayakTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuMlpTp8TestCase",
+    "SohuLlama70bForwardIteratedTestCase",
+    "SohuLlama70bHp8ForwardIteratedTestCase",
+    "SohuLlamaTp8InferenceMaxTestCase",
+    "Llama8bFp8Tp1SmokeTestCase",
+    "SohuPowerVirusMultiChipTestCase"
+   ],
+   "code": "TH-SOHU-0015-S2Q9",
+   "component": "SOHU",
+   "message": "Workload hang / operation timeout",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuWeightLoadTestCase",
+    "SohuLlama70bForwardIteratedTestCase",
+    "SohuLlama70bHp8ForwardIteratedTestCase",
+    "SohuLlamaTp8InferenceMaxTestCase",
+    "Llama8bFp8Tp1SmokeTestCase"
+   ],
+   "code": "TH-SOHU-0016-S2Q9",
+   "component": "SOHU",
+   "message": "Weight load spot-check mismatch",
+   "source": "1X Module Test",
+   "type": "Data"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuLlamaMttTestCase",
+    "SohuLlamaTp8InferenceMaxTestCase"
+   ],
+   "code": "TH-SOHU-0017-S2Q9",
+   "component": "SOHU",
+   "message": "Sustained inference throughput on the million-token test did not reach 95% of the suite's expected_chip_tokens_per_second.",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-34695: SohuLlama8bFp8PrefillTestCase failures",
+   "cases": [
+    "SohuLlama8bFp8PrefillTestCase",
+    "SohuLlama8bFp8ForwardTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "KayakTestCase",
+    "SohuMlpTp8TestCase",
+    "SohuLlama70bForwardIteratedTestCase",
+    "SohuLlama70bHp8ForwardIteratedTestCase",
+    "SohuLlamaTp8InferenceMaxTestCase",
+    "Llama8bFp8Tp1SmokeTestCase"
+   ],
+   "code": "TH-SOHU-0018-S2Q9",
+   "component": "SOHU",
+   "message": "End-to-end inference numeric mismatch vs reference",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuFlrTestCase",
+    "SohuFlrMultiChipTestCase"
+   ],
+   "code": "TH-SOHU-0019-S2Q9",
+   "component": "SOHU",
+   "message": "FLR failed / flr_timeout_s 5.0s / recovery_timeout_s 10.0s / not pingable between FLRs",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-35301: SohuVfioPingTestCase failures",
+   "cases": [
+    "SohuSauPllPhaseAlignmentTestCase",
+    "SetPllGlitchFreqTestCase"
+   ],
+   "code": "TH-SOHU-0020-S2Q9",
+   "component": "SOHU",
+   "message": "SAU/SA PLL configuration failure: firmware did not report a safe phase alignment after FLR, or a requested PLL glitch frequency did not read back within 5% of target before timeout.",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-35581: SohuSaScreeningTestCase failures",
+   "cases": [
+    "SohuSaScreeningTestCase",
+    "SaSortRampupHbmSingleChipTestCase"
+   ],
+   "code": "TH-SOHU-0021-S2Q9",
+   "component": "SOHU",
+   "message": "Defective SA column count exceeds screening limit",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-33887: SohuPdTestCase failure",
+   "cases": [
+    "SohuPdTestCase"
+   ],
+   "code": "TH-SOHU-0022-S2Q9",
+   "component": "SOHU",
+   "message": "Process detector (PD) chain read failure",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuChipBinTestCase"
+   ],
+   "code": "TH-SOHU-0023-S2Q9",
+   "component": "SOHU",
+   "message": "Chip bin below acceptance threshold / failed binning criteria",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-34698",
+   "cases": [
+    "SohuChipBinTestCase",
+    "SohuSaScreeningTestCase",
+    "SaSortRampupHbmSingleChipTestCase"
+   ],
+   "code": "TH-SOHU-0024-S5Q9",
+   "component": "SOHU",
+   "message": "Required screening data missing or failed to load (SA mask / bin inputs), including eFuse/Flash init-config read failures and invalid screening bin encodings.",
+   "source": "1X Module Test",
+   "type": "Config"
+  },
+  {
+   "action": "HALT_ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuSnapTestCase"
+   ],
+   "code": "TH-SOHU-0025-S4Q6",
+   "component": "SOHU",
+   "message": "Chip state snapshot capture failed",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuSnapTestCase"
+   ],
+   "code": "TH-SOHU-0025-S4Q9",
+   "component": "SOHU",
+   "message": "Chip state snapshot capture failed",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SetPllGlitchFreqTestCase"
+   ],
+   "code": "TH-SOHU-0026-S2Q9",
+   "component": "SOHU",
+   "message": "PLL glitch frequency did not read back within 5% of target before timeout",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuVfioPingTestCase",
+    "SohuVfioPingMultiChipTestCase"
+   ],
+   "code": "TH-SOHU-0027-S2Q9",
+   "component": "SOHU",
+   "message": "VFIO ping responses received but none within the allowed latency (device pingable, latency out of spec)",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "HALT_ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuLlamaMttTestCase",
+    "SohuMlpTp8TestCase",
+    "SohuLlama70bForwardIteratedTestCase",
+    "SohuLlama70bHp8ForwardIteratedTestCase",
+    "SohuLlamaTp8InferenceMaxTestCase",
+    "Llama8bFp8Tp1SmokeTestCase"
+   ],
+   "code": "TH-SOHU-0028-S4Q9",
+   "component": "SOHU",
+   "message": "MTT binary exited non-zero for a reason the harness cannot determine",
+   "source": "1X Module Test",
+   "type": "Software"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "ETCH-35857: MLT DTS faiure Peak-to-peak deviation: 33029224 uC is out of bounds (30000000)",
+   "cases": [
+    "SohuThermalDiodeTestCase",
+    "SohuDtsTestCase",
+    "SohuDtsMultiChipTestCase"
+   ],
+   "code": "TH-THM-0001-S2Q6",
+   "component": "THM",
+   "message": "Thermal diode temperature reading out of the qualified range, reported invalid by the sensor, or an uncalibrated mezzanine diode reading below 0 C.",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "ETCH-35857: MLT DTS faiure Peak-to-peak deviation: 33029224 uC is out of bounds (30000000)",
+   "cases": [
+    "SohuDtsTestCase",
+    "SohuDtsMultiChipTestCase"
+   ],
+   "code": "TH-THM-0002-S2Q6",
+   "component": "THM",
+   "message": "The peak-to-peak spread across usable Sohu DTS readings exceeded the configured deviation limit.",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuCtsTestCase"
+   ],
+   "code": "TH-THM-0003-S2Q9",
+   "component": "THM",
+   "message": "CTS protection did not shut off chip at minimum threshold",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "RETRY",
+   "bugs": "ETCH-35548: SohuPowerVirusThermalTestCase failures",
+   "cases": [
+    "SohuPowerVirusThermalTestCase",
+    "SohuPowerVirusMultiChipTestCase"
+   ],
+   "code": "TH-THM-0004-S2Q6",
+   "component": "THM",
+   "message": "Catastrophic trip event during stress workload",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-35857: MLT DTS faiure Peak-to-peak deviation: 33029224 uC is out of bounds (30000000)",
+   "cases": [
+    "SohuDtsTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusMultiChipTestCase"
+   ],
+   "code": "TH-THM-0005-S4Q9",
+   "component": "THM",
+   "message": "DTS peak-to-peak deviation under power virus out of bounds",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "ETCH-34688: SohuPowerVirusThermalTestCase failures",
+   "cases": [
+    "SohuPowerVirusThermalTestCase",
+    "SohuPowerVirusMultiChipTestCase"
+   ],
+   "code": "TH-THM-0006-S2Q9",
+   "component": "THM",
+   "message": "Peak DTS temperature under power virus exceeds expected maximum",
+   "source": "1X Module Test",
+   "type": "Hardware"
+  },
+  {
+   "action": "ESCALATE",
+   "bugs": "",
+   "cases": [
+    "SohuThermalDiodeTestCase"
+   ],
+   "code": "TH-THM-0007-S4Q9",
+   "component": "THM",
+   "message": "TMP464 thermal telemetry unreadable or malformed \u2014 verdict inconclusive (test-system ERROR, excluded from yield)",
+   "source": "1X Module Test",
+   "type": "Software"
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheckFanLocation"
+   ],
+   "code": "TH-THM-0008-S4Q9",
+   "component": "Fan",
+   "message": "Fan location identifiers read back from the BMC do not match the configured physical fan positions.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheckFanControl"
+   ],
+   "code": "TH-THM-0009-S4Q9",
+   "component": "Fan",
+   "message": "The requested fan PWM value could not be applied through the BMC control interface.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheckFanControl"
+   ],
+   "code": "TH-THM-0010-S2Q9",
+   "component": "Fan",
+   "message": "A fan RPM reading is outside the expected range or does not increase as required after a PWM change.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "BmcCheckFanControl"
+   ],
+   "code": "TH-THM-0011-S4Q9",
+   "component": "Fan",
+   "message": "Fan control could not be returned to automatic mode after the manual fan test.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBaseboard",
+    "CheckBaseboardVersion"
+   ],
+   "code": "TH-VBB-0001-S4Q9",
+   "component": "VBB",
+   "message": "Baseboard/VBB inventory or version information could not be queried.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBaseboard"
+   ],
+   "code": "TH-VBB-0002-S2Q9",
+   "component": "VBB",
+   "message": "Baseboard manufacturer, product, serial, or board identity does not match the expected BOM.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBaseboardVersion"
+   ],
+   "code": "TH-VBB-0003-S5Q9",
+   "component": "VBB",
+   "message": "The baseboard/VBB hardware or firmware version does not match the expected release.",
+   "source": "L10 Test",
+   "type": ""
+  },
+  {
+   "action": "Halt & escalate",
+   "bugs": "",
+   "cases": [
+    "CheckBaseboard",
+    "CheckBaseboardVersion"
+   ],
+   "code": "TH-VBB-0004-S5Q9",
+   "component": "VBB",
+   "message": "Expected baseboard/VBB BOM or version data could not be loaded; no DUT verdict is available.",
+   "source": "L10 Test",
+   "type": ""
+  }
+ ],
+ "readOn": "2026-08-22",
+ "source": "https://docs.google.com/spreadsheets/d/1zKcxEXyYFLAQkI0AnVtZnSQ7Z-sxGqzGBpc9-0qhrqk/edit?gid=1353335746#gid=1353335746"
+}

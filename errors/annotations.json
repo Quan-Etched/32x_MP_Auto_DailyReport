@@ -1,0 +1,14 @@
+{
+ "_comment": [
+  "Root cause, corrective action and note for one failing (day, station, unit,",
+  "test case). Written by the customize page's admin mode through",
+  "tools/annotate_server.py, and read by src/factory/build_errors.py.",
+  "",
+  "Keys are day|station|unit|case, in the open rather than hashed, because",
+  "somebody will read this in a diff and needs to see what changed.",
+  "",
+  "Hand-editing is fine. The build merges whatever is here."
+ ],
+ "entries": {},
+ "version": 1
+}

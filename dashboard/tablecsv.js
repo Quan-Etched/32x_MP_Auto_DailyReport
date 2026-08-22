@@ -121,6 +121,11 @@
    * `name` is a function so the filename can carry the day or the week that is
    * on screen at the moment of the click, not the one that was on screen when
    * the button was made.
+   *
+   * `table` scrapes the rendered rows, which is right for a table of text and
+   * wrong for one with inputs in it — `fromTable` reads textContent, and a
+   * textarea's value is not its text. `rows` is the alternative: hand the rows
+   * over directly. One or the other, not both.
    */
   function attach(host, options) {
     if (!host) return null;
@@ -131,10 +136,15 @@
     button.setAttribute('title', options.title
       || 'the rows on screen, as filtered, as a CSV for Excel');
     button.addEventListener('click', function () {
-      var table = typeof options.table === 'function'
-        ? options.table() : options.table;
-      var rows = fromTable(table);
-      if (rows.length < 2) {
+      var rows;
+      if (options.rows) {
+        rows = typeof options.rows === 'function' ? options.rows() : options.rows;
+      } else {
+        var table = typeof options.table === 'function'
+          ? options.table() : options.table;
+        rows = fromTable(table);
+      }
+      if (!rows || rows.length < 2) {
         /* Nothing to hand over. Said on the button rather than downloading an
          * empty file that looks like a data loss. */
         var was = button.textContent;

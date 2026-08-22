@@ -354,19 +354,35 @@ def _top_failures(runs: List[Dict[str, Any]], limit: int = 5) -> List[Dict[str, 
 #: which is arithmetically correct and completely false.
 MIN_COHORT = 20
 
+#: The rolled figure is the module line, and only the module line.
+#:
+#: It used to multiply every stage with a readable cohort, which as of 2026-W34
+#: means TIM as well — and TIM's 35.9% dragged the W34 headline to 19.7% when
+#: the number the line quotes for that week is MLT x HTT. TIM is measured and
+#: reported in its own column; it is not part of the accumulated module yield
+#: yet, and a headline that silently changes meaning the week a new station
+#: starts reporting is worse than one with a stated scope.
+#:
+#: The scope is named in `rolledOver`, which every page prints beside the
+#: number, so widening this list re-labels the pages rather than moving a
+#: number nobody can account for.
+ROLLED_STATIONS = ("mlt", "htt")
+
 
 def _totals(rows: List[Dict[str, Any]], floor: int = MIN_COHORT) -> Dict[str, Any]:
     graded = [row for row in rows if row["fpy"] is not None]
-    counted = [row for row in graded if row["readable"]]
+    counted = [row for row in graded
+               if row["readable"] and row["key"] in ROLLED_STATIONS]
     thin = [row for row in rows
             if not row["readable"] and not row.get("countsOnly")]
     return {
         "stations": len(rows),
         "units": sum(row["units"] for row in rows),
         "runs": sum(row["runs"] for row in rows),
-        # Rolled through: the probability a unit clears every measured stage
-        # first time. A product, because that is what it is — and the number
-        # nobody had computed for this line.
+        # Rolled through: the probability a unit clears the module line first
+        # time. A product, because that is what it is — and the number nobody
+        # had computed for this line. Scope is ROLLED_STATIONS, and `rolledOver`
+        # names it so the pages can say which stages are in the number.
         "rolledFpy": _product([row["fpy"] for row in counted]) if counted else None,
         "rolledOver": [row["label"] for row in counted],
         # Named, not hidden. That these stages are too thin to roll is itself

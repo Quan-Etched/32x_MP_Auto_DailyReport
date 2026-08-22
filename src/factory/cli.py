@@ -388,27 +388,25 @@ def cmd_build(args: argparse.Namespace) -> int:
         for warning in daily_bundle["warnings"]:
             print("  WARNING {}".format(warning), file=sys.stderr)
 
-        # The hand-kept sheet against the tracker just built, for the days
-        # somebody has put an export in diff/. Handed the bundle above rather
-        # than rebuilding it: reading that workbook twice in one build would
-        # double the slowest step on the page for no new information, and the
-        # two must compare against the same tabs anyway.
-        from . import build_delta
+        # Failures from that tracker, joined to the error-code catalogue.
+        # Handed the bundle just built rather than re-reading it off disk, and
+        # inside this else because there is nothing to join without it.
+        from . import build_errors
         try:
-            delta_bundle = build_delta.build_bundle(daily_bundle)
-        except build_delta.NoWorkbook as exc:
-            print("Delta skipped ({})".format(exc))
+            error_bundle = build_errors.build_bundle(
+                build_errors.collect(daily_bundle))
         except Exception as exc:                          # noqa: BLE001
-            print("Delta skipped ({})".format(exc))
+            print("Error codes skipped ({})".format(exc))
         else:
-            if delta_bundle["days"]:
-                delta_path = build_delta.write_bundle(delta_bundle)
-                print("Delta ({:.0f} KB, {} days) -> {}".format(
-                    delta_path.stat().st_size / 1024,
-                    len(delta_bundle["days"]), delta_path))
-            else:
-                print("Delta skipped (no tab in diff/ lines up with a "
-                      "published day)")
+            error_path = build_errors.write_bundle(error_bundle)
+            print("Error codes ({:.0f} KB, {} failures, {} uncatalogued) "
+                  "-> {}".format(
+                      error_path.stat().st_size / 1024,
+                      len(error_bundle["rows"]),
+                      sum(item["rows"] for item in
+                          error_bundle["uncatalogued"]),
+                      error_path))
+
 
     # The week's first-pass yield, one row per test step — the summary the
     # Monday meeting reads. Cheap: it reuses the controller payload above.
@@ -442,19 +440,6 @@ def cmd_build(args: argparse.Namespace) -> int:
         except Exception as exc:                          # noqa: BLE001
             print("Release source skipped ({})".format(exc))
 
-    # Retests, split from new builds. Straight from pega3 rather than from the
-    # collected payload, because it must agree with the daily tracker — which
-    # keeps validation and debug builds that pega_collect drops.
-    from . import build_retest
-    try:
-        collected = build_retest.collect()
-        if collected["attempts"]:
-            rt_path = build_retest.write_bundle(
-                build_retest.build_bundle(collected))
-            print("Retest page ({:.0f} KB) -> {}".format(
-                rt_path.stat().st_size / 1024, rt_path))
-    except Exception as exc:                              # noqa: BLE001
-        print("Retest page skipped ({})".format(exc))
 
     # The weekly tracker — every week Monday to Sunday, and the unit rows
     # behind each number so anyone can check it.
@@ -771,59 +756,6 @@ def cmd_reconcile(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_delta(args: argparse.Namespace) -> int:
-    """The hand-kept sheet against this repo's reading of the same day."""
-    from . import build_delta
-
-    try:
-        bundle = build_delta.build_bundle(path=args.xlsx,
-                                          adjudicate=not args.no_adjudicate)
-    except build_delta.NoWorkbook as exc:
-        print("No workbook to compare: {}".format(exc), file=sys.stderr)
-        return 1
-
-    if not bundle["days"]:
-        print("No tab in the workbook lines up with a day the dashboard has.",
-              file=sys.stderr)
-        return 1
-
-    path = build_delta.write_bundle(bundle)
-    print("Delta ({:.0f} KB, {} days) -> {}".format(
-        path.stat().st_size / 1024, len(bundle["days"]), path))
-
-    for day in bundle["days"]:
-        print()
-        print("{}  sheet tab {!r}".format(day.get("day"), day["tab"]))
-        if day.get("missing"):
-            print("  not compared: {}".format(day["missing"]))
-            continue
-        counts = day["counts"]
-        said = day.get("reported") or {}
-        if said.get("cutAt"):
-            print("  cut at {}{}".format(
-                said["cutAt"],
-                ", line running until {}".format(said["stillRunningUntil"])
-                if said.get("stillRunningUntil") else ""))
-        for key, label in build_delta.STATIONS:
-            row = "  {:<4}".format(label)
-            reported = (said.get(key) or {})
-            if reported:
-                row += " reported {}P/{}F".format(reported.get("pass"),
-                                                  reported.get("fail"))
-            local, online = counts["local"][key], counts["online"][key]
-            row += "  sheet {}P/{}F ({}%)".format(
-                local["pass"], local["fail"], local["yield"])
-            row += "  online {}P/{}F ({}%)".format(
-                online["pass"], online["fail"], online["yield"])
-            print(row)
-        print("  units: {} on the sheet, {} online".format(
-            counts["local"]["rows"], counts["online"]["rows"]))
-        for kind, count in sorted(day["kinds"].items(),
-                                  key=lambda pair: -pair[1]):
-            print("    {:<16} {}".format(kind, count))
-    return 0
-
-
 def cmd_suite_map(args: argparse.Namespace) -> int:
     """Which suite YAML each station runs, and how the cases compare."""
     from . import suite_map
@@ -927,28 +859,32 @@ def cmd_release_source(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_retest(args: argparse.Namespace) -> int:
-    """Which units came back, what they failed, and what happened next."""
-    from . import build_retest
+def cmd_errors(args: argparse.Namespace) -> int:
+    """Failing test cases joined to the error-code catalogue."""
+    from . import build_errors
 
-    collected = build_retest.collect(
-        start=args.start or build_retest.WINDOW_START)
-    if not collected["attempts"]:
-        print("No module runs in the window.", file=sys.stderr)
+    try:
+        rows = build_errors.collect()
+    except build_errors.NoBundle as exc:
+        print(str(exc), file=sys.stderr)
         return 1
-    bundle = build_retest.build_bundle(collected)
-    path = build_retest.write_bundle(bundle)
-    window = bundle["window"]
-    print("Retests {} .. {} ({} unit-station traces) -> {}".format(
-        window["from"], window["to"], len(bundle["rows"]), path))
-    for key, split in bundle["split"].items():
-        rate = ("{:.1%}".format(split["firstPassRate"])
-                if split["firstPassRate"] is not None else "n/a")
-        back = ("{:.1%}".format(split["retestRate"])
-                if split["retestRate"] is not None else "n/a")
-        print("  {:<4} {:>4} units, first pass {:>7}  ·  {:>3} came back ({}), "
-              "{} recovered".format(split["label"], split["units"], rate,
-                                    split["retested"], back, split["recovered"]))
+    bundle = build_errors.build_bundle(rows)
+    path = build_errors.write_bundle(bundle)
+    cat = bundle["catalogue"]
+    print("Error codes ({:.0f} KB, {} failures) -> {}".format(
+        path.stat().st_size / 1024, len(bundle["rows"]), path))
+    print("  catalogue: {} codes over {} test cases, read {}".format(
+        cat["codes"], cat["cases"], cat["readOn"]))
+    decided = sum(1 for row in bundle["rows"] if len(row["codes"]) == 1)
+    several = sum(1 for row in bundle["rows"] if len(row["codes"]) > 1)
+    print("  {} rows resolve to one code, {} to several, {} to none".format(
+        decided, several, len(bundle["rows"]) - decided - several))
+    if bundle["uncatalogued"]:
+        print("  not in the catalogue: {} cases, {} rows — top: {}".format(
+            len(bundle["uncatalogued"]),
+            sum(item["rows"] for item in bundle["uncatalogued"]),
+            ", ".join("{} x{}".format(item["case"], item["rows"])
+                      for item in bundle["uncatalogued"][:3])))
     return 0
 
 
@@ -1284,17 +1220,6 @@ def _build_parser() -> argparse.ArgumentParser:
                             "the bundles)")
     recon.set_defaults(handler=cmd_reconcile)
 
-    delta = subparsers.add_parser(
-        "delta",
-        help="the hand-kept sheet in diff/ against this repo's own reading")
-    delta.add_argument("--xlsx", default=None,
-                       help="the workbook to compare against (default: the "
-                            "newest .xlsx in diff/)")
-    delta.add_argument("--no-adjudicate", action="store_true",
-                       help="skip the controller lookups that tell a "
-                            "fixture-level failure from a real conflict")
-    delta.set_defaults(handler=cmd_delta)
-
     smap = subparsers.add_parser(
         "suite-map",
         help="which suite YAML each station runs, derived from the sw tree")
@@ -1310,12 +1235,10 @@ def _build_parser() -> argparse.ArgumentParser:
                            "no log shows, and the reverse")
     smap.set_defaults(handler=cmd_suite_map)
 
-    retest = subparsers.add_parser(
-        "retest", help="retests split from new builds, in the line's own format")
-    retest.add_argument("--from", dest="start", default=None,
-                        help="first day of the trace (default {})".format(
-                            "2026-08-07"))
-    retest.set_defaults(handler=cmd_retest)
+    errors = subparsers.add_parser(
+        "errors",
+        help="failing test cases joined to the error-code catalogue")
+    errors.set_defaults(handler=cmd_errors)
 
     fpy = subparsers.add_parser(
         "fpy", help="end-to-end first-pass yield, one row per test step")

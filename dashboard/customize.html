@@ -13,6 +13,7 @@
 
   <header class="masthead">
     <h1>Customize</h1>
+    <a class="masthead-jump" href="allhands.html" title="The all-hands view: five stages, one number each, week over week">All-hands view &rarr;</a>
     <span class="meta" id="meta"></span>
     <span class="build" id="build" title="Which build of the analysis produced this page"></span>
     <span class="spacer"></span>
@@ -91,6 +92,47 @@
       </div>
     </section>
 
+    <section class="card full" style="margin-top:16px" id="errors">
+      <div class="card-head">
+        <div>
+          <h2>4 · Error codes</h2>
+          <p class="sub" id="err-sub"></p>
+        </div>
+        <span class="spacer"></span>
+        <div class="quick" id="err-admin"></div>
+        <div class="quick" id="err-download"></div>
+      </div>
+
+      <!-- Its own range, defaulting to a week. The sections above are for
+           pulling a CSV of runs and people set them to whatever they are
+           chasing; a failure table wants "this week" nearly always, and
+           inheriting a three-week range from section 1 made it a wall. The
+           stations from section 2 do apply — that choice is about which
+           stations you care about, and the answer is the same here. -->
+      <div class="pickers">
+        <label class="picker">
+          <span class="picker-k">From (UTC)</span>
+          <input type="date" id="err-from">
+        </label>
+        <label class="picker">
+          <span class="picker-k">To (UTC)</span>
+          <input type="date" id="err-to">
+        </label>
+        <div class="quick" id="err-quick"></div>
+      </div>
+
+      <div class="banner" id="err-admin-note" hidden></div>
+
+      <div class="table-wrap">
+        <table class="cz-table" id="err-table">
+          <thead id="err-head"></thead>
+          <tbody id="err-body"></tbody>
+        </table>
+      </div>
+      <p class="cz-note" id="err-note"></p>
+      <p class="cz-note" id="err-unknown"></p>
+    </section>
+
   </main>
 
   <footer class="notes">
@@ -113,8 +155,10 @@
 </div>
 
 <script src="data/runs_pega.js"></script>
+<script src="data/errors.js"></script>
 <script src="tablecsv.js"></script>
 <script src="customize.js"></script>
+<script src="errors.js"></script>
 <script src="theme.js"></script>
 <script src="update.js"></script>
 </body>

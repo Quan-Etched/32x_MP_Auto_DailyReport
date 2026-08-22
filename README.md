@@ -156,7 +156,7 @@ same meanings `daily.py` gives them, so the row count always reconciles with the
 number that was clicked. `abort` means EOS's `error`; see
 `src/factory/build_runs.py`.
 
-**`dashboard/builds.html` — new builds and retests.** Whether a unit was seeing
+**Retests.** Whether a unit was seeing
 a station for the first time or coming back, and if it is back, what it failed
 last time. Colour-coded, but the word is there too — the page is meant to be
 screenshotted into a thread.
@@ -386,9 +386,10 @@ src/factory/
   reconcile.py        OCP against the controllers run by run for one day, with
                       each difference classified — a fixture row standing in for
                       its units is not a missing unit
-  build_delta.py      the hand-kept sheet in diff/ against this repo's own
-                      reading of the same day: population, verdicts, failure
-                      cases, and why each differs
+  build_errors.py     the tracker's failing test cases joined to the line's
+                      error-code catalogue — every candidate code, never a
+                      chosen one, plus whatever people have recorded about
+                      each failure
   suite_map.py        which suite YAML each station runs, and how we know:
                       BUILD's deploy_suite entries, the paths release scripts
                       pin, each file's own suite_name / run_name, then the
@@ -400,7 +401,7 @@ src/factory/
   control.py          the /api routes behind the Update button
   cli.py              trust | levels | runs | inspect | collect | demo
                       | build | refresh | status | report | items
-                      | dailyexcel | release-source | suite-map | delta
+                      | dailyexcel | release-source | suite-map | errors
                       | reconcile | serve
 
 dashboard/
@@ -417,10 +418,13 @@ dashboard/
   suitemap.js         which suite YAML each station runs, with the evidence
   runs.html + runtable.js + runs.css        raw run table (the drill-down)
   dailyexcel.html + dailysheet.js + dailyexcel.css   the line's daily tracker
-  delta.html + delta.js + delta.css   that sheet vs this repo, unit by unit
   rack2.html + rack2.js + rack2.css   rack 2 assembled, and where its four
                       servers actually stand — read from the controllers, so
                       the page keeps telling the truth after the day
+  customize.html + customize.js + errors.js + customize.css   pick days and
+                      stations, take the CSV — and section 4, failures as error
+                      codes, with the three columns admins can record against
+                      each one
   allhands.html + allhands.js + allhands.css   five stages, one first-pass
                       yield each, over any UTC range, plus what retests
                       recovered and a failure Pareto

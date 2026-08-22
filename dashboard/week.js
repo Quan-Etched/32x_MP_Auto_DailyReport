@@ -122,7 +122,9 @@
     if (got.failed) kinds.push(got.failed + ' failed MLT and went on anyway');
     if (got.unproven) kinds.push(got.unproven + ' with no MLT pass on record');
 
-    var list = h('div', { class: 'mf-list', hidden: 'hidden' });
+    /* Open. Same reason as the daily page: the evidence for a routing
+     * accusation belongs next to the accusation, not behind it. */
+    var list = h('div', { class: 'mf-list' });
     (got.units || []).forEach(function (entry) {
       list.appendChild(h('div', { class: 'mf-unit' }, [
         h('span', { class: 'mf-day', text: entry.day }),
@@ -139,8 +141,7 @@
     });
 
     var toggle = h('button', { type: 'button', class: 'mf-count',
-      'aria-expanded': 'false',
-      title: 'show the units, with a link to each run on the controller' },
+      'aria-expanded': 'true', title: 'hide the units' },
       [h('strong', { text: got.total + ' unit' +
                            (got.total === 1 ? '' : 's') })]);
     toggle.addEventListener('click', function () {

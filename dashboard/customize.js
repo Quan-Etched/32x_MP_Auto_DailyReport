@@ -433,6 +433,14 @@
     renderBreakdown(rows);
     renderPreview(rows);
     renderDownload(rows);
+    /* Section 4 draws from the same station selection — that choice is about
+       which stations you care about, and the answer does not change between a
+       run CSV and a failure table. Published rather than reached for: errors.js
+       has no business inside this closure. */
+    if (window.FactoryErrors && window.FactoryErrors.stations) {
+      window.FactoryErrors.stations(Object.keys(view.stations).filter(
+        function (key) { return view.stations[key]; }));
+    }
     byId('take-sub').textContent = rows.length
       ? plural(rows.length, 'run') + ' from ' + view.from + ' to ' + view.to +
         ' (UTC)'

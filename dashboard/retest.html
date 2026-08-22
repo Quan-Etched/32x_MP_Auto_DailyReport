@@ -2,70 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Retests</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="retest.css">
+  <!-- Retired 2026-08-22, replaced by the error-code table on the customize
+       page: per error rather than per unit, and carrying the root cause and
+       corrective action beside each one. Kept as a redirect because the
+       address was handed out. -->
+  <meta http-equiv="refresh" content="0; url=customize.html#section=errors">
+  <link rel="canonical" href="customize.html">
+  <script>
+    /* A meta refresh drops the #fragment. Nothing the old page took in one
+       maps onto the new section, so a fragment that arrives is preserved and
+       the errors section is the default landing. */
+    (function () {
+      var target = 'customize.html';
+      location.replace(location.hash ? target + location.hash
+                                     : target + '#section=errors');
+    })();
+  </script>
 </head>
 <body>
-<div class="wrap">
-
-  <header class="masthead">
-    <h1>Retests</h1>
-    <span class="meta" id="meta"></span>
-    <span class="build" id="build"></span>
-    <span class="spacer"></span>
-    <a class="theme-toggle" href="dailyexcel.html">Daily tracker &rarr;</a>
-    <a class="theme-toggle" href="weekly.html">Weekly tracker &rarr;</a>
-    <a class="theme-toggle" href="index.html">&larr; Station yield</a>
-    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
-  </header>
-
-  <p class="rt-intro">
-    New builds and retests, counted separately. The daily tracker shows one row
-    per unit with the latest attempt winning, so a unit that failed in the
-    morning and passed in the afternoon appears once, as a pass — right for
-    "what is the state of the line", wrong for "how did the fresh units do".
-    A shift that starts twenty modules and re-runs fifteen known-bad ones has
-    two yields, and the average of them describes neither.
-  </p>
-
-  <section class="rt-split" id="split"></section>
-
-  <div class="rt-bar">
-    <div class="rt-filters" id="filters"></div>
-    <button type="button" class="rt-download" id="download">Download CSV</button>
-  </div>
-
-  <div class="rt-picked" id="picked" hidden></div>
-
-  <div class="table-wrap">
-    <table class="rt-table">
-      <caption id="caption"></caption>
-      <thead>
-        <tr>
-          <th scope="col">First seen</th>
-          <th scope="col">DUT SN</th>
-          <th scope="col">Step</th>
-          <th scope="col">Attempts &mdash; oldest first, each links to its run</th>
-          <th scope="col">Failed on first</th>
-          <th scope="col">Failing now</th>
-          <th scope="col">Outcome</th>
-        </tr>
-      </thead>
-      <tbody id="body"></tbody>
-    </table>
-  </div>
-
-  <section class="rt-sankey" id="sankey"></section>
-
-  <footer class="notes" id="sources"></footer>
-
-</div>
-
-<script src="data/retest.js"></script>
-<script src="retest.js"></script>
-<script src="theme.js"></script>
-<script src="update.js"></script>
+  <p>The retest page has been replaced by the error-code table.
+     <a href="customize.html#section=errors">Go to Customize</a>.</p>
 </body>
 </html>

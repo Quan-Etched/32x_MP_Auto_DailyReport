@@ -19,7 +19,6 @@ EXPECTED = {
     "index.html": "data/pega_stations.js",      # default: the controllers
     "ocp.html": "data/stations.js",             # second opinion: OCP Logs
     "runs.html": "data/runs_pega.js",
-    "customize.html": "data/runs_pega.js",
     "allhands.html": "data/runs_pega.js",
     "rack2.html": "data/runs_pega.js",
     "ocpruns.html": "data/runs.js",
@@ -29,23 +28,27 @@ EXPECTED = {
     "flow.html": "data/pega_stations.js",
     "flowfull.html": "data/pega_stations.js",
     "flowe2e.html": "data/pega_stations.js",
-    "retest.html": "data/retest.js",
-    # The comparison page loads only the comparison. The tracker's own bundle
-    # is deliberately not here: the day view needs one link, and pulling 600 KB
-    # across for it would be a poor trade — build_dailyexcel puts the list of
-    # comparable days into its own bundle instead.
-    "delta.html": "data/delta.js",
 }
 
 #: Addresses that were handed out and must keep resolving.
 REDIRECTS = {"direct.html": "index.html", "directruns.html": "runs.html",
              "fpy.html": "week.html",
+             # Retired 2026-08-22. The comparison settled its question (a
+             # cut-off time, not a disagreement about any unit) and the retest
+             # page was replaced by the error-code table on the customize page.
+             # Both addresses had been handed out in Slack.
+             "delta.html": "dailyexcel.html",
+             "retest.html": "customize.html",
              # L10 is a table on the daily tracker now, not a page.
              "l10.html": "dailyexcel.html"}
 
 
 #: Pages that load more than one bundle, and why.
 MULTI = {
+    # Section 4 is a different question from sections 1-3 — failures joined to
+    # the error-code catalogue, not runs — and its own bundle, so the run
+    # bundle does not grow a second schema inside it.
+    "customize.html": ["data/runs_pega.js", "data/errors.js"],
     # The releases page hosts two analyses of the same releases: one built
     # from test logs, one from the source tree they were built from.
     "releases.html": ["data/release_source.js", "data/releases.js"],
@@ -65,8 +68,7 @@ DOM_SCRIPTS = {
     "ocp.html": ["stations.js"],
     "dailyexcel.html": ["dailysheet.js"],
     "weekly.html": ["weeklysummary.js"],
-    "delta.html": ["delta.js"],
-    "customize.html": ["customize.js"],
+    "customize.html": ["customize.js", "errors.js"],
     "allhands.html": ["allhands.js"],
     "rack2.html": ["rack2.js"],
     "week.html": ["week.js"],
@@ -74,7 +76,6 @@ DOM_SCRIPTS = {
     # The two branching charts are data; flowchart.js is what touches the DOM.
     "flowfull.html": ["flowchart.js"],
     "flowe2e.html": ["flowchart.js"],
-    "retest.html": ["retest.js"],
     "releases.html": ["releasesrc.js", "suitemap.js"],
 }
 

@@ -811,25 +811,6 @@ button.cal-cell.is-on .cal-n { font-weight: 700; color: var(--accent-solid); }
 }
 
 
-/* ------------------------------------------ the sheet-comparison link ---
- * The one masthead link that is not navigation between equals: it goes to a
- * page that says whether the table below can be trusted. It was first put in
- * the table caption, where nobody found it, so here it is coloured — the only
- * accented control in the masthead, which is the whole point. */
-.delta-cta {
-  border-color: var(--accent-solid);
-  color: var(--accent-solid);
-  font-weight: 600;
-}
-.delta-cta:hover { background: var(--accent-solid); color: var(--page); }
-
-/* Beside the caption's own copy of the link, so a reader already looking at
-   the table has it too. */
-.delta-link {
-  font-weight: 600;
-  color: var(--accent-solid);
-}
-
 /* --------------------------------------------- the combined MLT+HTT tile ---
  * Ruled on its left edge rather than filled: it is the same kind of number as
  * the two beside it, computed over a different population, not a different
