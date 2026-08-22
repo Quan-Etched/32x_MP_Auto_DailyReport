@@ -418,6 +418,9 @@ dashboard/
   runs.html + runtable.js + runs.css        raw run table (the drill-down)
   dailyexcel.html + dailysheet.js + dailyexcel.css   the line's daily tracker
   delta.html + delta.js + delta.css   that sheet vs this repo, unit by unit
+  allhands.html + allhands.js + allhands.css   five stages, one first-pass
+                      yield each, over any UTC range, plus what retests
+                      recovered and a failure Pareto
   customize.html + customize.js + customize.css   pick UTC days and stations,
                       take the CSV — the day is derived from each run's epoch,
                       never from the bundle's factory-local `day`

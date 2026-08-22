@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Line yield — all hands</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="stations.css">
+  <link rel="stylesheet" href="customize.css">
+  <link rel="stylesheet" href="allhands.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Line yield</h1>
+    <span class="meta" id="meta"></span>
+    <span class="build" id="build" title="Which build of the analysis produced this page"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" href="index.html">← Station yield</a>
+    <a class="theme-toggle" href="customize.html">Customize →</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <p class="lede">
+    Five stages, one number each, over whatever range of days you pick.
+    <strong>Days are UTC.</strong> Each stage is <em>units that never failed at
+    any of its stations, over units that entered it</em> — first pass, counted
+    per unit, so it is not the product of the station rates. Where retests
+    brought units through anyway, the box says what the stage delivered too.
+  </p>
+
+  <div class="banner" id="notice" hidden></div>
+
+  <section class="card full">
+    <div class="card-head">
+      <div>
+        <h2>Range</h2>
+        <p class="sub" id="range-sub"></p>
+      </div>
+      <span class="spacer"></span>
+      <div class="quick" id="quick"></div>
+    </div>
+    <div class="pickers">
+      <label class="picker">
+        <span class="picker-k">From (UTC)</span>
+        <input type="date" id="from">
+      </label>
+      <label class="picker">
+        <span class="picker-k">To (UTC)</span>
+        <input type="date" id="to">
+      </label>
+    </div>
+  </section>
+
+  <!-- The five boxes. WS and FT are Sigurd's and are hand-reported, so they
+       carry a number only on a range that contains the day the figure is about
+       — the same rule the weekly page applies, and for the same reason. -->
+  <section class="stages" id="stages"></section>
+
+  <section class="card full" style="margin-top:16px">
+    <div class="card-head">
+      <div>
+        <h2>Back from the bonepile</h2>
+        <p class="sub" id="recovery-sub"></p>
+      </div>
+      <span class="spacer"></span>
+      <div class="quick" id="recovery-download"></div>
+    </div>
+    <div class="table-wrap">
+      <table class="cz-table" id="recovery">
+        <thead id="recovery-head"></thead>
+        <tbody id="recovery-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card full" style="margin-top:16px">
+    <div class="card-head">
+      <div>
+        <h2>Top yield hitters</h2>
+        <p class="sub" id="pareto-sub"></p>
+      </div>
+      <span class="spacer"></span>
+      <div class="quick" id="pareto-mode"></div>
+      <div class="quick" id="pareto-download"></div>
+    </div>
+    <div class="plot" id="pareto-plot"></div>
+    <div class="table-wrap" id="pareto-table-wrap" hidden>
+      <table class="cz-table" id="pareto-table">
+        <thead id="pareto-head"></thead>
+        <tbody id="pareto-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="notes">
+    <p id="footer-meta"></p>
+    <p>
+      <strong>A stage's yield is counted per unit, not multiplied.</strong> Of
+      the units that entered the stage, the fraction with no failure at any
+      station inside it. Multiplying the station rates instead assumes their
+      populations line up, and they do not — HTT runs on modules that cleared
+      MLT, some of them on an earlier day, so its denominator is not MLT's.
+    </p>
+    <p>
+      <strong>Entered</strong> means graded at the stage's first station — MLT
+      for L6, FAT for L10, Provision for L11. A unit that appears only at a
+      later station arrived mid-stage and is not counted as an input, because
+      nothing here saw it enter.
+    </p>
+    <p id="external-note"></p>
+  </footer>
+
+</div>
+
+<script src="data/runs_pega.js"></script>
+<script src="tablecsv.js"></script>
+<script src="allhands.js"></script>
+<script src="theme.js"></script>
+<script src="update.js"></script>
+</body>
+</html>

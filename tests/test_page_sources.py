@@ -20,6 +20,7 @@ EXPECTED = {
     "ocp.html": "data/stations.js",             # second opinion: OCP Logs
     "runs.html": "data/runs_pega.js",
     "customize.html": "data/runs_pega.js",
+    "allhands.html": "data/runs_pega.js",
     "ocpruns.html": "data/runs.js",
     "dailyexcel.html": "data/dailyexcel.js",
     "weekly.html": "data/weekly.js",
@@ -65,6 +66,7 @@ DOM_SCRIPTS = {
     "weekly.html": ["weeklysummary.js"],
     "delta.html": ["delta.js"],
     "customize.html": ["customize.js"],
+    "allhands.html": ["allhands.js"],
     "week.html": ["week.js"],
     "flow.html": ["flow.js"],
     # The two branching charts are data; flowchart.js is what touches the DOM.

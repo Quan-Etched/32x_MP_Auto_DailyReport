@@ -86,6 +86,16 @@ def build_bundle(
         # (rootcause.is_container), applied once per name rather than per row.
         "containerNames": sorted(containers),
         "runs": rows,
+        # The hand-reported figures, raw and with their asOf intact.
+        #
+        # WST and FT come from Sigurd by message and are typed into
+        # weekly/external_yields.json. The weekly bundle already filters them to
+        # the week they describe — see build_fpy._external_in, and the reason
+        # there is a good one — but a page that lets a reader pick any range has
+        # to apply that test itself, so it needs the date rather than the
+        # verdict. Passed straight through; nothing here interprets them.
+        "external": _external(),
+        "stationOrder": [station["key"] for station in stations.registry()],
         "links": dict(links.describe(), **_controller_links(payload)),
         "fetch": fetchstate.summary(state or {}),
     }
@@ -136,6 +146,16 @@ def _row(
         "a": run.get("attempt"),
         "T": [_test(test, names, containers) for test in run.get("tests") or []],
     }
+
+
+def _external() -> Dict[str, Any]:
+    """WST and FT as the file states them, or {} if it cannot be read."""
+    from . import build_fpy
+
+    try:
+        return build_fpy.external()
+    except Exception:                                     # noqa: BLE001
+        return {}
 
 
 def _test(test: Dict[str, Any], names: Dict[str, int], containers: set) -> List[Any]:
