@@ -80,11 +80,14 @@ if ! FACTORY_PUBLISH=0 FACTORY_LOCK_HELD=1 \
     log "WARN EOS fetch failed; continuing on controller data"
 fi
 
-for step in weekly weekly-deck archive; do
+for step in weekly weekly-deck ramp-deck archive; do
     log "STEP $step"
     case "$step" in
         weekly)      "$PY" -m factory.cli weekly       >>"$LOG" 2>&1 ;;
         weekly-deck) "$PY" tools/build_weekly_deck.py  >>"$LOG" 2>&1 ;;
+        # Into dashboard/data/, so the publish at the end of this script ships
+        # it and the all-hands download is the week that just closed.
+        ramp-deck)   "$PY" tools/build_ramp_deck.py    >>"$LOG" 2>&1 ;;
         archive)     "$PY" -m factory.cli archive $ARCHIVE_ARGS >>"$LOG" 2>&1 ;;
     esac
     if [ $? -ne 0 ]; then

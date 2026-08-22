@@ -13,7 +13,7 @@ STATION ?= l10_sft
         dailyexcel requests pega-stations release-source suite-map delta reconcile \
         retest fpy \
         weekly \
-        weekly-deck archive \
+        weekly-deck ramp-deck archive \
         weekly-snapshot schedule-weekly-install schedule-weekly-uninstall \
         schedule-weekly-status schedule-weekly-install-macos \
         schedule-weekly-uninstall-macos schedule-weekly-status-macos \
@@ -157,6 +157,13 @@ weekly:
 # Reads the bundle `make weekly` wrote, so run that first.
 weekly-deck: weekly
 	$(PY) tools/build_weekly_deck.py
+
+# The two slides the all-hands page hands out, into dashboard/data/ so
+# `make publish` ships them. Not part of `make build`: the hourly pipeline is
+# stdlib-only and this needs python-pptx. The Saturday snapshot runs it, and
+# this target is for rebuilding mid-week by hand.
+ramp-deck: weekly
+	$(PY) tools/build_ramp_deck.py
 
 # The whole weekly job by hand — the same script the Saturday timer runs.
 weekly-snapshot:

@@ -82,9 +82,15 @@ MONO = "Courier New"
 #: moves by changing two numbers.
 ROW0, ROW_PITCH, BOX_H = 1.62, 0.92, 0.70
 
+#: The same three numbers as a value, so a second layout can be drawn at its
+#: own scale on the same slide. The end-to-end flow needs seven rows where this
+#: one needs five, and at this pitch row 6 would hang off the bottom.
+GEOM = (ROW0, ROW_PITCH, BOX_H)
 
-def row_y(row):
-    return Inches(ROW0 + ROW_PITCH * row)
+
+def row_y(row, geom=GEOM):
+    row0, pitch, _ = geom
+    return Inches(row0 + pitch * row)
 
 
 #: label, x, width, row, kind, and what the box is measuring.
@@ -424,48 +430,61 @@ def flow_slide(prs, data, week, by_station, external):
             week["week"], week["from"], week["endsOn"],
             ", week still running" if week["partial"] else ""))
 
+    draw_flow(slide, LANES, WIRES, SUFFIX, by_station, external, data)
+    footnote(slide, data, week)
+    return slide
+
+
+def draw_flow(slide, lanes, wires, suffix, by_station, external, data,
+              geom=GEOM, head_y=1.20, bottom=6.35):
+    """Draw a lane/wire layout onto a slide. Returns the placed boxes.
+
+    Split out of flow_slide so the ramp deck can draw the end-to-end chart —
+    same primitives, its own table and its own row pitch.
+    """
     placed = {}
-    for lane in LANES:
+    for lane in lanes:
         # Lane heading, then the dashed rule the original draws between lanes.
         first_x = min(box["x"] for box in lane["boxes"])
         # Clamped: the last lane starts at 11.34in and a fixed 3in heading
         # would hang 1in off a 13.333in slide.
         head_w = min(3.0, 13.15 - first_x)
-        textbox(slide, Inches(first_x), Inches(1.20), Inches(head_w), Inches(0.26),
+        textbox(slide, Inches(first_x), Inches(head_y), Inches(head_w),
+                Inches(0.26),
                 [[(lane["owner"] + "   " if lane["owner"] else "",
                    {"size": 10, "color": MUTE}),
                   (lane["title"], {"size": 12.5, "bold": True})]], space=0)
         if lane["divider"] is not None:
-            divider(slide, lane["divider"])
+            divider(slide, lane["divider"], head_y + 0.04, bottom)
 
         for box in lane["boxes"]:
-            key = SUFFIX.get((lane["title"], box["label"]), box["label"])
-            placed[key] = draw_box(slide, box, by_station, external, data)
+            key = suffix.get((lane["title"], box["label"]), box["label"])
+            placed[key] = draw_box(slide, box, by_station, external, data, geom)
 
-    for wire in WIRES:
+    over_top = geom[0] - 0.10
+    for wire in wires:
         src, dst, route = wire[0], wire[1], wire[2]
         label = wire[3] if len(wire) > 3 else None
         dx = wire[4] if len(wire) > 4 else 0.0
         if src in placed and dst in placed:
-            connect(slide, placed[src], placed[dst], route, label, dx)
-
-    footnote(slide, data, week)
-    return slide
+            connect(slide, placed[src], placed[dst], route, label, dx, over_top)
+    return placed
 
 
-def divider(slide, x):
+def divider(slide, x, top=1.24, bottom=6.35):
     """The dashed rule between two lanes, as on the line's own chart."""
     line = slide.shapes.add_connector(
-        MSO_CONNECTOR.STRAIGHT, Inches(x), Inches(1.24), Inches(x), Inches(6.35))
+        MSO_CONNECTOR.STRAIGHT, Inches(x), Inches(top), Inches(x), Inches(bottom))
     line.line.color.rgb = RGBColor(0xB5, 0xB3, 0xAC)
     line.line.width = Pt(0.9)
     line.line.dash_style = MSO_LINE_DASH_STYLE.DASH
 
 
-def draw_box(slide, box, by_station, external, data):
+def draw_box(slide, box, by_station, external, data, geom=GEOM):
     """One box, with whatever it is entitled to say about the week."""
-    x, y = Inches(box["x"]), row_y(box["row"])
-    w, h = Inches(box["w"]), Inches(BOX_H)
+    row0, pitch, box_h = geom
+    x, y = Inches(box["x"]), row_y(box["row"], geom)
+    w, h = Inches(box["w"]), Inches(box_h)
 
     rows = [by_station[k] for k in box.get("stations",
                                            [box.get("station")] if box.get("station") else [])
@@ -490,16 +509,29 @@ def draw_box(slide, box, by_station, external, data):
     shape.line.width = Pt(1)
     shape.shadow.inherit = False
 
-    lines = [[(box["label"], {"size": 12.5, "bold": box["kind"] == "test"})]]
+    # Type scales with the box. The end-to-end chart draws 0.56in boxes, and a
+    # 16pt number in one overflows into the box below.
+    scale = min(1.0, box_h / 0.70)
+    lines = [[(box["label"], {"size": 12.5 * scale, "bold": box["kind"] == "test"})]]
     if ext is not None:
-        lines.append([(pct(ext["yield"]), {"size": 15, "bold": True,
+        # "reported" alone presents a figure from eight days ago as this week's.
+        # The page marks a carried-forward external and the deck is the copy
+        # that gets pasted into a meeting, so it is the one that must not.
+        state = ext.get("state")
+        if state == "fresh":
+            age = "  reported"
+        elif ext.get("ageDays"):
+            age = "  reported {}d ago".format(ext["ageDays"])
+        else:
+            age = "  carried forward"
+        lines.append([(pct(ext["yield"]), {"size": 15 * scale, "bold": True,
                                            "color": tone(ext["yield"])}),
-                      ("  reported", {"size": 8, "color": MUTE})])
+                      (age, {"size": 8 * scale, "color": MUTE})])
     elif readable and len(rows) == 1:
-        lines.append([(pct(rows[0]["fpy"]), {"size": 16, "bold": True,
+        lines.append([(pct(rows[0]["fpy"]), {"size": 16 * scale, "bold": True,
                                              "color": tone(rows[0]["fpy"])}),
                       ("  {}u".format(rows[0]["units"]),
-                       {"size": 9, "color": MUTE})])
+                       {"size": 9 * scale, "color": MUTE})])
     elif rows:
         # One box, one or two stations, none with enough units. Name each with
         # its count — "2 units" over a box the line calls FAT/SFT hides which
@@ -507,18 +539,18 @@ def draw_box(slide, box, by_station, external, data):
         if len(rows) == 1:
             lines.append([("{} unit{}".format(
                 rows[0]["units"], "" if rows[0]["units"] == 1 else "s"),
-                {"size": 13, "bold": True})])
+                {"size": 13 * scale, "bold": True})])
         else:
             # Two stations behind one box: "3 units" would hide which of them
             # ran, and on this chart that is the whole question.
             lines.append([(" · ".join(
                 "{} {}u".format(r["label"].split()[-1], r["units"])
-                for r in rows), {"size": 11, "bold": True})])
+                for r in rows), {"size": 11 * scale, "bold": True})])
         reason = ("quantity only" if all(r.get("countsOnly") for r in rows)
                   else "too few for a yield")
-        lines.append([(reason, {"size": 8, "color": MUTE})])
+        lines.append([(reason, {"size": 8 * scale, "color": MUTE})])
     elif box.get("note"):
-        lines.append([(box["note"], {"size": 8.5, "color": MUTE})])
+        lines.append([(box["note"], {"size": 8.5 * scale, "color": MUTE})])
 
     textbox(slide, x + Inches(0.09), y + Inches(0.07),
             w - Inches(0.18), h - Inches(0.12), lines, space=1)
@@ -528,8 +560,8 @@ def draw_box(slide, box, by_station, external, data):
             chip(slide, x + w + Inches(0.06),
                  y + Inches(0.04 + 0.31 * index), tag)
 
-    return {"x": box["x"], "y": ROW0 + ROW_PITCH * box["row"],
-            "w": box["w"], "h": BOX_H}
+    return {"x": box["x"], "y": row0 + pitch * box["row"],
+            "w": box["w"], "h": box_h}
 
 
 def chip(slide, x, y, text):
@@ -546,7 +578,7 @@ def chip(slide, x, y, text):
             [(text, {"size": 9, "bold": True})], align=PP_ALIGN.CENTER, space=0)
 
 
-def connect(slide, a, b, route, label=None, dx=0.0):
+def connect(slide, a, b, route, label=None, dx=0.0, over_top=1.52):
     """An orthogonal wire from box a to box b, arrow on the far end.
 
     Drawn as explicit segments rather than as an elbow connector: PowerPoint
@@ -580,7 +612,7 @@ def connect(slide, a, b, route, label=None, dx=0.0):
         # Up over the top of the chart and down into the target. The HPB and
         # PDB boards cross three lanes without touching anything in them, and
         # any route through the body of the chart would imply they do.
-        top = 1.52
+        top = over_top
         points = [(acx, ay), (acx, top), (bcx, top), (bcx, by)]
     else:
         # "vh": clear of the source vertically, then straight in at the

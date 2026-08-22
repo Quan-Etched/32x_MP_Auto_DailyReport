@@ -3,6 +3,22 @@
  * Built to be read from the back of a room, which is the only reason the
  * numbers are this large — everything else follows the site's ordinary type. */
 
+/* ---------------------------------------------------------------- the deck */
+
+/* The download is the one thing on this page somebody is sent here to get, so
+   it does not look like the theme switch next to it. The last time a link on
+   this site was styled as one control among several, it was reported twice as
+   missing. */
+.theme-toggle.accent {
+  border-color: var(--accent-solid);
+  color: var(--accent-solid);
+  font-weight: 600;
+}
+.theme-toggle.accent:hover {
+  background: var(--accent-solid);
+  color: var(--surface-1);
+}
+
 .stages {
   display: grid; gap: 14px; margin-top: 16px;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));

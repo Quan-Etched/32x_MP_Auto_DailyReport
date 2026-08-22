@@ -59,6 +59,24 @@ fi
 # current. Stamping the build onto each asset URL in the *published* copy makes
 # the URL change whenever the file does, which is the whole fix. The working
 # tree is untouched.
+# The all-hands download. Built by tools/build_ramp_deck.py, which needs
+# python-pptx and so runs on a laptop, not on the box; the file arrives here
+# under decks/ with the rest of the repo. Absent is not an error — a checkout
+# without the deck should still publish, and the link 404s until someone runs
+# `make ramp-deck`, which is louder than a silently stale deck.
+place_deck() {
+    local root="$1"
+    local deck="$REPO/decks/32x-ramp-latest.pptx"
+    if [ -f "$deck" ]; then
+        mkdir -p "$root/data"
+        cp "$deck" "$root/data/32x-ramp-latest.pptx"
+        chmod 644 "$root/data/32x-ramp-latest.pptx"
+    else
+        echo "publish: no decks/32x-ramp-latest.pptx — the all-hands download" \
+             "will 404 until \`make ramp-deck\` runs" >&2
+    fi
+}
+
 stamp_assets() {
     local root="$1"
     "${PYTHON:-python3}" - "$root" <<'PYSTAMP'
@@ -74,7 +92,9 @@ def digest(path):
     return hashlib.sha1(path.read_bytes()).hexdigest()[:8]
 
 
-ASSET = re.compile(r'(href|src)="([A-Za-z0-9_./-]+\.(?:css|js))"')
+# .pptx is here because the ramp deck lives at a fixed name and is
+# rebuilt every week — without a stamp a browser hands out last week's.
+ASSET = re.compile(r'(href|src)="([A-Za-z0-9_./-]+\.(?:css|js|pptx))"')
 
 for page in sorted(root.glob("*.html")):
     text = page.read_text(encoding="utf-8")
@@ -112,6 +132,7 @@ if [ -n "${FACTORY_WEB_ROOT:-}" ]; then
         exit 1
     fi
 
+    place_deck "$FACTORY_WEB_ROOT"
     stamp_assets "$FACTORY_WEB_ROOT"
     echo "Published $(du -sh "$FACTORY_WEB_ROOT" | cut -f1) to $FACTORY_WEB_ROOT"
     exit 0
@@ -119,6 +140,7 @@ fi
 
 # ------------------------------------------------------ target 2: gh-pages
 cp -R "$REPO/dashboard/." "$STAGE/"
+place_deck "$STAGE"
 stamp_assets "$STAGE"
 touch "$STAGE/.nojekyll"          # serve files verbatim, no Jekyll processing
 
