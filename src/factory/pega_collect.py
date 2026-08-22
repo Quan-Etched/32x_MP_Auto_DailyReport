@@ -242,7 +242,11 @@ def collect(days: int = COLLECT_DAYS, hosts: Tuple[Tuple[str, str, bool], ...] =
         "problems": problems,
         "source": "pega",
         "dataSource": {
-            "label": "pega2 – pega5 (ESVM)",
+            # Named from HOSTS rather than written out, so adding a
+            # controller cannot leave the page claiming the old set. It said
+            # "pega2 – pega5" for a day after pega6 started serving TIM.
+            "label": "{} (ESVM)".format(
+                ", ".join(host for host, _level, _slots in HOSTS)),
             "url": "http://pega3:3000",
             "note": "straight from the station controllers — one row per unit",
         },

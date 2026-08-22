@@ -37,6 +37,14 @@
    */
   var countMode = 'new';
 
+  /* Whether the HTT column counts only units that passed MLT the same day.
+   *
+   * Off by default. The ungated figure is what the line has always quoted, and
+   * a toggle that silently narrowed it would be worse than no toggle — so this
+   * has to be pressed, and the note under it says which population is on
+   * screen either way. */
+  var gateHtt = false;
+
   /* ------------------------------------------------------------------ dom */
 
   function h(tag, attrs, kids) {
@@ -282,7 +290,20 @@
       var fresh = tally(), freshRelease = tally();
       var nonRelease = [], returning = 0;
 
+      /* Gate HTT on MLT, when asked.
+       *
+       * HTT's own population is every unit that reached it, which on any given
+       * day includes units that arrived from an earlier day's MLT. Gated, the
+       * column answers a narrower question — of the modules that cleared MLT
+       * *today*, how did HTT go — and that is the one that pairs with the
+       * combined tile. Off by default: the ungated figure is what the line has
+       * always quoted, and a toggle that silently changed it would be worse
+       * than no toggle. */
+      var gated = gateHtt && station === 'htt' && journey(tab);
+      var mltAt = gated ? journey(tab).mlt : -1;
+
       rows.forEach(function (row) {
+        if (gated && toneAt(row, mltAt) !== 'pass') return;
         var tone = (row[at] || {}).t;
         var bucket = (tone === 'pass' || tone === 'fail' || tone === 'abort')
           ? tone : 'blank';
@@ -324,6 +345,66 @@
   /* Anything that is not a plain release build. Mirrors NON_RELEASE in
    * build_dailyexcel.py; the two must agree, and both are one expression. */
   var NON_RELEASE = /(^|_)debug|_dbg|validation/i;
+
+  /* ------------------------------------------- MLT and HTT, as one journey ---
+   *
+   * The two columns are not independent: HTT only runs on a module that cleared
+   * MLT. Two things follow, and both were asked for.
+   *
+   * A COMBINED YIELD CANNOT BE THE PRODUCT OF THE TWO TILES
+   * Multiplying them assumes the two populations line up, and they do not. On
+   * 2026-08-21 the MLT tile is 77.2% (105/136) and the HTT tile 83% (93/112) —
+   * product 64.1% — but HTT's 112 includes seven units that did not pass MLT
+   * that day: one that failed it and six that arrived with no MLT run at all.
+   * Counting the units themselves gives 91 that passed both out of 136 that
+   * entered MLT, which is 66.9%. That is the number, and it is only computable
+   * per unit, which is exactly what a row here is.
+   *
+   * WHY NOT THE OTHER READING OF THE REQUEST
+   * "# of HTT units which also passed MLT" over MLT's total could be read as
+   * every unit with any HTT verdict. On 08-21 that is 105 of 136 — precisely
+   * the MLT tile, because every MLT passer got an HTT verdict — so it is the
+   * MLT yield wearing a different label. A yield's numerator is passes, so the
+   * numerator here is "passed both".
+   */
+  function stationColumn(tab, station) {
+    var columns = tab.columns || [];
+    for (var at = 0; at < columns.length; at += 1) {
+      if (columns[at].station === station) return at;
+    }
+    return -1;
+  }
+
+  function journey(tab) {
+    var mlt = stationColumn(tab, 'mlt'), htt = stationColumn(tab, 'htt');
+    return (mlt >= 0 && htt >= 0) ? { mlt: mlt, htt: htt } : null;
+  }
+
+  function toneAt(row, at) { return (row[at] || {}).t; }
+
+  /* Units that cleared both, over units that entered MLT. Mode-aware, so
+   * Count new gives the same figure over fresh material only. */
+  function combinedFor(tab, rows) {
+    var at = journey(tab);
+    if (!at) return null;
+    var serialAt = columnIndex(tab, 'B');
+    var out = { pass: 0, graded: 0, newPass: 0, newGraded: 0, noHtt: 0 };
+    rows.forEach(function (row) {
+      var mlt = toneAt(row, at.mlt), htt = toneAt(row, at.htt);
+      if (mlt !== 'pass' && mlt !== 'fail') return;
+      /* Fresh at both stations, the same rule the other tiles use. */
+      var isNew = !isReturning(row, serialAt, 'mlt')
+                  && !isReturning(row, serialAt, 'htt');
+      out.graded += 1;
+      if (isNew) out.newGraded += 1;
+      if (mlt === 'pass' && htt !== 'pass' && htt !== 'fail') out.noHtt += 1;
+      if (mlt === 'pass' && htt === 'pass') {
+        out.pass += 1;
+        if (isNew) out.newPass += 1;
+      }
+    });
+    return out.graded ? out : null;
+  }
 
   function isReturning(row, serialAt, station) {
     if (serialAt < 0 || !station) return false;
@@ -400,6 +481,41 @@
         h('span', { class: 'tile-sub',
                     text: 'by ' + names.join(', ') +
                           ' — every figure here counts only these rows' })
+      ]));
+    }
+
+    /* Leftmost, before the two stations it is made of — it is the headline the
+     * others explain, and it was asked for on that side. */
+    var both = combinedFor(tab, rows);
+    if (both) {
+      var bPass = countMode === 'new' ? both.newPass : both.pass;
+      var bGraded = countMode === 'new' ? both.newGraded : both.graded;
+      var bRate = bGraded ? Math.round(1000 * bPass / bGraded) / 10 : null;
+      var otherPass = countMode === 'new' ? both.pass : both.newPass;
+      var otherGraded = countMode === 'new' ? both.graded : both.newGraded;
+      var otherRate = otherGraded
+        ? Math.round(1000 * otherPass / otherGraded) / 10 : null;
+      els.summary.appendChild(h('div', { class: 'sheet-tile combined' }, [
+        h('span', { class: 'tile-title' }, [
+          document.createTextNode('MLT + HTT combined'),
+          h('span', { class: 'tile-build', text: 'passed both, of everything ' +
+                                                 'that entered MLT' })
+        ]),
+        h('strong', { class: 'tile-value', text: bRate === null ? '—' : bRate + '%' }),
+        h('span', { class: 'tile-sub tile-verdicts' }, [
+          h('span', { class: 'tone-pass', text: bPass + ' passed both' }),
+          h('span', { text: ' · of ' }),
+          h('span', { text: bGraded + ' into MLT' })
+        ]),
+        /* Not the product of the two tiles, and the difference is worth
+         * naming on the tile itself — somebody will multiply them by hand. */
+        h('span', { class: 'tile-sub', text:
+          'counted per unit, not MLT% × HTT%' }),
+        both.noHtt ? h('span', { class: 'tile-sub', text:
+          both.noHtt + ' passed MLT and have no HTT result yet' }) : null,
+        otherRate === null ? null : h('span', { class: 'tile-sub', text:
+          (countMode === 'new' ? 'Every unit: ' : 'New input: ') +
+          otherRate + '% (' + otherPass + ' of ' + otherGraded + ')' })
       ]));
     }
 
@@ -1038,6 +1154,23 @@
     });
     host.appendChild(button);
 
+    /* Only where both stations are on the table: the L10 and L11 blocks have
+     * no MLT to gate against. */
+    if (journey(tab)) {
+      var gate = h('button', { type: 'button',
+        class: 'cm-btn' + (gateHtt ? ' on' : ''),
+        title: 'Count the HTT column only on modules that passed MLT the same '
+               + 'day. HTT\u2019s own population includes units that arrived '
+               + 'from an earlier day.',
+        text: gateHtt ? 'HTT: every unit' : 'HTT: only MLT passers' });
+      gate.addEventListener('click', function () {
+        gateHtt = !gateHtt;
+        renderTable(tab, els);
+        if (els === el) { renderL10(current); renderL11(current); }
+      });
+      host.appendChild(gate);
+    }
+
     /* On a hand-kept tab the two modes agree, and that is worth a sentence
      * rather than leaving a reader to wonder whether the button works. */
     var omits = tab.sheetOmits;
@@ -1056,6 +1189,19 @@
           'already leaves the re-runs out — ' + parts.join('; ') +
           '. So there is nothing for Count all to add: the line was keeping a ' +
           'new-input record by hand before this page counted one.')
+      ]));
+    }
+
+    if (gateHtt && journey(tab)) {
+      host.appendChild(h('p', { class: 'cm-note' }, [
+        h('strong', { text: 'HTT is gated on MLT.' }),
+        document.createTextNode(
+          ' The HTT tile counts only modules that passed MLT on this tab, so ' +
+          'it and the combined tile are over the same population. Units that ' +
+          'reached HTT from an earlier day\u2019s MLT are left out of the HTT ' +
+          'column — they are still in the table, and still in every other ' +
+          'column. One useful consequence: gated, MLT% × HTT% is exactly the ' +
+          'combined figure, which ungated it is not.')
       ]));
     }
 
