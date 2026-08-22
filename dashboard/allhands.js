@@ -126,7 +126,7 @@
   function stageYield(units, stage) {
     if (!stage.stations) return null;
     var out = { entered: 0, clean: 0, failedSome: 0, incomplete: 0,
-                recovered: 0, per: {} };
+                recovered: 0, stillOut: 0, attempts: 0, per: {} };
     stage.stations.forEach(function (station) {
       out.per[station] = { pass: 0, fail: 0 };
     });
@@ -143,56 +143,33 @@
        * Counting the last verdict instead would fold recoveries into the yield
        * and make the recovery table below a second telling of the same story;
        * this way the two compose, and "clean + recovered" is the throughput. */
-      var failedEver = false, sawAll = true, recoveredHere = false;
+      var failedEver = false, sawAll = true, endedClean = true;
       stage.stations.forEach(function (station) {
         var runs = (unit[station] || []).filter(graded);
-        if (!runs.length) { sawAll = false; return; }
+        if (!runs.length) { sawAll = false; endedClean = false; return; }
         var everFailed = runs.some(function (run) { return run.s === 'fail'; });
         out.per[station][everFailed ? 'fail' : 'pass'] += 1;
-        if (everFailed) {
-          failedEver = true;
-          if (runs[runs.length - 1].s === 'pass') recoveredHere = true;
-        }
+        if (everFailed) failedEver = true;
+        if (runs[runs.length - 1].s !== 'pass') endedClean = false;
+        out.attempts += runs.length - 1;
       });
       if (failedEver) {
         out.failedSome += 1;
-        /* Failed at some point and ended up through anyway. Shown beside the
-         * yield so the box carries both the first-pass number and what the
-         * stage actually delivered. */
-        if (recoveredHere) out.recovered += 1;
+        /* Through the WHOLE stage after rework — every station ending on a
+         * pass, not merely one of them recovering.
+         *
+         * The first version counted a recovery at any single station, and it
+         * disagreed with the recovery table on the same screen: the L10 box
+         * claimed nine units came back while the table said none. Both were
+         * describing something true and only the table's rule answers "back in
+         * production", because a unit that recovered at FAT and is still
+         * failing SFT has not gone anywhere. One rule now, so the two agree by
+         * construction rather than by luck. */
+        if (endedClean) out.recovered += 1; else out.stillOut += 1;
       } else if (!sawAll) out.incomplete += 1;
       else out.clean += 1;
     });
     out.rate = out.entered ? out.clean / out.entered : null;
-    return out;
-  }
-
-  /* Units that failed a station and later passed it — the bonepile coming
-   * back. Counted per station and per unit, on the unit's own run sequence, so
-   * a unit that failed twice and passed once is one recovery. */
-  function recovery(units, stations) {
-    var out = { failed: 0, recovered: 0, stillOut: 0, attempts: 0 };
-    Object.keys(units).forEach(function (serial) {
-      var unit = units[serial];
-      var everFailed = false, ended = null, extra = 0;
-      stations.forEach(function (station) {
-        var runs = (unit[station] || []).filter(graded);
-        if (!runs.length) return;
-        var failedHere = runs.some(function (run) { return run.s === 'fail'; });
-        if (!failedHere) return;
-        everFailed = true;
-        extra += runs.length - 1;
-        var last = runs[runs.length - 1].s;
-        /* Across a multi-station stage, one station still failing keeps the
-         * unit out. */
-        if (ended !== 'fail') ended = last;
-      });
-      if (!everFailed) return;
-      out.failed += 1;
-      out.attempts += extra;
-      if (ended === 'pass') out.recovered += 1; else out.stillOut += 1;
-    });
-    out.rate = out.failed ? out.recovered / out.failed : null;
     return out;
   }
 
@@ -334,17 +311,30 @@
   var RECOVERY_COLUMNS = ['Stage', 'Units that failed', 'Back in production',
                           'Still out', 'Recovery %', 'Extra runs'];
 
+  /* One computation behind the boxes and this table.
+   *
+   * They disagreed at first — the L6 box said three units came back and the
+   * table said six — because the table counted every unit that failed either
+   * station while the box counted only units that entered at MLT. Both were
+   * true and the pair was unreadable. Now the table is over the boxes' own
+   * population, which buys an invariant worth having: entered = clean +
+   * recovered + still out + part-way through, and it is asserted below.
+   *
+   * A station that is not inside one of the five stages gets a stage of its
+   * own, entered at itself, so TIM and VBB keep their rows. */
   function recoveryRows(units) {
     var out = [];
     STAGES.filter(function (stage) { return stage.stations; })
       .forEach(function (stage) {
-        out.push([stage.label, recovery(units, stage.stations)]);
+        out.push([stage.label, stageYield(units, stage)]);
       });
     EXTRA_ROWS.forEach(function (station) {
-      var got = recovery(units, [station]);
-      if (got.failed) out.push([labelOf(station), got]);
+      var got = stageYield(units, { stations: [station], entry: station });
+      if (got && got.failedSome) out.push([labelOf(station), got]);
     });
-    return out.filter(function (pair) { return pair[1].failed; });
+    return out.filter(function (pair) {
+      return pair[1] && pair[1].failedSome;
+    });
   }
 
   function renderRecovery(units) {
@@ -357,27 +347,30 @@
     })));
     rows.forEach(function (pair) {
       var got = pair[1];
+      var rate = got.failedSome ? got.recovered / got.failedSome : null;
       body.appendChild(h('tr', {}, [
         h('td', { text: pair[0] }),
-        h('td', { class: 'num', text: String(got.failed) }),
+        h('td', { class: 'num', text: String(got.failedSome) }),
         h('td', { class: 'num tone-pass', text: String(got.recovered) }),
         h('td', { class: 'num tone-fail', text: String(got.stillOut) }),
-        h('td', { class: 'num', text: pct(got.rate) || '—' }),
+        h('td', { class: 'num', text: pct(rate) || '—' }),
         h('td', { class: 'num', text: String(got.attempts) })
       ]));
     });
 
     var all = rows.reduce(function (acc, pair) {
-      acc.failed += pair[1].failed; acc.recovered += pair[1].recovered;
+      acc.failed += pair[1].failedSome; acc.recovered += pair[1].recovered;
       return acc;
     }, { failed: 0, recovered: 0 });
     byId('recovery-sub').textContent = all.failed
       ? all.recovered + ' of ' + plural(all.failed, 'unit') +
-        ' that failed a station in this range went on to pass it — ' +
-        pct(all.recovered / all.failed) + ' back into production. Counted on ' +
-        'each unit’s own run sequence, so a unit that failed twice and ' +
-        'passed once is one recovery.'
-      : 'No unit failed a station in this range.';
+        ' that entered a stage and failed inside it came out the other side — ' +
+        pct(all.recovered / all.failed) + ' back into production. Back means ' +
+        'every station in the stage ending on a pass: a unit that recovered at ' +
+        'one and is still failing another has not gone anywhere. Same ' +
+        'population as the boxes above, so for each row clean + back + still ' +
+        'out + part-way accounts for everything that entered.'
+      : 'No unit that entered a stage failed inside it in this range.';
 
     if (window.FactoryCsv) {
       var host = byId('recovery-download');
