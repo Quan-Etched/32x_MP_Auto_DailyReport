@@ -158,6 +158,17 @@
       'with no MLT pass behind it — ' + kinds.join('; ') + '. The step yields ' +
       'below count every unit; this is what a correct-flow reading would leave ' +
       'out.'));
+    /* The daily tracker's own count for the same days is about twice this, and
+     * it is not a discrepancy: this page is production only — validation and
+     * debug builds never enter its payload, because a yield is a claim about
+     * production — while the tracker keeps them, because it answers what the
+     * line tested. Of the 22 wrong-flow units since 08-03, exactly 11 were on
+     * validation or debug builds. Said here so nobody compares the two numbers
+     * and files a bug. */
+    host.appendChild(h('p', { class: 'mf-note', text:
+      'Production builds only. The daily tracker counts validation and debug ' +
+      'runs too, so its figure for the same days is higher — both are right ' +
+      'about their own population.' }));
     host.appendChild(head);
     host.appendChild(list);
   }

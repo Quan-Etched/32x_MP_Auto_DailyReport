@@ -932,3 +932,6 @@ button.cal-cell.is-on .cal-n { font-weight: 700; color: var(--accent-solid); }
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px; color: var(--accent-solid); white-space: nowrap;
 }
+
+/* The population note beside the mis-flow count. */
+.fm-pop { color: var(--text-muted); }

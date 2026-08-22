@@ -206,3 +206,9 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11px; color: var(--accent-solid); white-space: nowrap;
 }
+
+/* Why this count is lower than the daily tracker's for the same days. */
+.mf-note {
+  margin: 8px 0 0; font-size: 11.5px; color: var(--text-muted);
+  line-height: 1.5; max-width: 92ch;
+}

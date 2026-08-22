@@ -151,6 +151,47 @@ class WeekWindowTest(unittest.TestCase):
         self.assertEqual(got["total"], got["failed"] + got["unproven"])
 
 
+class PopulationTest(unittest.TestCase):
+    """The two pages count different populations, and that is on purpose.
+
+    They agree on the rule — AgreementTest asserts that — and still report
+    different totals for the same seven days: 11 against 4 for W33. The reason
+    is the payload, not the logic. The daily tracker keeps validation and debug
+    builds because it answers "what did the line test today"; the weekly page is
+    fed by pega_collect, which drops them, because a yield is a claim about
+    production. Of the 22 wrong-flow units since 2026-08-03, exactly 11 were on
+    a validation or debug build.
+
+    Asserted here so that the day somebody 'fixes' the gap, this says why it is
+    there. Both pages carry a note to the same effect.
+    """
+
+    def test_the_collector_excludes_validation_and_debug(self):
+        from factory import pega_collect
+
+        for suite in ("htt_validation_2026.226.0-gitfe7ab71c",
+                      "debug_only_htt_2026.223.0-git78e6956e2",
+                      "mlt_2026.225.0-gitb937ca2c_validation"):
+            with self.subTest(suite=suite):
+                self.assertIsNone(pega_collect.station_of("pega3", suite))
+
+    def test_the_collector_keeps_a_release_build(self):
+        from factory import pega_collect
+
+        self.assertEqual(
+            pega_collect.station_of("pega3", "htt_2026.226.0-gitfe7ab71c"),
+            "htt")
+
+    def test_the_tracker_keeps_validation_builds(self):
+        """The other half of the asymmetry: build_dailyexcel's own exclusion
+        list deliberately does not match validation."""
+        from factory import build_dailyexcel
+
+        self.assertIsNone(
+            build_dailyexcel.ENGINEERING.search(
+                "htt_validation_2026.226.0-gitfe7ab71c"))
+
+
 class LinkTest(unittest.TestCase):
     def test_every_entry_carries_the_run_it_is_about(self):
         """The count on the page is an accusation about routing, so it has to be

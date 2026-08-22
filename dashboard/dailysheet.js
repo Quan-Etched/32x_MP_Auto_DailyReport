@@ -569,6 +569,17 @@
     head.appendChild(document.createTextNode(
       ' took a path they should not have. ' + kinds.join('; ') +
       '. Choose which of them the HTT yield counts.'));
+    /* This tab keeps validation and debug builds, as every other column on it
+     * does. The weekly page is production only and its count for these days is
+     * lower for that reason alone. */
+    var anyNonRelease = wrong.all.some(function (entry) {
+      return NON_RELEASE.test(entry.suite || '');
+    });
+    if (anyNonRelease) {
+      head.appendChild(h('span', { class: 'fm-pop', text:
+        ' Some of these are on validation or debug builds, which this tab ' +
+        'counts and the weekly page does not.' }));
+    }
     host.appendChild(head);
     host.appendChild(list);
 
