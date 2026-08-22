@@ -585,17 +585,37 @@
     }).filter(function (row) { return row.entered; });
   }
 
+  /* Weeks before HTT existed carry MLT units and no combined yield, so they
+   * survive the `entered` filter above and draw as a run of "—" bars. Nine of
+   * them ahead of two real ones is not a trend chart, it is a chart of when we
+   * started measuring. Leading and trailing blanks are dropped; a blank week
+   * *between* two measured ones is kept, because that is a gap in production
+   * and the chart should say so. */
+  function measuredSpan(rows) {
+    var first = -1, last = -1;
+    rows.forEach(function (row, index) {
+      if (row.rate === null) return;
+      if (first < 0) first = index;
+      last = index;
+    });
+    return first < 0 ? [] : rows.slice(first, last + 1);
+  }
+
   function renderWeekly() {
     var host = byId('weekly-plot');
     var wrap = byId('weekly-table-wrap');
     if (!host) return;
-    var rows = weekly();
+    var all = weekly();
+    var rows = measuredSpan(all);
+    var trimmed = all.length - rows.length;
 
     byId('weekly-sub').textContent = rows.length
-      ? 'MLT and HTT combined, per unit, for every week the controllers cover. ' +
+      ? 'MLT and HTT combined, per unit, for every week both of them ran. ' +
         'TIM is not counted — this is the same quantity the flow chart calls the ' +
-        'accumulated L6 yield. Not affected by the range above.'
-      : 'No week in the bundle has a unit through MLT.';
+        'accumulated L6 yield. Not affected by the range above.' +
+        (trimmed ? ' ' + trimmed + ' earlier week' + (trimmed === 1 ? '' : 's') +
+         ' had MLT but no HTT and are left off.' : '')
+      : 'No week in the bundle has a unit through both MLT and HTT.';
 
     host.innerHTML = '';
     host.hidden = view.mode !== 'graph';
