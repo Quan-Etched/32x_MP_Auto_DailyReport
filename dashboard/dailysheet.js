@@ -37,13 +37,26 @@
    */
   var countMode = 'new';
 
-  /* Whether the HTT column counts only units that passed MLT the same day.
+  /* Which population the HTT column is counted over.
    *
-   * Off by default. The ungated figure is what the line has always quoted, and
-   * a toggle that silently narrowed it would be worse than no toggle — so this
-   * has to be pressed, and the note under it says which population is on
-   * screen either way. */
-  var gateHtt = false;
+   * 'correct' — units that reached HTT having passed MLT, today or on an
+   *             earlier day. This is the default.
+   * 'full'    — every unit with an HTT verdict, however it got there.
+   *
+   * WHY "OR ON AN EARLIER DAY" IS THE WHOLE POINT
+   * The first version of this gate counted only units that passed MLT on the
+   * same tab, and that is too narrow. Since 08-01, 92 units reached HTT without
+   * an MLT pass on the day: 12 had failed MLT, 10 had never passed it at all,
+   * and 80 had passed it on an earlier day and simply crossed midnight. Those
+   * 80 are the ordinary case — it is the one Eason raised — and throwing them
+   * out moved 08-14's HTT figure from 52% over 25 units to 62.5% over 8, which
+   * is a worse number quoted more confidently.
+   *
+   * So the wrong flow is the 22, not the 92: MLT failed and the unit went to
+   * HTT anyway, or nothing has ever recorded an MLT pass for it. Those are what
+   * 'correct' leaves out.
+   */
+  var flowMode = 'correct';
 
   /* ------------------------------------------------------------------ dom */
 
@@ -299,11 +312,11 @@
        * combined tile. Off by default: the ungated figure is what the line has
        * always quoted, and a toggle that silently changed it would be worse
        * than no toggle. */
-      var gated = gateHtt && station === 'htt' && journey(tab);
-      var mltAt = gated ? journey(tab).mlt : -1;
+      var gated = flowMode === 'correct' && station === 'htt' && journey(tab);
+      var journeyAt = gated ? journey(tab) : null;
 
       rows.forEach(function (row) {
-        if (gated && toneAt(row, mltAt) !== 'pass') return;
+        if (gated && !flowOk(row, journeyAt, serialAt)) return;
         var tone = (row[at] || {}).t;
         var bucket = (tone === 'pass' || tone === 'fail' || tone === 'abort')
           ? tone : 'blank';
@@ -367,6 +380,46 @@
    * MLT yield wearing a different label. A yield's numerator is passes, so the
    * numerator here is "passed both".
    */
+  /* Units at HTT that should not be there.
+   *
+   * Two kinds, and they are different findings: one is a unit the line pushed
+   * on after a failure, the other is a unit nobody can show ever passed MLT.
+   * Both are counted per row so the control can say which it found. */
+  function misflow(tab) {
+    var at = journey(tab);
+    if (!at) return null;
+    var serialAt = columnIndex(tab, 'B');
+    var out = { failed: [], unproven: [], total: 0 };
+    (tab.rows || []).forEach(function (row) {
+      var htt = toneAt(row, at.htt);
+      if (htt !== 'pass' && htt !== 'fail') return;
+      var mlt = toneAt(row, at.mlt);
+      if (mlt === 'pass') return;
+      var serial = (serialAt >= 0 ? row[serialAt] : {}) || {};
+      var sn = serial.v || '';
+      if (mlt === 'fail') { out.failed.push(sn); out.total += 1; return; }
+      /* No MLT verdict on this tab. Legitimate if the unit passed MLT before —
+       * it crossed a day boundary, which is not a flow error. */
+      var past = (serial.history || {}).mlt || [];
+      var passedBefore = past.some(function (attempt) {
+        return attempt.status === 'pass';
+      });
+      if (!passedBefore) { out.unproven.push(sn); out.total += 1; }
+    });
+    return out;
+  }
+
+  /* Did this unit reach HTT the right way? */
+  function flowOk(row, at, serialAt) {
+    var mlt = toneAt(row, at.mlt);
+    if (mlt === 'pass') return true;
+    if (mlt === 'fail') return false;
+    var serial = (serialAt >= 0 ? row[serialAt] : {}) || {};
+    return ((serial.history || {}).mlt || []).some(function (attempt) {
+      return attempt.status === 'pass';
+    });
+  }
+
   function stationColumn(tab, station) {
     var columns = tab.columns || [];
     for (var at = 0; at < columns.length; at += 1) {
@@ -451,6 +504,66 @@
     if (!seen.length) return null;
     if (seen.length === 1) return seen[0];
     return seen.length + ' versions in this column';
+  }
+
+  /* The flow control, above the yield summary.
+   *
+   * Only on a tab that actually has a unit at HTT it should not have: with no
+   * mis-flow the two populations are identical and the buttons would offer a
+   * choice with no consequence. When it is there, the choice changes the HTT
+   * yield — on 08-16 by nine points — so it belongs above the number it
+   * governs rather than under the table.
+   */
+  function renderFlowMode(tab, els) {
+    els = els || el;
+    var host = els.flowMode ? byId(els.flowMode) : null;
+    if (!host) return;
+    host.innerHTML = '';
+    host.hidden = true;
+
+    var wrong = misflow(tab);
+    if (!wrong || !wrong.total) return;
+    host.hidden = false;
+
+    var kinds = [];
+    if (wrong.failed.length) {
+      kinds.push(wrong.failed.length + ' failed MLT and went to HTT anyway');
+    }
+    if (wrong.unproven.length) {
+      kinds.push(wrong.unproven.length + ' reached HTT with no MLT pass on '
+                 + 'record');
+    }
+
+    host.appendChild(h('p', { class: 'fm-head' }, [
+      h('strong', { text: wrong.total + ' unit' +
+                          (wrong.total === 1 ? '' : 's') +
+                          ' took a path they should not have.' }),
+      document.createTextNode(' ' + kinds.join('; ') +
+        '. Choose which of them the HTT yield counts.')
+    ]));
+
+    var group = h('div', { class: 'fm-group', role: 'group',
+                           'aria-label': 'HTT population' });
+    [['correct', 'Correct flow', 'MLT pass → HTT. Leaves out the ' +
+        wrong.total + ' above; keeps units that passed MLT on an earlier day.'],
+     ['full', 'Full flow', 'MLT → HTT, every unit with an HTT result however ' +
+        'it got there.']].forEach(function (spec) {
+      var on = flowMode === spec[0];
+      var button = h('button', {
+        type: 'button', class: 'fm-btn' + (on ? ' on' : ''),
+        'aria-pressed': on ? 'true' : 'false'
+      }, [
+        h('span', { class: 'fm-k', text: spec[1] }),
+        h('span', { class: 'fm-s', text: spec[2] })
+      ]);
+      button.addEventListener('click', function () {
+        flowMode = spec[0];
+        renderTable(tab, els);
+        if (els === el) { renderL10(current); renderL11(current); }
+      });
+      group.appendChild(button);
+    });
+    host.appendChild(group);
   }
 
   function renderSummary(tab, rows, els) {
@@ -1086,9 +1199,22 @@
       return !!(column.width && column.width >= 20);
     });
 
+    /* Which rows the flow control is talking about. Named on the row itself,
+     * because a control that says "5 units took a wrong path" and gives no way
+     * to find them leaves the reader to diff two yields by hand. */
+    var journeyAt = journey(tab);
+    var serialCol = columnIndex(tab, 'B');
+    var httCol = journeyAt ? journeyAt.htt : -1;
+
     var body = document.createDocumentFragment();
     rows.forEach(function (row, index) {
       var tr = h('tr', { class: index % 2 ? 'odd' : 'even' });
+      var wrongFlow = false;
+      if (journeyAt) {
+        var httTone = toneAt(row, journeyAt.htt);
+        wrongFlow = (httTone === 'pass' || httTone === 'fail')
+                    && !flowOk(row, journeyAt, serialCol);
+      }
       tr.appendChild(h('td', { class: 'col-index', text: String(index + 1) }));
       row.forEach(function (cell, position) {
         var column = columns[position];
@@ -1106,6 +1232,16 @@
           return;
         }
         var td = renderCell(cell, column, wraps[position]);
+        /* The mark goes on the HTT verdict, which is the cell whose population
+         * the choice above changes. */
+        if (wrongFlow && position === httCol) {
+          td.appendChild(h('span', {
+            class: 'flow-mark',
+            title: 'reached HTT without an MLT pass on record — excluded by '
+                   + 'Correct flow',
+            text: '⚠'
+          }));
+        }
         /* The per-unit build. It is the column that answers "which release was
          * this unit actually on", so it reads as data, not as prose. */
         if ((columns[position] || {}).kind) {
@@ -1119,6 +1255,8 @@
     els.body.innerHTML = '';
     els.body.appendChild(body);
 
+    /* Before the summary, because it governs the summary. */
+    renderFlowMode(tab, els);
     renderSummary(tab, counted, els);
     renderCaption(tab, rows.length, els);
     renderCountMode(tab, counted.length - rows.length, els);
@@ -1154,23 +1292,6 @@
     });
     host.appendChild(button);
 
-    /* Only where both stations are on the table: the L10 and L11 blocks have
-     * no MLT to gate against. */
-    if (journey(tab)) {
-      var gate = h('button', { type: 'button',
-        class: 'cm-btn' + (gateHtt ? ' on' : ''),
-        title: 'Count the HTT column only on modules that passed MLT the same '
-               + 'day. HTT\u2019s own population includes units that arrived '
-               + 'from an earlier day.',
-        text: gateHtt ? 'HTT: every unit' : 'HTT: only MLT passers' });
-      gate.addEventListener('click', function () {
-        gateHtt = !gateHtt;
-        renderTable(tab, els);
-        if (els === el) { renderL10(current); renderL11(current); }
-      });
-      host.appendChild(gate);
-    }
-
     /* On a hand-kept tab the two modes agree, and that is worth a sentence
      * rather than leaving a reader to wonder whether the button works. */
     var omits = tab.sheetOmits;
@@ -1189,19 +1310,6 @@
           'already leaves the re-runs out — ' + parts.join('; ') +
           '. So there is nothing for Count all to add: the line was keeping a ' +
           'new-input record by hand before this page counted one.')
-      ]));
-    }
-
-    if (gateHtt && journey(tab)) {
-      host.appendChild(h('p', { class: 'cm-note' }, [
-        h('strong', { text: 'HTT is gated on MLT.' }),
-        document.createTextNode(
-          ' The HTT tile counts only modules that passed MLT on this tab, so ' +
-          'it and the combined tile are over the same population. Units that ' +
-          'reached HTT from an earlier day\u2019s MLT are left out of the HTT ' +
-          'column — they are still in the table, and still in every other ' +
-          'column. One useful consequence: gated, MLT% × HTT% is exactly the ' +
-          'combined figure, which ungated it is not.')
       ]));
     }
 
@@ -1626,6 +1734,8 @@
     el.body = byId('sheet-body');
     el.caption = byId('sheet-caption');
     el.countMode = 'count-mode';
+    /* Only the module table has a flow to choose: L10 and L11 have no MLT. */
+    el.flowMode = 'flow-mode';
 
     if (!TABS.length) {
       var banner = byId('notice');

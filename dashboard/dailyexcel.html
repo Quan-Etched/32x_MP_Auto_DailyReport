@@ -40,6 +40,13 @@
   <div class="banner" id="notice" hidden></div>
 
   <main id="content">
+
+    <!-- Above the summary because it decides what the summary counts. Hidden
+         unless the day actually has a unit at HTT that should not be there —
+         with no mis-flow the two populations are identical and the choice would
+         have no consequence. -->
+    <div class="flow-mode" id="flow-mode" hidden></div>
+
     <section class="sheet-summary" id="summary"></section>
 
     <!-- Zoom, for the same reason a spreadsheet has one: the sheet is wider

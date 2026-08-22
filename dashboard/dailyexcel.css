@@ -845,3 +845,62 @@ button.cal-cell.is-on .cal-n { font-weight: 700; color: var(--accent-solid); }
   color: var(--accent-solid);
   font-weight: 600;
 }
+
+/* ------------------------------------------------ the MLT -> HTT flow mode ---
+ * Above the yield summary, because it decides what the summary counts. Present
+ * only on a day that has a unit at HTT which should not be there — a choice
+ * with no consequence is worse than no choice. */
+.flow-mode {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--status-warning);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  padding: 12px 16px;
+  margin-bottom: 14px;
+}
+.flow-mode[hidden] { display: none; }
+
+.fm-head {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+  max-width: 96ch;
+}
+
+.fm-group { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* Each button carries its own definition. The two differ by which units they
+   count, and a bare label would leave the reader to guess which is which — on
+   08-16 the choice is nine points of HTT yield. */
+.fm-btn {
+  display: flex; flex-direction: column; gap: 2px;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--page);
+  border-radius: var(--radius);
+  padding: 8px 13px;
+  font: inherit;
+  cursor: pointer;
+  max-width: 42ch;
+}
+.fm-btn:hover { border-color: var(--accent-solid); }
+.fm-btn.on {
+  border-color: var(--accent-solid);
+  box-shadow: inset 0 0 0 1px var(--accent-solid);
+}
+.fm-k { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+.fm-btn.on .fm-k { color: var(--accent-solid); }
+.fm-s { font-size: 11.5px; color: var(--text-muted); line-height: 1.45; }
+
+@media print { .flow-mode { display: none; } }
+
+/* A unit that reached HTT without an MLT pass on record. Marked on its HTT
+   verdict — the cell whose population the flow control changes — so the count
+   in that control can be found in the table rather than taken on trust. */
+.flow-mark {
+  margin-left: 4px;
+  font-size: 10px;
+  color: var(--status-warning);
+  cursor: help;
+}
