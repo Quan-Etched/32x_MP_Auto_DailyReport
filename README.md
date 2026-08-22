@@ -418,6 +418,9 @@ dashboard/
   runs.html + runtable.js + runs.css        raw run table (the drill-down)
   dailyexcel.html + dailysheet.js + dailyexcel.css   the line's daily tracker
   delta.html + delta.js + delta.css   that sheet vs this repo, unit by unit
+  rack2.html + rack2.js + rack2.css   rack 2 assembled, and where its four
+                      servers actually stand — read from the controllers, so
+                      the page keeps telling the truth after the day
   allhands.html + allhands.js + allhands.css   five stages, one first-pass
                       yield each, over any UTC range, plus what retests
                       recovered and a failure Pareto

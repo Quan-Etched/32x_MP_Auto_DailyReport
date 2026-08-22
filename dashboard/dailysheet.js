@@ -385,40 +385,32 @@
    * Two kinds, and they are different findings: one is a unit the line pushed
    * on after a failure, the other is a unit nobody can show ever passed MLT.
    * Both are counted per row so the control can say which it found. */
+  /* The wrong-flow list, as the builder computed it.
+   *
+   * Read rather than re-derived. This was worked out in the page first and then
+   * moved into build_dailyexcel.misflow_for, because the weekly rollup needs the
+   * same answer and two implementations of "wrong flow" would disagree inside a
+   * week. Each entry carries the run it is about, which is what lets the count
+   * on screen be followed to the source. */
   function misflow(tab) {
-    var at = journey(tab);
-    if (!at) return null;
-    var serialAt = columnIndex(tab, 'B');
-    var out = { failed: [], unproven: [], total: 0 };
-    (tab.rows || []).forEach(function (row) {
-      var htt = toneAt(row, at.htt);
-      if (htt !== 'pass' && htt !== 'fail') return;
-      var mlt = toneAt(row, at.mlt);
-      if (mlt === 'pass') return;
-      var serial = (serialAt >= 0 ? row[serialAt] : {}) || {};
-      var sn = serial.v || '';
-      if (mlt === 'fail') { out.failed.push(sn); out.total += 1; return; }
-      /* No MLT verdict on this tab. Legitimate if the unit passed MLT before —
-       * it crossed a day boundary, which is not a flow error. */
-      var past = (serial.history || {}).mlt || [];
-      var passedBefore = past.some(function (attempt) {
-        return attempt.status === 'pass';
-      });
-      if (!passedBefore) { out.unproven.push(sn); out.total += 1; }
+    var rows = tab.misflow || [];
+    var out = { failed: [], unproven: [], all: rows, total: rows.length,
+                byDut: {} };
+    rows.forEach(function (entry) {
+      out.byDut[entry.dut] = entry;
+      (entry.kind === 'failed' ? out.failed : out.unproven).push(entry);
     });
     return out;
   }
 
-  /* Did this unit reach HTT the right way? */
+  /* Did this unit reach HTT the right way? Anything the builder did not flag. */
   function flowOk(row, at, serialAt) {
-    var mlt = toneAt(row, at.mlt);
-    if (mlt === 'pass') return true;
-    if (mlt === 'fail') return false;
     var serial = (serialAt >= 0 ? row[serialAt] : {}) || {};
-    return ((serial.history || {}).mlt || []).some(function (attempt) {
-      return attempt.status === 'pass';
-    });
+    return !misflowIndex[serial.v || ''];
   }
+
+  /* Rebuilt per render, because the tab changes under it. */
+  var misflowIndex = {};
 
   function stationColumn(tab, station) {
     var columns = tab.columns || [];
@@ -516,13 +508,14 @@
    */
   function renderFlowMode(tab, els) {
     els = els || el;
+    var wrong = misflow(tab);
+    misflowIndex = wrong.byDut;
+
     var host = els.flowMode ? byId(els.flowMode) : null;
     if (!host) return;
     host.innerHTML = '';
     host.hidden = true;
-
-    var wrong = misflow(tab);
-    if (!wrong || !wrong.total) return;
+    if (!wrong.total) return;
     host.hidden = false;
 
     var kinds = [];
@@ -534,13 +527,50 @@
                  + 'record');
     }
 
-    host.appendChild(h('p', { class: 'fm-head' }, [
-      h('strong', { text: wrong.total + ' unit' +
-                          (wrong.total === 1 ? '' : 's') +
-                          ' took a path they should not have.' }),
-      document.createTextNode(' ' + kinds.join('; ') +
-        '. Choose which of them the HTT yield counts.')
-    ]));
+    /* The count opens the units it is about, each linking to the HTT run on the
+     * controller. A number that cannot be followed to a record is a number the
+     * reader has to take on faith, and this one is an accusation about the
+     * line's routing — it has to be checkable. */
+    var list = h('div', { class: 'fm-list', hidden: 'hidden' });
+    wrong.all.forEach(function (entry) {
+      list.appendChild(h('div', { class: 'fm-unit' }, [
+        h('span', { class: 'fm-sn', text: entry.dut }),
+        h('span', { class: 'fm-why', text: entry.kind === 'failed'
+          ? 'failed MLT' : 'no MLT pass on record' }),
+        entry.mltUrl
+          ? h('a', { class: 'fm-link', href: entry.mltUrl, target: '_blank',
+                     rel: 'noopener noreferrer',
+                     title: entry.mltUrl,
+                     text: 'MLT ' + (entry.mltRun || 'run') })
+          : h('span', { class: 'fm-why', text: 'no MLT run' }),
+        entry.httUrl
+          ? h('a', { class: 'fm-link', href: entry.httUrl, target: '_blank',
+                     rel: 'noopener noreferrer',
+                     title: entry.httUrl,
+                     text: 'HTT ' + (entry.httRun || 'run') + ' → ' + entry.htt })
+          : null
+      ]));
+    });
+
+    var toggle = h('button', { type: 'button', class: 'fm-count',
+      'aria-expanded': 'false',
+      title: 'show the units, with a link to each run on the controller' },
+      [h('strong', { text: wrong.total + ' unit' +
+                           (wrong.total === 1 ? '' : 's') })]);
+    toggle.addEventListener('click', function () {
+      var open = !list.hidden;
+      if (open) { list.setAttribute('hidden', 'hidden'); }
+      else { list.removeAttribute('hidden'); }
+      toggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+
+    var head = h('p', { class: 'fm-head' });
+    head.appendChild(toggle);
+    head.appendChild(document.createTextNode(
+      ' took a path they should not have. ' + kinds.join('; ') +
+      '. Choose which of them the HTT yield counts.'));
+    host.appendChild(head);
+    host.appendChild(list);
 
     var group = h('div', { class: 'fm-group', role: 'group',
                            'aria-label': 'HTT population' });

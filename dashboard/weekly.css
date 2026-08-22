@@ -165,3 +165,44 @@
   color: var(--status-warning);
   cursor: help;
 }
+
+/* ------------------------------------------------- wrong flow into HTT ---
+ * Above the step table because it qualifies every yield in it: the steps count
+ * every unit, and this is what a correct-flow reading would leave out. The
+ * count is a button — the number is an accusation about routing and has to be
+ * followable to the run. */
+.wk-misflow {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--status-warning);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  padding: 11px 15px;
+  margin: 0 0 12px;
+}
+.wk-misflow[hidden] { display: none; }
+.mf-head {
+  margin: 0; font-size: 12.5px; line-height: 1.55;
+  color: var(--text-secondary); max-width: 96ch;
+}
+.mf-count {
+  appearance: none; background: none; border: 0; padding: 0;
+  font: inherit; color: var(--accent-solid); cursor: pointer;
+  border-bottom: 1px dashed currentColor;
+}
+.mf-count:hover { color: var(--text-primary); }
+.mf-list { margin-top: 9px; display: flex; flex-direction: column; gap: 3px; }
+.mf-list[hidden] { display: none; }
+.mf-unit {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  font-size: 11.5px;
+}
+.mf-day { color: var(--text-muted); min-width: 10ch; }
+.mf-sn {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-secondary); min-width: 15ch;
+}
+.mf-why { color: var(--status-warning); min-width: 18ch; }
+.mf-link {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; color: var(--accent-solid); white-space: nowrap;
+}

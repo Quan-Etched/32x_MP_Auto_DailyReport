@@ -904,3 +904,31 @@ button.cal-cell.is-on .cal-n { font-weight: 700; color: var(--accent-solid); }
   color: var(--status-warning);
   cursor: help;
 }
+
+/* The mis-flow count, and the units behind it.
+ *
+ * The count is a button because the number is an accusation about the line's
+ * routing, and an accusation has to be checkable — pressing it lists the units
+ * with a link to each run on the controller. */
+.fm-count {
+  appearance: none; background: none; border: 0; padding: 0;
+  font: inherit; color: var(--accent-solid); cursor: pointer;
+  border-bottom: 1px dashed currentColor;
+}
+.fm-count:hover { color: var(--text-primary); }
+
+.fm-list { margin: 0 0 10px; display: flex; flex-direction: column; gap: 3px; }
+.fm-list[hidden] { display: none; }
+.fm-unit {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  font-size: 11.5px;
+}
+.fm-sn {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-secondary); min-width: 15ch;
+}
+.fm-why { color: var(--status-warning); min-width: 18ch; }
+.fm-link {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; color: var(--accent-solid); white-space: nowrap;
+}

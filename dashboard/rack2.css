@@ -1,0 +1,66 @@
+/* Rack 2. A news page that keeps working: the milestone is fixed, the state
+ * under it is live, and the two are visibly different kinds of claim. */
+
+.lede { margin: 0 0 18px; font-size: 13.5px; color: var(--text-secondary);
+        max-width: 84ch; }
+
+.r2-top { display: flex; gap: 22px; flex-wrap: wrap; align-items: flex-start; }
+
+.r2-photo { margin: 0; flex: 0 1 300px; }
+.r2-photo img {
+  display: block; width: 100%; max-width: 320px; height: auto;
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.r2-photo figcaption {
+  margin-top: 6px; font-size: 11.5px; color: var(--text-muted);
+}
+
+.r2-facts { flex: 1 1 320px; }
+.r2-id { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.r2-k {
+  font-size: 11.5px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.r2-sn {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 22px; color: var(--text-primary);
+}
+.r2-sfis, .r2-run { font-size: 11.5px; color: var(--accent-solid); white-space: nowrap; }
+.r2-note {
+  margin: 10px 0 0; font-size: 12.5px; line-height: 1.6;
+  color: var(--text-secondary); max-width: 60ch;
+}
+
+/* ------------------------------------------------------------------ table */
+
+.r2-table { border-collapse: collapse; width: 100%; font-size: 12px; }
+.r2-table th {
+  text-align: left; font-weight: 600; color: var(--text-muted);
+  padding: 4px 14px 6px 0; border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.r2-table td {
+  padding: 6px 14px 6px 0; color: var(--text-secondary);
+  border-bottom: 1px solid var(--border); vertical-align: baseline;
+}
+.r2-table td.mono, .r2-table td.mono a {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px;
+}
+.r2-table td.mono a { color: var(--accent-solid); }
+.r2-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.r2-slot { font-weight: 600; color: var(--text-primary); }
+
+.r2-cell { display: inline-flex; align-items: baseline; gap: 7px; }
+.r2-pass { color: var(--success-text); font-weight: 600; }
+.r2-fail { color: var(--status-critical); font-weight: 600; }
+.r2-error { color: var(--status-serious); font-weight: 600; }
+.r2-none { color: var(--text-muted); }
+/* How many times the stage has run on that server. A pass at the ninth attempt
+   and a pass at the first are not the same event, and the bare verdict hides
+   the difference. */
+.r2-att {
+  font-size: 10.5px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 700px) { .r2-photo { flex-basis: 100%; } }

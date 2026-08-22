@@ -80,3 +80,44 @@
   cursor: help;
   margin-left: 2px;
 }
+
+/* -------------------------------------------- L6 yield, week over week ---
+ * Scaled to 100%, never to the tallest bar: a yield chart with a floating axis
+ * turns 44% and 57% into a collapse and a recovery. */
+.wk-bar {
+  display: grid; align-items: center; gap: 10px;
+  grid-template-columns: 8em 1fr 4em 8em;
+  padding: 4px 0; font-size: 12px;
+}
+.wk-lab {
+  font-variant-numeric: tabular-nums; color: var(--text-secondary);
+  white-space: nowrap;
+}
+.wk-track {
+  position: relative; background: var(--grid);
+  border-radius: 3px; height: 18px; overflow: hidden;
+}
+/* The retest bar sits behind, so the solid first-pass bar reads first. */
+.wk-ghost {
+  position: absolute; inset: 0 auto 0 0; height: 100%;
+  background: var(--series-1); opacity: 0.28;
+}
+.wk-fill {
+  position: absolute; inset: 0 auto 0 0; height: 100%;
+  background: var(--series-1); z-index: 1;
+}
+.wk-pct {
+  text-align: right; font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+.wk-n {
+  font-size: 11px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 700px) {
+  .wk-bar { grid-template-columns: 6em 1fr 3.5em; }
+  .wk-n { display: none; }
+}
+
+/* A week with no combined yield to report — dimmed, never zero. */
+.wk-pct.absent { color: var(--text-muted); font-weight: 400; }

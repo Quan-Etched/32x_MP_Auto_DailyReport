@@ -104,6 +104,64 @@
 
   /* ---------------------------------------------------------------- steps */
 
+  /* Units that reached HTT without an MLT pass behind them, over the week.
+   *
+   * The number is a disclosure, not a label: it is an accusation about the
+   * line's routing and it has to be followable to the run it is about. Hidden
+   * entirely on a week with none, because a zero here would be one more row of
+   * chrome on a page that already has plenty. */
+  function renderMisflow(week) {
+    var host = byId('misflow');
+    if (!host) return;
+    host.innerHTML = '';
+    var got = week.misflow || {};
+    if (!got.total) { host.hidden = true; return; }
+    host.hidden = false;
+
+    var kinds = [];
+    if (got.failed) kinds.push(got.failed + ' failed MLT and went on anyway');
+    if (got.unproven) kinds.push(got.unproven + ' with no MLT pass on record');
+
+    var list = h('div', { class: 'mf-list', hidden: 'hidden' });
+    (got.units || []).forEach(function (entry) {
+      list.appendChild(h('div', { class: 'mf-unit' }, [
+        h('span', { class: 'mf-day', text: entry.day }),
+        h('span', { class: 'mf-sn', text: entry.dut }),
+        h('span', { class: 'mf-why', text: entry.kind === 'failed'
+          ? 'failed MLT' : 'no MLT pass on record' }),
+        entry.httUrl
+          ? h('a', { class: 'mf-link', href: entry.httUrl, target: '_blank',
+                     rel: 'noopener noreferrer', title: entry.httUrl,
+                     text: 'HTT ' + (entry.httRun || 'run') + ' \u2192 ' +
+                           entry.htt })
+          : h('span', { class: 'mf-why', text: 'no run link' })
+      ]));
+    });
+
+    var toggle = h('button', { type: 'button', class: 'mf-count',
+      'aria-expanded': 'false',
+      title: 'show the units, with a link to each run on the controller' },
+      [h('strong', { text: got.total + ' unit' +
+                           (got.total === 1 ? '' : 's') })]);
+    toggle.addEventListener('click', function () {
+      var open = !list.hidden;
+      if (open) list.setAttribute('hidden', 'hidden');
+      else list.removeAttribute('hidden');
+      toggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+
+    var head = h('p', { class: 'mf-head' });
+    head.appendChild(h('strong', { text: 'Wrong flow into HTT. ' }));
+    head.appendChild(toggle);
+    head.appendChild(document.createTextNode(
+      ' of the ' + got.httGraded + ' HTT results this week came from a module ' +
+      'with no MLT pass behind it — ' + kinds.join('; ') + '. The step yields ' +
+      'below count every unit; this is what a correct-flow reading would leave ' +
+      'out.'));
+    host.appendChild(head);
+    host.appendChild(list);
+  }
+
   function renderSteps(week) {
     var body = byId('steps');
     body.innerHTML = '';
@@ -421,6 +479,7 @@
     renderBar();
     renderTiles(current);
     renderCharts(current);
+    renderMisflow(current);
     renderSteps(current);
     renderFilters(current);
     renderUnits(current);

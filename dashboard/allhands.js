@@ -523,6 +523,148 @@
     }
   }
 
+  /* ------------------------------------------------- week over week ---
+   *
+   * The accumulated L6 yield per ISO week: MLT and HTT, per unit, the same
+   * computation the box above uses. TIM is not in it — the summary flow chart's
+   * accumulated figure is MLT × HTT and this has to be the same quantity, or
+   * the trend and the headline are two different measures on one site.
+   *
+   * DELIBERATELY NOT RANGE-DRIVEN
+   * Every complete week in the bundle, plus the one running. A trend that moved
+   * when somebody narrowed the day picker would not be a trend — and with the
+   * default seven-day range it would be a single bar, which is a number with a
+   * chart drawn round it.
+   */
+  function isoWeek(day) {
+    /* Thursday of the same week decides the year and the number, which is what
+     * makes 29 December and 1 January land in the right places. */
+    var at = new Date(day + 'T00:00:00Z');
+    var dow = (at.getUTCDay() + 6) % 7;          /* Monday = 0 */
+    at.setUTCDate(at.getUTCDate() - dow + 3);
+    var firstThursday = new Date(Date.UTC(at.getUTCFullYear(), 0, 4));
+    var fdow = (firstThursday.getUTCDay() + 6) % 7;
+    firstThursday.setUTCDate(firstThursday.getUTCDate() - fdow + 3);
+    var week = 1 + Math.round(
+      (at - firstThursday) / (7 * 86400000));
+    return at.getUTCFullYear() + '-W' + (week < 10 ? '0' + week : week);
+  }
+
+  function weekly() {
+    var buckets = {};
+    RUNS.forEach(function (run) {
+      var day = utcDay(run);
+      if (!day) return;
+      var key = isoWeek(day);
+      (buckets[key] || (buckets[key] = [])).push(run);
+    });
+    var l6 = STAGES.filter(function (stage) { return stage.key === 'l6'; })[0];
+    var last = l6.stations[l6.stations.length - 1];
+    return Object.keys(buckets).sort().map(function (key) {
+      var got = stageYield(byUnit(buckets[key]), l6);
+      /* A combined yield needs both stations to have run.
+       *
+       * Before HTT started, weeks came out as 0% over dozens of units — every
+       * unit sat in "part-way through", so clean was zero and the rate read as
+       * a total loss. Eight leading zeros on an all-hands chart is a story
+       * about the line collapsing, and what actually happened is that the
+       * second half of the stage did not exist yet. */
+      var tail = got ? got.per[last] : null;
+      var ran = tail ? tail.pass + tail.fail : 0;
+      return {
+        week: key,
+        entered: got ? got.entered : 0,
+        clean: got ? got.clean : 0,
+        recovered: got ? got.recovered : 0,
+        incomplete: got ? got.incomplete : 0,
+        rate: ran && got ? got.rate : null,
+        withRetests: ran && got && got.entered
+          ? (got.clean + got.recovered) / got.entered : null,
+        why: ran ? '' : 'HTT did not run this week'
+      };
+    }).filter(function (row) { return row.entered; });
+  }
+
+  function renderWeekly() {
+    var host = byId('weekly-plot');
+    var wrap = byId('weekly-table-wrap');
+    if (!host) return;
+    var rows = weekly();
+
+    byId('weekly-sub').textContent = rows.length
+      ? 'MLT and HTT combined, per unit, for every week the controllers cover. ' +
+        'TIM is not counted — this is the same quantity the flow chart calls the ' +
+        'accumulated L6 yield. Not affected by the range above.'
+      : 'No week in the bundle has a unit through MLT.';
+
+    host.innerHTML = '';
+    host.hidden = view.mode !== 'graph';
+    wrap.hidden = view.mode === 'graph';
+
+    if (view.mode === 'graph') {
+      /* Scaled to 100, not to the tallest bar: a yield chart whose axis floats
+       * makes 44% and 57% look like a collapse and a recovery. */
+      rows.forEach(function (row) {
+        host.appendChild(h('div', { class: 'wk-bar' }, [
+          h('span', { class: 'wk-lab', text: row.week }),
+          h('span', { class: 'wk-track' }, [
+            h('span', { class: 'wk-fill',
+                        style: 'width:' + (100 * (row.rate || 0)) + '%' }),
+            row.withRetests > row.rate
+              ? h('span', { class: 'wk-ghost',
+                            style: 'width:' + (100 * row.withRetests) + '%' })
+              : null
+          ]),
+          h('strong', { class: 'wk-pct' + (row.rate === null ? ' absent' : ''),
+                        text: pct(row.rate) || '—' }),
+          h('span', { class: 'wk-n', text: row.why
+            ? row.why : row.clean + ' of ' + row.entered })
+        ]));
+      });
+      host.appendChild(h('p', { class: 'cz-note', text:
+        'Solid is first pass. The lighter bar behind it, where there is one, is ' +
+        'the same week once retests are counted.' }));
+    } else {
+      var head = byId('weekly-head'), body = byId('weekly-body');
+      head.innerHTML = ''; body.innerHTML = '';
+      head.appendChild(h('tr', {}, ['Week', 'Units in', 'Clean first pass',
+                                    'First-pass yield', 'With retests', 'Note']
+        .map(function (title, at) {
+          return h('th', { class: at ? 'num' : '', text: title });
+        })));
+      rows.forEach(function (row) {
+        body.appendChild(h('tr', {}, [
+          h('td', { text: row.week }),
+          h('td', { class: 'num', text: String(row.entered) }),
+          h('td', { class: 'num', text: String(row.clean) }),
+          h('td', { class: 'num', text: pct(row.rate) || '—' }),
+          h('td', { class: 'num', text: pct(row.withRetests) || '—' }),
+          h('td', { text: row.why })
+        ]));
+      });
+    }
+
+    var host2 = byId('weekly-download');
+    if (host2 && window.FactoryCsv) {
+      host2.innerHTML = '';
+      var button = h('button', { type: 'button', class: 'view-toggle',
+                                 text: 'Download CSV' });
+      button.addEventListener('click', function () {
+        var lines = [['Week', 'Units_In', 'Clean_First_Pass', 'Recovered',
+                      'First_Pass_Yield_Pct', 'With_Retests_Pct']];
+        rows.forEach(function (row) {
+          lines.push([row.week, row.entered, row.clean, row.recovered,
+                      row.rate === null ? '' : Math.round(row.rate * 1000) / 10,
+                      row.withRetests === null ? ''
+                        : Math.round(row.withRetests * 1000) / 10]);
+        });
+        window.FactoryCsv.download('l6-yield-by-week.csv',
+                                   window.FactoryCsv.toCsv(lines));
+      });
+      host2.appendChild(button);
+    }
+  }
+
   /* ---------------------------------------------------------------- chrome */
 
   function renderQuick() {
@@ -578,6 +720,7 @@
     renderQuick();
     renderStages(units, rows);
     renderRecovery(units);
+    renderWeekly();
     renderPareto(rows);
 
     var ext = STAGES.filter(function (s) { return s.external; })

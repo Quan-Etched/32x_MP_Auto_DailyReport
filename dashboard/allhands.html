@@ -58,6 +58,27 @@
        — the same rule the weekly page applies, and for the same reason. -->
   <section class="stages" id="stages"></section>
 
+  <!-- Week over week. Not driven by the range picker: a trend that moved when
+       somebody narrowed the days would not be a trend, and on the default
+       seven-day range it would be one bar. -->
+  <section class="card full" style="margin-top:16px">
+    <div class="card-head">
+      <div>
+        <h2>L6 accumulated yield, week over week</h2>
+        <p class="sub" id="weekly-sub"></p>
+      </div>
+      <span class="spacer"></span>
+      <div class="quick" id="weekly-download"></div>
+    </div>
+    <div class="plot" id="weekly-plot"></div>
+    <div class="table-wrap" id="weekly-table-wrap" hidden>
+      <table class="cz-table" id="weekly-table">
+        <thead id="weekly-head"></thead>
+        <tbody id="weekly-body"></tbody>
+      </table>
+    </div>
+  </section>
+
   <section class="card full" style="margin-top:16px">
     <div class="card-head">
       <div>

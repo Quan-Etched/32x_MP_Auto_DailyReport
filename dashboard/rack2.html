@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rack 2 assembled at Pegatron</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="stations.css">
+  <link rel="stylesheet" href="rack2.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Rack 2 is built</h1>
+    <span class="meta" id="meta"></span>
+    <span class="build" id="build" title="Which build of the analysis produced this page"></span>
+    <span class="spacer"></span>
+    <a class="theme-toggle" href="index.html">← Station yield</a>
+    <a class="theme-toggle" href="allhands.html">Line yield →</a>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <p class="lede">
+    The second L11 rack is assembled at Pegatron — four Sohu servers, cabled,
+    in the frame. That is the milestone. What follows is where those four
+    servers actually stand, read from the controllers, so the page keeps telling
+    the truth after today.
+  </p>
+
+  <section class="r2-top">
+    <figure class="r2-photo">
+      <!-- Drop the photo in as dashboard/img/l11-rack-2.jpg and it appears
+           here. Missing, the figure removes itself rather than showing a broken
+           image: the page is about the four servers underneath, and it reads
+           perfectly well without a picture. -->
+      <img id="photo" src="img/l11-rack-2.jpg"
+           alt="The second L11 rack assembled at Pegatron, four Sohu servers cabled in the frame">
+      <figcaption id="photo-cap">Pegatron, 2026-08-22</figcaption>
+    </figure>
+
+    <div class="r2-facts">
+      <div class="r2-id">
+        <span class="r2-k">Rack</span>
+        <strong class="r2-sn" id="rack-sn"></strong>
+        <a class="r2-sfis" id="rack-sfis" target="_blank" rel="noopener noreferrer">SFIS ↗</a>
+      </div>
+      <div id="rack-state" class="r2-state"></div>
+    </div>
+  </section>
+
+  <section class="card full" style="margin-top:18px">
+    <div class="card-head">
+      <div>
+        <h2>The four servers in it</h2>
+        <p class="sub" id="servers-sub"></p>
+      </div>
+      <span class="spacer"></span>
+      <div class="quick" id="download"></div>
+    </div>
+    <div class="table-wrap">
+      <table class="r2-table" id="servers">
+        <thead id="servers-head"></thead>
+        <tbody id="servers-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="notes">
+    <p id="footer-meta"></p>
+    <p>
+      Each server's state is its <strong>latest verdict at each L10 stage</strong>
+      from the station controllers, not a snapshot typed in today — so this page
+      follows the line. A stage a server has not reached shows a dash, which is
+      not the same as a failure.
+    </p>
+    <p id="caveat"></p>
+  </footer>
+
+</div>
+
+<script src="data/runs_pega.js"></script>
+<script src="tablecsv.js"></script>
+<script src="rack2.js"></script>
+<script src="theme.js"></script>
+<script src="update.js"></script>
+</body>
+</html>

@@ -813,6 +813,10 @@ def _add_sheet_versions(tab: Dict[str, Any],
         tab["sheetOmits"] = omits
 
     tab["counts"] = _counts(tab["rows"], tab["columns"])
+    # The line's own tabs get the same wrong-flow detection as the rebuilt ones.
+    # Without it the control would be silently absent on 08-11 and 08-12 —
+    # correct today, since neither has any, but absent for the wrong reason.
+    tab["misflow"] = misflow_for(units, history, tab.get("day"))
     return tab
 
 
@@ -1018,6 +1022,62 @@ def _seen_before(day: str, lookback: int = NEW_INPUT_LOOKBACK
                     "suite": suite,
                 })
     return seen
+
+
+#: A unit at HTT that should not be there, and which of the two kinds it is.
+#:
+#: THE DISTINCTION THAT MAKES THIS USEFUL
+#: A unit with no MLT verdict on the day is usually not a flow error: it passed
+#: MLT yesterday and reached HTT this morning. Since 08-01 that is 80 of the 92
+#: such units, and calling them wrong flow would have flagged an ordinary day
+#: and thrown 17 good units out of 08-14's HTT yield.
+#:
+#: So the wrong flow is narrower and there are exactly two kinds:
+#:   ``failed``   MLT failed on the day and the unit went to HTT anyway.
+#:   ``unproven`` nothing on record — this day or in the lookback — shows the
+#:                unit ever passing MLT.
+#: Computed here rather than in the page, because the daily tab and the weekly
+#: rollup both need it and two implementations of "wrong flow" would disagree
+#: inside a week.
+MISFLOW_KINDS = ("failed", "unproven")
+
+
+def misflow_for(units: Dict[str, Dict[str, Any]],
+                history: Dict[str, Dict[str, List[Dict[str, str]]]],
+                day: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Every unit that reached HTT without an MLT pass behind it."""
+    out: List[Dict[str, Any]] = []
+    for dut in sorted(units):
+        unit = units[dut]
+        htt = unit.get("htt") or {}
+        if htt.get("status") not in ("pass", "fail"):
+            continue
+        mlt = unit.get("mlt") or {}
+        status = mlt.get("status")
+        if status == "pass":
+            continue
+        if status == "fail":
+            kind = "failed"
+        else:
+            past = (history.get("mlt") or {}).get(dut) or []
+            if any(attempt.get("status") == "pass" for attempt in past):
+                continue                      # passed MLT earlier — fine
+            kind = "unproven"
+        out.append({
+            "dut": dut,
+            "kind": kind,
+            "day": day,
+            "mlt": status or "",
+            "htt": htt.get("status") or "",
+            # The raw record, so the count on the page can be followed to the
+            # run it is about instead of taken on trust.
+            "httUrl": htt.get("url") or "",
+            "httRun": htt.get("short") or "",
+            "mltUrl": mlt.get("url") or "",
+            "mltRun": mlt.get("short") or "",
+            "suite": htt.get("suite") or "",
+        })
+    return out
 
 
 def _trim_history(past: List[Dict[str, str]]) -> List[Dict[str, Any]]:
@@ -1245,6 +1305,10 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
         "columns": columns,
         "rows": rows,
         "counts": _counts(rows, columns),
+        # Units at HTT with no MLT pass behind them, with the run each one is
+        # about. Computed here so the day view and the weekly rollup share one
+        # definition rather than two that drift.
+        "misflow": misflow_for(units, history, day),
         "crossref": {"matched": 0, "duts": len(units)},
     }
 

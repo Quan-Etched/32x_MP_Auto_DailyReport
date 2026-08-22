@@ -40,7 +40,8 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import build_fpy, build_stations, config, daily, pega, stations, version
+from . import (build_dailyexcel, build_fpy, build_stations, config, daily,
+               pega, stations, version)
 
 #: Weeks published. A quarter, which is as far back as the controllers' detail
 #: goes once the archive under weekly/ is doing its job.
@@ -101,6 +102,89 @@ def build_bundle(payload: Dict[str, Any], weeks: int = DEFAULT_WEEKS) -> Dict[st
     }
 
 
+#: A unit at HTT with no MLT pass behind it, over a week.
+#:
+#: THE SAME RULE AS THE DAY VIEW, DELIBERATELY
+#: The first version of this asked a different question — "had this unit ever
+#: passed MLT before this HTT run" — and it looked more precise. It was not: on
+#: W33 it found 3 wrong-flow units where the daily tabs for the same seven days
+#: found 11. A unit that passed MLT last week, failed it today and went to HTT
+#: anyway is wrong flow, and that version called it correct because of the older
+#: pass.
+#:
+#: So this asks exactly what build_dailyexcel.misflow_for asks, day by day:
+#:   MLT passed on the same UTC day            -> correct
+#:   MLT failed that day and no pass that day   -> failed
+#:   no MLT that day, but a pass on an earlier  -> correct, it crossed midnight
+#:   no MLT that day and no earlier pass        -> unproven
+#: Two pages disagreeing by a factor of three about the same week is worse than
+#: either being slightly coarse.
+def _misflow(payload: Dict[str, Any], start: str, end: str) -> Dict[str, Any]:
+    runs = sorted(
+        (run for run in payload.get("runs") or []
+         if run.get("startTs") and run.get("dutSerial")
+         and run.get("stationKey") in ("mlt", "htt")),
+        key=lambda run: run["startTs"])
+
+    #: (dut, day) -> the MLT verdicts that unit got that day, and the earliest
+    #: day it is known to have passed MLT at all.
+    mlt_by_day: Dict[tuple, set] = defaultdict(set)
+    first_pass_day: Dict[str, str] = {}
+    for run in runs:
+        if run["stationKey"] != "mlt":
+            continue
+        dut, day, status = run["dutSerial"], _day(run["startTs"]), run.get("status")
+        if status in ("pass", "fail"):
+            mlt_by_day[(dut, day)].add(status)
+        if status == "pass" and dut not in first_pass_day:
+            first_pass_day[dut] = day
+
+    out: List[Dict[str, Any]] = []
+    graded = 0
+    for run in runs:
+        if run["stationKey"] != "htt" or run.get("status") not in ("pass", "fail"):
+            continue
+        day = _day(run["startTs"])
+        if not (start <= day <= end):
+            continue
+        graded += 1
+        dut = run["dutSerial"]
+        same_day = mlt_by_day.get((dut, day)) or set()
+        if "pass" in same_day:
+            continue
+        if "fail" in same_day:
+            kind = "failed"
+        else:
+            earlier = first_pass_day.get(dut)
+            # Bounded to the same lookback the day view uses. Without the bound
+            # a unit whose only MLT pass was two months ago would read correct
+            # here and unproven there — the last place the two could still
+            # disagree, and the whole point is that they cannot.
+            floor = (datetime.strptime(day, "%Y-%m-%d")
+                     - timedelta(days=build_dailyexcel.NEW_INPUT_LOOKBACK)
+                     ).strftime("%Y-%m-%d")
+            if earlier is not None and floor <= earlier < day:
+                continue                      # passed MLT recently — fine
+            kind = "unproven"
+        out.append({
+            "dut": dut,
+            "kind": kind,
+            "day": day,
+            "htt": run.get("status"),
+            "httRun": (run.get("runId") or "").rsplit("_run_", 1)[-1],
+            "httUrl": _link(run, "pega3") or "",
+            "suite": run.get("suite") or "",
+        })
+
+    return {
+        "units": out,
+        "total": len(out),
+        "failed": sum(1 for entry in out if entry["kind"] == "failed"),
+        "unproven": sum(1 for entry in out if entry["kind"] == "unproven"),
+        "httGraded": graded,
+    }
+
+
 def _week(payload: Dict[str, Any], monday: date, end: date, sunday: date,
           today: date, detail: bool = True) -> Dict[str, Any]:
     start_s, end_s = monday.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d")
@@ -121,6 +205,10 @@ def _week(payload: Dict[str, Any], monday: date, end: date, sunday: date,
         "external": inner["external"],
         "hasDetail": detail,
         "units": _unit_rows(payload, start_s, end_s) if detail else [],
+        # Units that reached HTT without an MLT pass behind them. Cheap — it is
+        # a second pass over runs already in hand — so every week gets it, not
+        # only the ones with a detail view.
+        "misflow": _misflow(payload, start_s, end_s),
         # The three charts the station page draws, frozen to this week.
         "charts": _charts(payload, start_s, end_s) if detail else None,
     }
