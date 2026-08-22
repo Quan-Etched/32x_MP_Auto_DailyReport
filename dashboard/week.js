@@ -111,7 +111,20 @@
     (week.external || []).forEach(function (item) {
       var tr = h('tr', { class: 'reported' });
       tr.appendChild(h('td', {}, [
-        h('span', { class: 'step', text: item.label }),
+        h('span', { class: 'step' }, [
+          document.createTextNode(item.label),
+          /* The small sign: a figure carried from an earlier week is marked
+           * where the eye already is, on the name, rather than only in the
+           * sentence at the end of the row. "No new update" is a normal week
+           * and the number is still the best one there is — but it has to be
+           * possible to see at a glance that it is not this week's. */
+          item.state === 'carried'
+            ? h('span', { class: 'carried-mark',
+                          title: 'carried forward from ' + item.asOf + ' — no '
+                                 + 'new figure reported since',
+                          text: '↩' })
+            : null
+        ]),
         h('span', { class: 'sub', text: 'asked weekly — Sigurd' })
       ]));
       tr.appendChild(h('td', { class: 'n', text: '—' }));
@@ -124,10 +137,19 @@
        * that has the figure says when it was for; a week that does not says so
        * and points at the one that does — the number used to be printed on
        * every week regardless, so a June row carried August's yield. */
-      tr.appendChild(h('td', { class: 'fails', text: item['yield'] == null
-        ? (item.asOf ? 'not reported for this week · last figure ' + item.asOf
-                     : 'not reported')
-        : 'reported ' + item.asOf + ', not collected here' }));
+      /* Four states, four sentences. They are four different facts and one of
+       * them used to be printed for all of them. */
+      tr.appendChild(h('td', { class: 'fails', text:
+        item.state === 'carried'
+          ? 'carried forward · reported ' + item.asOf + ', ' + item.ageDays +
+            ' days before this week ended'
+        : item.state === 'stale'
+          ? 'no figure within 21 days · last was ' + item.asOf
+        : item.state === 'ahead'
+          ? 'not reported by this week · first figure ' + item.asOf
+        : item['yield'] == null
+          ? 'not reported'
+          : 'reported ' + item.asOf + ', not collected here' }));
       body.appendChild(tr);
     });
 

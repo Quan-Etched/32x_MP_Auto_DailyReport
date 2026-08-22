@@ -153,3 +153,15 @@
   font-size: 15px;
   margin: 0 0 2px;
 }
+
+/* A hand-reported figure carried from an earlier week.
+ *
+ * Small on purpose — the number is still the best one available and marking it
+ * loudly would read as a fault. It is a provenance note, so it sits on the name
+ * and carries its date in the tooltip. */
+.carried-mark {
+  margin-left: 5px;
+  font-size: 11px;
+  color: var(--status-warning);
+  cursor: help;
+}

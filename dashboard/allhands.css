@@ -70,3 +70,13 @@
   .quick, .pickers { display: none; }
   .stage-v { font-size: 40px; }
 }
+
+/* A carried-forward figure. The mark is small and the number is not dimmed:
+   it is still the best figure there is, and dimming it would say otherwise. */
+.stage-v .carried-mark {
+  font-size: 14px;
+  vertical-align: super;
+  color: var(--status-warning);
+  cursor: help;
+  margin-left: 2px;
+}

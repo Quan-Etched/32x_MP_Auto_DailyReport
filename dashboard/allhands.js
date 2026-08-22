@@ -216,18 +216,45 @@
 
   /* ------------------------------------------------------------- the boxes */
 
-  /* A hand-reported figure, only on a range that contains the day it is about. */
+  /* How long a figure is carried before it stops being shown. Same number as
+   * build_fpy.CARRY_DAYS, and the two have to agree — one page carrying a
+   * figure the other has dropped is the sort of thing nobody notices until a
+   * meeting. */
+  var CARRY_DAYS = 21;
+
+  /* A hand-reported figure: this range's, carried forward, or not shown.
+   *
+   * Forward only. "FT: no new update" is a normal message, so a range with no
+   * figure of its own shows the last one and marks it — a dash would read as
+   * "there is no such measurement". A figure dated after the range is not shown
+   * at all, because that is the case the rule exists for: a number pinned to
+   * every window put August's WST on a June week that predated the line. */
   function externalFor(stage) {
     var entry = EXTERNAL[stage.external] || {};
-    if (entry['yield'] === null || entry['yield'] === undefined) {
-      return { rate: null, why: 'never reported' };
+    var rate = entry['yield'];
+    if (rate === null || rate === undefined) {
+      return { rate: null, state: 'absent', why: 'never reported' };
     }
     var asOf = entry.asOf;
-    if (asOf && asOf >= view.from && asOf <= view.to) {
-      return { rate: entry['yield'], asOf: asOf, source: entry.source };
+    if (!asOf) {
+      return { rate: null, state: 'absent', why: 'the figure carries no date' };
     }
-    return { rate: null, asOf: asOf, source: entry.source,
-             why: asOf ? 'last reported for ' + asOf : 'no date on the figure' };
+    if (asOf >= view.from && asOf <= view.to) {
+      return { rate: rate, state: 'fresh', asOf: asOf, source: entry.source };
+    }
+    if (asOf > view.to) {
+      return { rate: null, state: 'ahead', asOf: asOf,
+               why: 'first reported for ' + asOf };
+    }
+    var age = Math.round(
+      (Date.parse(view.to + 'T00:00:00Z') - Date.parse(asOf + 'T00:00:00Z'))
+      / 86400000);
+    if (age > CARRY_DAYS) {
+      return { rate: null, state: 'stale', asOf: asOf, age: age,
+               why: 'last reported ' + age + ' days before this range ended' };
+    }
+    return { rate: rate, state: 'carried', asOf: asOf, age: age,
+             source: entry.source };
   }
 
   function renderStages(units, rows) {
@@ -240,14 +267,26 @@
       if (stage.external) {
         var ext = externalFor(stage);
         box.appendChild(h('strong', {
-          class: 'stage-v' + (ext.rate === null ? ' absent' : ''),
-          text: ext.rate === null ? '—' : pct(ext.rate)
-        }));
+          class: 'stage-v' + (ext.rate === null ? ' absent' : '')
+                 + (ext.state === 'carried' ? ' carried' : '')
+        }, [
+          document.createTextNode(ext.rate === null ? '—' : pct(ext.rate)),
+          /* The small sign. On the number itself, because that is what gets
+           * screenshotted off this page. */
+          ext.state === 'carried'
+            ? h('span', { class: 'carried-mark',
+                          title: 'carried forward from ' + ext.asOf + ' — no '
+                                 + 'new figure reported since',
+                          text: '↩' })
+            : null
+        ]));
         box.appendChild(h('span', { class: 'stage-s', text: stage.note }));
         box.appendChild(h('span', { class: 'stage-s dim', text:
-          ext.rate === null
-            ? 'not reported for this range · ' + ext.why
-            : 'reported for ' + ext.asOf }));
+          ext.state === 'fresh' ? 'reported for ' + ext.asOf
+          : ext.state === 'carried'
+            ? 'carried forward from ' + ext.asOf + ' · ' + ext.age +
+              ' days old, no new figure since'
+          : 'not shown · ' + ext.why }));
         if (ext.rate !== null && ext.source) {
           box.appendChild(h('span', { class: 'stage-s dim', text: ext.source }));
         }
@@ -544,15 +583,21 @@
     var ext = STAGES.filter(function (s) { return s.external; })
       .map(function (s) {
         var got = externalFor(s);
-        return s.label + ': ' + (got.rate === null
-          ? 'not reported for this range' + (got.asOf ? ' (last ' + got.asOf + ')' : '')
-          : pct(got.rate) + ' as of ' + got.asOf);
+        return s.label + ': ' + (
+          got.state === 'fresh' ? pct(got.rate) + ' as of ' + got.asOf
+          : got.state === 'carried'
+            ? pct(got.rate) + ' carried from ' + got.asOf + ' (' + got.age +
+              ' days old)'
+          : 'not shown, ' + got.why);
       });
     byId('external-note').textContent =
-      'WS and FT are hand-reported into weekly/external_yields.json and shown ' +
-      'only on a range containing the day the figure describes — ' +
-      ext.join('; ') + '. A number that appeared on every range would be one ' +
-      'week’s figure wearing every other week’s label.';
+      'WS and FT are hand-reported into weekly/external_yields.json — ' +
+      ext.join('; ') + '. A figure with no newer one is carried forward for up ' +
+      'to ' + CARRY_DAYS + ' days and marked ↩, because “no new update” is a ' +
+      'normal week and a dash would read as “there is no such measurement”. It ' +
+      'is never carried backward onto an earlier range, and past ' + CARRY_DAYS +
+      ' days it stops being shown: a number pinned to every range put August’s ' +
+      'WS on a June week that predated the line.';
   }
 
   function init() {

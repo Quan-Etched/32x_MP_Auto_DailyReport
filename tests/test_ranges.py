@@ -146,45 +146,89 @@ if __name__ == "__main__":
 
 
 class ExternalYieldWeekTest(unittest.TestCase):
-    """A hand-reported figure belongs to the week it describes.
+    """A hand-reported figure is carried forward, never backward.
 
-    WST and FT arrive from Sigurd as one number with the day it is about, and
-    that number was attached to every window the builder ran over — so the week
-    of 06-08, before the line existed, published WST 35.3% and FT 84.3% beside
-    a row of dashes.
+    WST and FT arrive from Sigurd as one number with the day it is about, they
+    do not arrive every week — "FT: no new update" is a normal message — and
+    that number was once attached to every window the builder ran over, so the
+    week of 06-08, before the line existed, published WST 35.3% beside a row of
+    dashes.
+
+    Both halves matter and they pull opposite ways. A window after the figure
+    should show it, marked, because a dash there reads as "there is no such
+    measurement". A window *before* it must not, because that is the original
+    defect. So the direction of the gap is the test, and the age of it decides
+    how long "last known" survives.
     """
 
     ENTRY = {"yield": 0.353, "asOf": "2026-08-14",
              "source": "Sigurd", "note": "Wafer sort."}
 
+    def at(self, start, end, entry=None):
+        from factory import build_fpy
+        return build_fpy._external_in(entry or self.ENTRY, start, end)  # noqa: SLF001
+
     def test_the_week_it_describes_keeps_the_figure(self):
-        from factory import build_fpy
-        got = build_fpy._external_in(self.ENTRY, "2026-08-10", "2026-08-16")
+        got = self.at("2026-08-10", "2026-08-16")
         self.assertEqual(got["yield"], 0.353)
+        self.assertEqual(got["state"], "fresh")
 
-    def test_every_other_week_shows_no_figure(self):
-        from factory import build_fpy
-        for start, end in (("2026-06-08", "2026-06-14"),
-                           ("2026-08-17", "2026-08-23"),
-                           ("2026-08-03", "2026-08-09")):
-            with self.subTest(week=start):
-                got = build_fpy._external_in(self.ENTRY, start, end)
-                self.assertIsNone(got["yield"])
-
-    def test_a_week_without_the_figure_says_where_it_went(self):
-        """The row stays — the step exists and an absent row would read as
-        "there is no WST" rather than "nobody reported one"."""
-        from factory import build_fpy
-        got = build_fpy._external_in(self.ENTRY, "2026-06-08", "2026-06-14")
+    def test_a_later_week_carries_it_and_says_so(self):
+        """The point of the change: nobody reported a new one, so the last one
+        stands — labelled, dated and aged, not silently."""
+        got = self.at("2026-08-17", "2026-08-23")
+        self.assertEqual(got["yield"], 0.353)
+        self.assertEqual(got["state"], "carried")
+        self.assertEqual(got["ageDays"], 9)
         self.assertIn("2026-08-14", got["note"])
-        self.assertEqual(got["source"], "not reported for this week")
 
-    def test_an_already_absent_figure_is_left_alone(self):
+    def test_an_earlier_week_never_gets_it(self):
+        """The regression this class exists for. August's figure on a June week
+        is not a stale reading of that week, it is a number about a week that
+        had not happened."""
+        got = self.at("2026-06-08", "2026-06-14")
+        self.assertIsNone(got["yield"])
+        self.assertEqual(got["state"], "ahead")
+        self.assertIn("2026-08-14", got["note"])
+
+    def test_carrying_stops_after_three_weeks(self):
+        """Marked-but-ancient is the original defect wearing a label: past the
+        cap the figure is not shown at all."""
         from factory import build_fpy
+        got = self.at("2026-09-14", "2026-09-20")
+        self.assertIsNone(got["yield"])
+        self.assertEqual(got["state"], "stale")
+        self.assertGreater(got["ageDays"], build_fpy.CARRY_DAYS)
+
+    def test_the_cap_is_the_boundary_it_claims(self):
+        """One day inside carries, one day outside does not — checked at the
+        edge rather than trusting the comparison."""
+        from datetime import date, timedelta
+        from factory import build_fpy
+
+        as_of = date(2026, 8, 14)
+        inside = as_of + timedelta(days=build_fpy.CARRY_DAYS)
+        outside = as_of + timedelta(days=build_fpy.CARRY_DAYS + 1)
+        self.assertEqual(
+            self.at(inside.isoformat(), inside.isoformat())["state"], "carried")
+        self.assertEqual(
+            self.at(outside.isoformat(), outside.isoformat())["state"], "stale")
+
+    def test_an_already_absent_figure_stays_absent(self):
         blank = {"yield": None, "asOf": None, "source": "not reported",
                  "note": "Wafer sort."}
-        self.assertEqual(build_fpy._external_in(blank, "2026-06-08", "2026-06-14"),
-                         blank)
+        got = self.at("2026-06-08", "2026-06-14", entry=blank)
+        self.assertIsNone(got["yield"])
+        self.assertEqual(got["state"], "absent")
+
+    def test_an_undated_figure_is_not_shown(self):
+        """Without a date there is no way to say which window it belongs to,
+        and every window would claim it."""
+        got = self.at("2026-08-10", "2026-08-16",
+                      entry={"yield": 0.5, "asOf": None, "source": "x",
+                             "note": "y"})
+        self.assertIsNone(got["yield"])
+        self.assertEqual(got["state"], "absent")
 
 
 class WeekIsSevenDaysTest(unittest.TestCase):

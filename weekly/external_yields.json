@@ -4,19 +4,25 @@
     "generates it.",
     "",
     "WST and FT are Sigurd's and arrive by message, so they have nowhere to",
-    "come from automatically. Put the week's figures here on Friday or",
-    "Saturday and they appear on the weekly page, the flow chart and the deck",
-    "with the date and the person who reported them attached.",
+    "come from automatically. Put the figure here with the day it describes.",
     "",
     "yield: a fraction, not a percent. 0.353 is 35.3%.",
     "asOf:  the day the figure describes, not the day it was typed.",
-    "source: who said so. It is printed next to the number."
+    "source: who said so. It is printed next to the number.",
+    "",
+    "A figure is CARRIED FORWARD onto later windows for up to 21 days and",
+    "marked as carried, because 'no new update' is a normal week and a dash",
+    "would read as 'there is no such measurement'. It is never carried",
+    "backward onto an earlier window, and after 21 days it stops being shown",
+    "at all \u2014 see build_fpy._external_in. So leaving an entry alone is the",
+    "right thing to do when nobody reported a new one; it does not need",
+    "touching until the figure itself changes."
   ],
   "wst": {
-    "yield": 0.353,
-    "asOf": "2026-08-14",
-    "source": "Sigurd, reported in #production-test-eng",
-    "note": "Wafer sort."
+    "yield": 0.325,
+    "asOf": "2026-08-21",
+    "source": "Annas Javed, Slack \u2014 2 lots completed",
+    "note": "Wafer sort. Average across the two lots."
   },
   "ft": {
     "yield": 0.843,
