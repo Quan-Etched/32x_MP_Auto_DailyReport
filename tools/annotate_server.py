@@ -61,6 +61,12 @@ PASSWORD = os.environ.get("FACTORY_ANNOTATE_PASSWORD", "AlwaysPass")
 #: truth waiting to disagree with the first.
 FIELDS = ("rootCause", "correctiveAction", "note")
 
+#: Root cause is a choice, not prose. The page offers exactly these and the
+#: service checks: a table where half the rows say "setup issue" and half say
+#: "test setup" is a table nobody can count, and once a third spelling is in the
+#: file it is in every export made from it.
+CAUSES = ("setup", "dut")
+
 MAX_BODY = 256 * 1024
 MAX_FIELD = 4000
 
@@ -127,6 +133,10 @@ def apply_edits(user: str, edits: list) -> tuple:
             value = str(edit[field] or "").strip()
             if len(value) > MAX_FIELD:
                 skipped.append(key + ": " + field + " is too long")
+                continue
+            if field == "rootCause" and value and value not in CAUSES:
+                skipped.append("{}: root cause must be one of {}, not {!r}"
+                               .format(key, "/".join(CAUSES), value[:40]))
                 continue
             if value:
                 entry[field] = value

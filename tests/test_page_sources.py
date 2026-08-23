@@ -26,8 +26,6 @@ EXPECTED = {
     "weekly.html": "data/weekly.js",
     "week.html": "data/weekly.js",
     "flow.html": "data/pega_stations.js",
-    "flowfull.html": "data/pega_stations.js",
-    "flowe2e.html": "data/pega_stations.js",
 }
 
 #: Addresses that were handed out and must keep resolving.
@@ -38,6 +36,10 @@ REDIRECTS = {"direct.html": "index.html", "directruns.html": "runs.html",
              # page was replaced by the error-code table on the customize page.
              # Both addresses had been handed out in Slack.
              "delta.html": "dailyexcel.html",
+             # Both chart pages folded into flow.html, which hosts the two
+             # drawings behind a switch.
+             "flowfull.html": "flow.html",
+             "flowe2e.html": "flow.html",
              "retest.html": "customize.html",
              # L10 is a table on the daily tracker now, not a page.
              "l10.html": "dailyexcel.html"}
@@ -72,10 +74,9 @@ DOM_SCRIPTS = {
     "allhands.html": ["allhands.js"],
     "rack2.html": ["rack2.js"],
     "week.html": ["week.js"],
-    "flow.html": ["flow.js"],
-    # The two branching charts are data; flowchart.js is what touches the DOM.
-    "flowfull.html": ["flowchart.js"],
-    "flowe2e.html": ["flowchart.js"],
+    # Two drawings on one page: flow.js draws the summary, flowchart.js draws
+    # the end-to-end chart from flowe2e.js's data, flowswitch.js picks.
+    "flow.html": ["flow.js", "flowchart.js", "flowswitch.js"],
     "releases.html": ["releasesrc.js", "suitemap.js"],
 }
 
@@ -211,9 +212,10 @@ class LinkTest(unittest.TestCase):
             self.skipTest("no station bundle built")
         views = json.loads(
             bundle.read_text().split("= ", 1)[1].rstrip().rstrip(";"))["views"]
-        # Both charts, because they are two files that name station keys and
-        # only one of them used to be checked.
-        for name in ("flow.js", "flowfull.js", "flowe2e.js"):
+        # Both drawings, because they are two files that name station keys and
+        # only one of them used to be checked. flowfull.js is gone: it was a
+        # subset of flowe2e.js, and both now render on flow.html.
+        for name in ("flow.js", "flowe2e.js"):
             source = (DASHBOARD / name).read_text(encoding="utf-8")
             keys = re.findall(r"station:\s*'([a-z0-9_]+)'", source)
             self.assertTrue(keys, "no station keys found in " + name)

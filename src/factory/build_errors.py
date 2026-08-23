@@ -46,6 +46,16 @@ CATALOGUE = config.REPO_ROOT / "errors" / "catalogue.json"
 #: People's annotations. Written by the admin flow, read here.
 ANNOTATIONS = config.REPO_ROOT / "errors" / "annotations.json"
 
+#: Root causes already established for a whole test case, rather than for one
+#: failure of it. Hand-edited and committed; a per-row annotation still wins.
+ESTABLISHED = config.REPO_ROOT / "errors" / "established.json"
+
+#: A root cause is one of two answers, and the table is more use for it. Either
+#: the test setup caused the failure or the DUT is genuinely bad — that is the
+#: decision the line acts on, and a free-text box produced twelve spellings of
+#: each. Prose goes in the note.
+CAUSES = {"setup": "Test setup", "dut": "True DUT failure"}
+
 #: The tracker bundle this reads. Same file the daily page loads, so the two
 #: cannot disagree about what failed.
 DAILY_BUNDLE = config.DASHBOARD_DATA_DIR / "dailyexcel.js"
@@ -80,6 +90,18 @@ def by_case(cat: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
         for case in entry.get("cases") or []:
             out.setdefault(case, []).append(entry)
     return out
+
+
+def established() -> Dict[str, Dict[str, str]]:
+    """test case -> the root cause we already know for it."""
+    if not ESTABLISHED.exists():
+        return {}
+    try:
+        got = json.loads(ESTABLISHED.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {case: known for case, known in (got.get("cases") or {}).items()
+            if (known or {}).get("rootCause") in CAUSES}
 
 
 def annotations() -> Dict[str, Dict[str, str]]:
@@ -186,6 +208,7 @@ def build_bundle(rows: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     cat = catalogue()
     index = by_case(cat)
     notes = annotations()
+    known = established()
     labels = {key: station.label for key, station in stations.BY_KEY.items()}
     if rows is None:
         rows = collect()
@@ -199,9 +222,31 @@ def build_bundle(rows: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
         if not codes:
             unknown[row["case"]] = unknown.get(row["case"], 0) + 1
         used.update(c["code"] for c in codes)
-        annotated = {key: note[key] for key in
-                     ("rootCause", "correctiveAction", "note", "by", "at")
-                     if note.get(key)}
+        # Established first, then the row's own annotation on top: a case with
+        # a known usual cause can still fail for a different reason on one
+        # unit, and the person who looked at that unit outranks the table.
+        settled = known.get(row["case"]) or {}
+        annotated = {}
+        if settled.get("rootCause") not in CAUSES:
+            # Checked here as well as in established(): the page renders
+            # CAUSES[value] and would print the raw string, and this is the
+            # layer every source of a cause passes through.
+            settled = {}
+        if settled:
+            annotated["rootCause"] = settled["rootCause"]
+            annotated["established"] = True
+            if settled.get("correctiveAction"):
+                annotated["correctiveAction"] = settled["correctiveAction"]
+            if settled.get("why"):
+                annotated["note"] = settled["why"]
+            if settled.get("ref"):
+                annotated["ref"] = settled["ref"]
+        for key in ("rootCause", "correctiveAction", "note", "by", "at"):
+            if not note.get(key):
+                continue
+            if key == "rootCause" and note[key] not in CAUSES:
+                continue
+            annotated[key] = note[key]
         out.append({
             "day": row["day"],
             "dut": row["dut"],
@@ -250,6 +295,9 @@ def build_bundle(rows: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
             "bugs": code["bugs"],
         } for code in (cat.get("codes") or [])
             if code["code"] in used},
+        # The two answers, so the page and the CSV spell them the same way as
+        # this module and as the service that writes them.
+        "causes": CAUSES,
         "stationLabels": {key: labels.get(key, key.upper())
                           for key in sorted({row["station"]
                                              for row in rows})},

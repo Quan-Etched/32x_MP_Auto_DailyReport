@@ -6,6 +6,9 @@
   <title>Production Test Flowchart</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="flow.css">
+  <!-- What the branching drawing adds: the lane grid, the wide canvas, dashed
+       boxes and the small checkpoint boxes. Everything else it inherits. -->
+  <link rel="stylesheet" href="flowe2e.css">
 </head>
 <body>
 <div class="wrap">
@@ -19,12 +22,7 @@
     <a class="theme-toggle" href="index.html">&larr; Station yield</a>
     <a class="theme-toggle" href="dailyexcel.html">Daily tracker &rarr;</a>
     <a class="theme-toggle" href="weekly.html">Weekly tracker &rarr;</a>
-    <!-- The same line drawn whole: every board, TIM, and the 2U and 4U paths
-
-         apart. This chart stays the summary. -->
-
-    <a class="theme-toggle" href="flowfull.html">Comprehensive flow &rarr;</a>
-    <a class="theme-toggle" href="flowe2e.html">End-to-end flow &rarr;</a>
+    <!-- Both charts live on this page now. The separate pages redirect here. -->
     <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
   </header>
 
@@ -36,14 +34,39 @@
     is and is not measured here.
   </p>
 
-  <div class="flow-combined" id="combined" hidden></div>
+  <!-- Two drawings of one line. The summary is the line's own chart, stage by
+       stage, and carries the accumulated MLT x HTT yield. The end-to-end chart
+       is the same line with the sub-stations the summary collapses: the four
+       SMT boards apart, TIM, the CK and PDB checkpoints, Flash apart from BFT,
+       and 2U at both insertions. They were separate pages; a chart nobody
+       navigates to is a chart nobody reads. -->
+  <div class="flow-switch" id="chart-switch" role="group"
+       aria-label="Which drawing"></div>
 
-  <div class="flow-legend" id="legend"></div>
+  <section class="flow-view" id="view-summary">
+    <div class="flow-combined" id="combined" hidden></div>
+    <div class="flow-legend" id="legend"></div>
+    <div class="flow-canvas" id="canvas">
+      <svg class="flow-wires" id="wires" aria-hidden="true"></svg>
+      <div class="flow-lanes" id="lanes"></div>
+    </div>
+  </section>
 
-  <div class="flow-canvas" id="canvas">
-    <svg class="flow-wires" id="wires" aria-hidden="true"></svg>
-    <div class="flow-lanes" id="lanes"></div>
-  </div>
+  <section class="flow-view" id="view-e2e" hidden>
+    <p class="flow-intro">
+      Every insertion on the line, including the ones nothing reports. A test
+      box with no number is a stage this dashboard cannot see: <strong>CK</strong>
+      and the <strong>PDB</strong> checkpoint report to no controller, and
+      <strong>BFT</strong> is drawn apart from <strong>Flash</strong> because
+      drawn as one box it borrowed the VBB provisioning yield and lent a number
+      to a test nobody is measuring (ETCH-39584).
+    </p>
+    <div class="flow-legend" id="e2e-legend"></div>
+    <div class="flow-canvas wide" id="e2e-canvas">
+      <svg class="flow-wires" id="e2e-wires" aria-hidden="true"></svg>
+      <div class="flow-lanes" id="e2e-lanes"></div>
+    </div>
+  </section>
 
   <footer class="notes">
     <p id="footer-meta"></p>
@@ -61,6 +84,9 @@
 
 <script src="data/pega_stations.js"></script>
 <script src="flow.js"></script>
+<script src="flowchart.js"></script>
+<script src="flowe2e.js"></script>
+<script src="flowswitch.js"></script>
 <script src="theme.js"></script>
 <script src="update.js"></script>
 </body>

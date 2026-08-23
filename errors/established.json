@@ -1,0 +1,35 @@
+{
+ "_comment": [
+  "Root causes we have already established, keyed by the failing test case.",
+  "",
+  "WHY THIS IS SEPARATE FROM annotations.json",
+  "An annotation is about one failure on one unit on one day. This is about a",
+  "test case: once the PCIe setup family was traced to the harness, every",
+  "future row of it starts from that answer instead of an empty cell. So this",
+  "file is small, hand-edited, reviewed, and committed — and the per-row",
+  "annotations still win over it, because a case with a known usual cause can",
+  "still fail for a different reason on a given unit.",
+  "",
+  "rootCause is one of exactly two values, and that is the point:",
+  "  setup - the test setup caused it. The DUT is not implicated.",
+  "  dut   - a true DUT failure. The hardware is bad.",
+  "Anything more nuanced goes in `why`, which is prose and is displayed as the",
+  "note. A third value would immediately become a place to park uncertainty,",
+  "and 'unknown' is already what an unfilled row says."
+ ],
+ "version": 1,
+ "cases": {
+  "PcieSetupTestCase": {
+   "rootCause": "setup",
+   "why": "The PCIe setup case fails when the harness cannot enumerate the topology it expects — a proxy that has not come up, an inventory command that returned nothing parseable, or a topology file that does not match the server being tested. None of those are the module. Reported in Slack and the reason this case is treated as established.",
+   "correctiveAction": "Re-run once the RPC proxy is up and the expected topology matches the build. Escalate only if it reproduces on a second station.",
+   "ref": "ETCH-35872"
+  },
+  "CheckPcieTopology": {
+   "rootCause": "setup",
+   "why": "The same failure as PcieSetupTestCase under the name our controllers actually record — the sheet calls it PcieSetupTestCase, the tracker logs CheckPcieTopology, and it is one thing. Discovered PCIe device count or parent/child topology not matching the expected server topology, which is a statement about the expectation as much as the hardware.",
+   "correctiveAction": "Confirm the expected topology for this chassis build before touching the DUT. Re-run; escalate only on a second station.",
+   "ref": "ETCH-35872"
+  }
+ }
+}

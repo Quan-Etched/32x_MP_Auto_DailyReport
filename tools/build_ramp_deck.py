@@ -217,6 +217,90 @@ def e2e_slide(prs, data, week, by_station, external):
     return slide
 
 
+#: Slide 2, matching the all-hands page's second page and the line's own deck:
+#: what is worth showing off. The serials are the floor's; what is said about
+#: their state comes from the week bundle, so a rack cannot be described as
+#: tested when nothing has tested it.
+WIN = {
+    "title": "32x Rack 2",
+    "where": "Pegatron",
+    "on": "2026-08-22",
+    "sn": "268708630001",
+    "servers": [("SS1", "268645410001"), ("SS2", "268645440007"),
+                ("SS3", "268645430002"), ("SS4", "268645430004")],
+}
+
+
+def rack_l11_runs():
+    """L11 runs against this rack's serials. None is "cannot tell".
+
+    Read from the run bundle rather than from the week's station rows, because
+    those rows are the whole line: the first version of this slide counted the
+    week's L11 provision units and reported them as runs against rack 2, which
+    is a different claim entirely and happened to be non-zero. If the bundle is
+    not there the slide says it does not know, rather than saying zero.
+    """
+    bundle = REPO / "dashboard" / "data" / "runs_pega.js"
+    if not bundle.exists():
+        return None
+    import json
+    text = bundle.read_text(encoding="utf-8")
+    data = json.loads(text.split("= ", 1)[1].rstrip().rstrip(";"))
+    mine = {WIN["sn"]} | {serial for _, serial in WIN["servers"]}
+    return sum(1 for run in data.get("runs") or []
+               if str(run.get("d")) in mine
+               and str(run.get("k", "")).startswith("l11"))
+
+
+def win_slide(prs, data, week, by_station):
+    """The achievement, as its own slide.
+
+    Text only, and deliberately: the page has the photo, and a 250 KB JPEG in
+    every weekly deck for a picture everyone in the room has already seen is a
+    poor trade. What the slide carries is the part that is checkable.
+    """
+    tested = rack_l11_runs()
+
+    slide = title_slide(
+        prs, WIN["title"],
+        "{} · {} · assembled this week".format(WIN["where"], WIN["on"]))
+
+    textbox(slide, Inches(0.72), Inches(1.62), W - Inches(1.44), Inches(0.9), [
+        [("Four Sohu servers, cabled and standing.", {"size": 17, "bold": True})],
+        [("Rack serial {}".format(WIN["sn"]), {"size": 12, "color": MUTE})],
+    ], space=2)
+
+    rows = [[("Slot", {"size": 11, "bold": True, "color": MUTE}),
+             ("    Serial", {"size": 11, "bold": True, "color": MUTE})]]
+    for slot, serial in WIN["servers"]:
+        rows.append([(slot, {"size": 13, "bold": True}),
+                     ("    " + serial, {"size": 13})])
+    textbox(slide, Inches(0.72), Inches(2.72), Inches(4.2), Inches(2.2),
+            rows, space=3)
+
+    # What is true, and what is not yet. The second half is the point: a slide
+    # that says "rack 2 is built" and stops gets read as "rack 2 is ready".
+    if tested is None:
+        said = ("Assembled. Rack test state is not in this deck — the run "
+                "bundle was not available when it was built; the all-hands "
+                "page has it live.")
+    elif tested == 0:
+        said = ("Assembled, not yet tested: no controller has an L11 run "
+                "against this rack or its four servers. Provisioning and rack "
+                "test are still ahead of it.")
+    else:
+        said = ("In test: {} L11 run{} recorded against this rack and its "
+                "servers so far.".format(tested, "" if tested == 1 else "s"))
+    textbox(slide, Inches(5.30), Inches(2.72), W - Inches(6.02), Inches(2.2), [
+        [("Where it stands", {"size": 11, "bold": True, "color": MUTE})],
+        [(said, {"size": 13})],
+        [("The all-hands page keeps this current from the controllers; this "
+          "slide is a snapshot of {}.".format(week["week"]),
+          {"size": 9, "color": MUTE})],
+    ], space=4)
+    return slide
+
+
 def main(argv):
     label = argv[1] if len(argv) > 1 else None
     data, week = load(label)
@@ -225,7 +309,10 @@ def main(argv):
 
     prs = Presentation()
     prs.slide_width, prs.slide_height = W, H
+    # The order the all-hands runs in: this week, then the achievement, then
+    # the detailed flow behind both.
     ramp_slide(prs, data, week, by_station, external)
+    win_slide(prs, data, week, by_station)
     e2e_slide(prs, data, week, by_station, external)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)

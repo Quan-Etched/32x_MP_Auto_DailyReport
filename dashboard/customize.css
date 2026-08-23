@@ -196,3 +196,54 @@
 .banner.ok  { border-left-color: var(--status-good); }
 .banner.bad { border-left-color: var(--status-critical); }
 .banner.bad p { margin: 0; }
+
+/* Sortable headers. The whole heading is the control, because a small arrow
+   beside a word is a target people miss and then conclude the table does not
+   sort. The idle glyph is shown, not revealed on hover: a table that only looks
+   sortable once you are already hovering the right cell does not look
+   sortable. */
+.ec-sort {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ec-sort .ec-arrow { font-size: 10px; color: var(--text-muted); }
+.ec-sort:hover { color: var(--accent-solid); }
+.ec-sort.on { color: var(--accent-solid); }
+.ec-sort.on .ec-arrow { color: var(--accent-solid); }
+
+/* The two root causes. Coloured because the distinction is the point of the
+   column — one of them means look at the harness, the other means the part is
+   bad — and down eighty rows a word is not enough. */
+.ec-cause {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.ec-cause-setup {
+  color: var(--accent-solid);
+  background: color-mix(in srgb, var(--accent-solid) 12%, transparent);
+}
+.ec-cause-dut {
+  color: var(--status-critical);
+  background: color-mix(in srgb, var(--status-critical) 12%, transparent);
+}
+.ec-settled { font-size: 10.5px; font-weight: 400; color: var(--text-muted); }
+
+/* An established case, ruled on its left edge. It is not a status — the row is
+   still a failure — so it is marked, not filled. */
+.ec-est > td:first-child { box-shadow: inset 3px 0 0 var(--accent-solid); }
+
+.ec-pick { min-height: 0; padding: 3px 4px; }

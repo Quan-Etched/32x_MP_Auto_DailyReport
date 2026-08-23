@@ -60,7 +60,7 @@
 
   var PARETO_TOP = 12;
 
-  var view = { from: null, to: null, mode: 'graph' };
+  var view = { from: null, to: null, mode: 'graph', page: 'week' };
 
   function h(tag, attrs, kids) {
     var node = document.createElement(tag);
@@ -707,8 +707,8 @@
   }
 
   function writeHash() {
-    location.replace('#from=' + view.from + '&to=' + view.to +
-                     '&mode=' + view.mode);
+    location.replace('#page=' + view.page + '&from=' + view.from +
+                     '&to=' + view.to + '&mode=' + view.mode);
   }
 
   function readHash() {
@@ -721,6 +721,8 @@
     if (DAYS.length && view.from < DAYS[0]) view.from = DAYS[0];
     view.to = (to && to[1]) || last;
     view.mode = (mode && mode[1]) || 'graph';
+    var page = /page=(week|win)/.exec(hash);
+    view.page = (page && page[1]) || 'week';
   }
 
   function render() {
@@ -735,9 +737,12 @@
       : 'No runs in the bundle.';
     byId('meta').textContent = view.from + ' → ' + view.to + ' UTC';
 
+    renderPager();
     var rows = inRange();
     var units = byUnit(rows);
     renderQuick();
+    renderHeadline();
+    renderWin();
     renderStages(units, rows);
     renderRecovery(units);
     renderWeekly();
@@ -761,6 +766,196 @@
       'is never carried backward onto an earlier range, and past ' + CARRY_DAYS +
       ' days it stops being shown: a number pinned to every range put August’s ' +
       'WS on a June week that predated the line.';
+  }
+
+  /* ------------------------------------------------------- the two pages */
+
+  /* The deck this page generates has two slides and so does the page: what
+     happened this week, and what is worth showing off. Kept as one document
+     with two views rather than two pages, because the second one has to be
+     rebuilt from the same data as the first — a "special achievement" page
+     someone forgets to update is worse than not having one. */
+  var PAGES = [
+    ['week', 'This week', 'Yields, the trend, what is hurting us, how we ' +
+      'triage it.'],
+    ['win', 'Achievement', 'What is worth showing off this week.']
+  ];
+
+  /* Slide 2, this week: the second rack standing at Pega. The serials are the
+     floor's; everything said about their state is read from the controllers
+     below, so this does not go stale on its own. */
+  var WIN = {
+    title: '32x Rack 2',
+    where: 'Pegatron',
+    on: '2026-08-22',
+    sn: '268708630001',
+    sfis: 'http://pega-sfis/lookup?sn={sn}',
+    servers: [
+      { slot: 'SS1', sn: '268645410001' },
+      { slot: 'SS2', sn: '268645440007' },
+      { slot: 'SS3', sn: '268645430002' },
+      { slot: 'SS4', sn: '268645430004' }
+    ]
+  };
+  var WIN_STAGES = ['l10_fat', 'l10_sft', 'l10_rin'];
+
+  function renderPager() {
+    var host = byId('pager');
+    if (!host) return;
+    host.innerHTML = '';
+    PAGES.forEach(function (page) {
+      var on = view.page === page[0];
+      var button = h('button', {
+        type: 'button', class: 'ah-tab' + (on ? ' on' : ''),
+        'aria-pressed': on ? 'true' : 'false'
+      }, [
+        h('span', { class: 'ah-tab-k', text: page[1] }),
+        h('span', { class: 'ah-tab-s', text: page[2] })
+      ]);
+      button.addEventListener('click', function () {
+        view.page = page[0];
+        writeHash();
+        render();
+      });
+      host.appendChild(button);
+    });
+    PAGES.forEach(function (page) {
+      var section = byId('page-' + page[0]);
+      if (!section) return;
+      if (page[0] === view.page) section.removeAttribute('hidden');
+      else section.setAttribute('hidden', 'hidden');
+    });
+  }
+
+  /* The headline the deck leads with: this week's accumulated L6 yield against
+     last week's. Two numbers and the direction between them — the one thing
+     everybody in the room wants before the detail. */
+  function renderHeadline() {
+    var host = byId('headline');
+    if (!host) return;
+    host.innerHTML = '';
+    var weeks = measuredSpan(weekly());
+    if (!weeks.length) return;
+    var now = weeks[weeks.length - 1];
+    var before = weeks.length > 1 ? weeks[weeks.length - 2] : null;
+
+    var move = null;
+    if (before && before.rate != null && now.rate != null) {
+      var delta = (now.rate - before.rate) * 100;
+      move = (delta >= 0 ? '+' : '\u2212') + Math.abs(delta).toFixed(1)
+             + ' pts on ' + before.week;
+    }
+
+    host.appendChild(h('div', { class: 'ah-hl' }, [
+      h('span', { class: 'ah-hl-k', text: 'L6 accumulated yield' }),
+      h('strong', { class: 'ah-hl-v', text: pct(now.rate) || '\u2014' }),
+      h('span', { class: 'ah-hl-w', text: now.week }),
+      move ? h('span', {
+        class: 'ah-hl-d ' + (now.rate >= (before.rate || 0) ? 'up' : 'down'),
+        text: move
+      }) : null,
+      h('span', { class: 'ah-hl-n', text: 'MLT \u00d7 HTT, counted per unit. '
+        + now.clean + ' of ' + now.entered + ' modules cleared both first '
+        + 'time.' })
+    ]));
+
+    /* What is not moving, and what we decided about it. Stated rather than
+       left as a blank box: "FT has no number this week" is information, and an
+       empty tile reads as a broken page. */
+    var said = [];
+    var ext = externalFor('ft');
+    if (!ext || ext.state !== 'fresh') {
+      said.push('FT: no new activity reported this week' +
+                (ext && ext.ageDays ? ' \u2014 last figure is '
+                 + ext.ageDays + ' days old' : '') + '.');
+    }
+    said.push('SLT: skipping it is on the table. Data at go/slt-ft.');
+    host.appendChild(h('p', { class: 'ah-said', text: said.join(' ') }));
+  }
+
+  /* Page 2. The photo is checked in; everything said about the servers is
+     computed, so this page cannot claim a rack is tested when it is not. */
+  function renderWin() {
+    var head = byId('win-headline');
+    if (!head) return;
+
+    var mine = {};
+    WIN.servers.forEach(function (server) { mine[server.sn] = true; });
+    var l11 = RUNS.filter(function (run) {
+      return String(run.d) === WIN.sn && String(run.k).indexOf('l11') === 0;
+    });
+
+    head.innerHTML = '';
+    head.appendChild(h('div', { class: 'ah-hl' }, [
+      h('span', { class: 'ah-hl-k', text: WIN.title }),
+      h('strong', { class: 'ah-hl-v ah-hl-word',
+                    text: l11.length ? 'In test' : 'Assembled' }),
+      h('span', { class: 'ah-hl-w', text: WIN.where + ' \u00b7 ' + WIN.on }),
+      h('span', { class: 'ah-hl-n', text: l11.length
+        ? l11.length + ' L11 runs against this rack so far.'
+        : 'Assembled, not yet tested: no controller has an L11 run against '
+          + 'this serial. Provisioning and rack test are still ahead of it.' })
+    ]));
+
+    byId('win-cap').textContent = WIN.where + ', ' + WIN.on;
+
+    var facts = byId('win-facts');
+    facts.innerHTML = '';
+    [['Rack serial', WIN.sn], ['Servers', String(WIN.servers.length)],
+     ['Site', WIN.where]].forEach(function (pair) {
+      facts.appendChild(h('div', { class: 'ah-fact' }, [
+        h('span', { class: 'ah-fact-k', text: pair[0] }),
+        h('span', { class: 'ah-fact-v', text: pair[1] })
+      ]));
+    });
+    facts.appendChild(h('a', {
+      class: 'ah-fact-link', href: WIN.sfis.replace('{sn}', WIN.sn),
+      target: '_blank', rel: 'noopener noreferrer', text: 'SFIS \u2197'
+    }));
+
+    /* The four servers, at the L10 stages they have reached. Same computation
+       as rack2.html, which is the page for the detail. */
+    var headRow = byId('win-head'), body = byId('win-body');
+    headRow.innerHTML = ''; body.innerHTML = '';
+    headRow.appendChild(h('tr', {}, ['Slot', 'Serial', 'FAT', 'SFT', 'Runin']
+      .map(function (title) { return h('th', { scope: 'col', text: title }); })));
+
+    var clean = 0;
+    WIN.servers.forEach(function (server) {
+      var runs = RUNS.filter(function (run) {
+        return String(run.d) === server.sn;
+      });
+      var cells = [h('td', { class: 'ah-slot', text: server.slot }),
+                   h('td', { class: 'mono', text: server.sn })];
+      var stumbled = false, reached = 0;
+      WIN_STAGES.forEach(function (key) {
+        var at = runs.filter(function (run) { return run.k === key; })
+          .sort(function (a, b) { return (a.t || 0) - (b.t || 0); });
+        if (!at.length) {
+          cells.push(h('td', {}, [h('span', { class: 'ah-none', text: '\u2014' })]));
+          return;
+        }
+        reached += 1;
+        var last = at[at.length - 1];
+        var ok = last.s === 'pass';
+        if (!ok) stumbled = true;
+        cells.push(h('td', {}, [h('span', {
+          class: ok ? 'ah-pass' : 'ah-fail',
+          text: (ok ? 'pass' : 'fail') + (at.length > 1 ? ' \u00d7' + at.length : '')
+        })]));
+      });
+      if (reached && !stumbled) clean += 1;
+      body.appendChild(h('tr', {}, cells));
+    });
+
+    byId('win-sub').textContent = clean + ' of ' + WIN.servers.length
+      + ' are passing every L10 stage they have reached. A count beside a '
+      + 'verdict is how many times that stage has run on that server.';
+
+    var link = byId('win-link');
+    link.innerHTML = '';
+    link.appendChild(h('a', { class: 'view-toggle', href: 'rack2.html',
+      text: 'The full rack page \u2192' }));
   }
 
   function init() {

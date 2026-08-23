@@ -177,14 +177,81 @@ class JoinTest(Fixture):
                          got["codes"]["TH-A-0001"]["message"])
 
 
+class EstablishedTest(Fixture):
+    """A root cause known for a whole test case, not for one failure of it."""
+
+    def setUp(self):
+        super().setUp()
+        self._est = build_errors.established
+        build_errors.established = lambda: {
+            "OneCodeTestCase": {
+                "rootCause": "setup",
+                "why": "the harness, every time",
+                "correctiveAction": "re-run once the proxy is up"}}
+
+    def tearDown(self):
+        build_errors.established = self._est
+        super().tearDown()
+
+    def test_the_known_cause_lands_on_every_row_of_that_case(self):
+        got = self.build(bundle([row("A1", mlt_case="OneCodeTestCase"),
+                                 row("A2", mlt_case="OneCodeTestCase")]))
+        for r in got["rows"]:
+            self.assertEqual("setup", r["rootCause"])
+            self.assertTrue(r["established"])
+            self.assertEqual("the harness, every time", r["note"])
+
+    def test_another_case_is_untouched(self):
+        got = self.build(bundle([row("A1", mlt_case="TwoCodeTestCase")]))
+        self.assertNotIn("rootCause", got["rows"][0])
+        self.assertNotIn("established", got["rows"][0])
+
+    def test_a_per_row_annotation_beats_the_established_cause(self):
+        """A case with a known usual cause can still fail for another reason on
+        one unit, and the person who looked at that unit outranks the table."""
+        build_errors.annotations = lambda: {
+            "2026-08-20|mlt|A1|OneCodeTestCase": {
+                "rootCause": "dut", "by": "chuck"}}
+        got = self.build(bundle([row("A1", mlt_case="OneCodeTestCase")]))
+        self.assertEqual("dut", got["rows"][0]["rootCause"])
+        self.assertEqual("chuck", got["rows"][0]["by"])
+
+    def test_a_cause_outside_the_two_answers_is_ignored(self):
+        build_errors.established = lambda: {
+            "OneCodeTestCase": {"rootCause": "probably the harness"}}
+        got = self.build(bundle([row("A1", mlt_case="OneCodeTestCase")]))
+        self.assertNotIn("rootCause", got["rows"][0])
+
+    def test_the_two_answers_are_named_in_the_bundle(self):
+        """So the page, the CSV and the service spell them the same way."""
+        got = self.build(bundle([row("A1", mlt_case="OneCodeTestCase")]))
+        self.assertEqual({"setup", "dut"}, set(got["causes"]))
+
+
+class ShippedCatalogueTest(unittest.TestCase):
+    """The committed established.json, not a fixture."""
+
+    def test_the_pcie_setup_family_is_established_as_a_setup_cause(self):
+        got = build_errors.established()
+        for case in ("PcieSetupTestCase", "CheckPcieTopology"):
+            self.assertIn(case, got, "the known one must stay known")
+            self.assertEqual("setup", got[case]["rootCause"])
+
+    def test_every_established_cause_is_one_of_the_two_answers(self):
+        for case, known in build_errors.established().items():
+            with self.subTest(case=case):
+                self.assertIn(known["rootCause"], build_errors.CAUSES)
+
+
 class AnnotationTest(Fixture):
 
     def test_an_annotation_is_merged_onto_its_row(self):
         build_errors.annotations = lambda: {
             "2026-08-20|mlt|A1|OneCodeTestCase": {
-                "rootCause": "the real reason", "by": "eason"}}
+                "rootCause": "dut", "note": "the real reason", "by": "eason"}}
         got = self.build(bundle([row("A1", mlt_case="OneCodeTestCase")]))
-        self.assertEqual("the real reason", got["rows"][0]["rootCause"])
+        self.assertEqual("dut", got["rows"][0]["rootCause"])
+        self.assertEqual("the real reason", got["rows"][0]["note"])
         self.assertEqual("eason", got["rows"][0]["by"])
 
     def test_an_unannotated_row_carries_no_empty_fields(self):

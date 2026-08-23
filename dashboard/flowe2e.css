@@ -1,6 +1,10 @@
-/* The comprehensive chart. Inherits every box, wire and lane style from
- * flow.css — the two charts must look like the same drawing at two zoom
- * levels, not like two drawings — and adds only what branching needs. */
+/* The end-to-end chart. Inherits every box, wire and lane style from flow.css
+ * — the two drawings must look like one chart at two zoom levels, not like two
+ * charts — and adds only what branching needs.
+ *
+ * Loaded by flow.html, which hosts both drawings. Named flowfull.css when the
+ * comprehensive chart had its own page; that chart was a subset of this one and
+ * both pages now redirect here. */
 
 /* A grid, not a stack. This is the whole structural difference: PV1 SMT/ICT
  * and PV1 ASSY share a row, SFT and Runin share a row, and the summary chart's

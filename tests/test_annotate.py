@@ -58,7 +58,7 @@ class ServiceTest(unittest.TestCase):
     def test_only_the_three_recorded_fields_are_taken(self):
         """A request may carry anything. The derived ones are ignored."""
         service.apply_edits("chuck", [dict(
-            EDIT, rootCause="a", correctiveAction="b", note="c",
+            EDIT, rootCause="setup", correctiveAction="b", note="c",
             codes=["TH-FORGED-0001"], fi="http://evil/", message="rewritten",
             by="somebody-else", at="1999-01-01T00:00:00+00:00")])
         entry = self.stored()[KEY]
@@ -100,12 +100,30 @@ class ServiceTest(unittest.TestCase):
         self.assertEqual({}, self.stored())
 
     def test_a_second_edit_merges_rather_than_replaces(self):
-        service.apply_edits("chuck", [dict(EDIT, rootCause="the cause")])
+        service.apply_edits("chuck", [dict(EDIT, rootCause="dut")])
         service.apply_edits("eason", [dict(EDIT, note="and a note")])
         entry = self.stored()[KEY]
-        self.assertEqual("the cause", entry["rootCause"])
+        self.assertEqual("dut", entry["rootCause"])
         self.assertEqual("and a note", entry["note"])
         self.assertEqual("eason", entry["by"], "the latest hand signs it")
+
+    def test_a_root_cause_outside_the_two_answers_is_refused(self):
+        """The column exists to be counted. A third spelling ends that."""
+        written, skipped = service.apply_edits(
+            "chuck", [dict(EDIT, rootCause="probably the harness?")])
+        self.assertEqual(0, written)
+        self.assertIn("must be one of", skipped[0])
+        self.assertEqual({}, self.stored())
+
+    def test_both_answers_are_accepted(self):
+        for value in service.CAUSES:
+            written, _ = service.apply_edits("eason", [dict(
+                EDIT, rootCause=value)])
+            self.assertEqual(1, written, value)
+            self.assertEqual(value, self.stored()[KEY]["rootCause"])
+
+    def test_the_two_answers_are_setup_and_dut(self):
+        self.assertEqual(("setup", "dut"), service.CAUSES)
 
     def test_an_over_long_field_is_refused(self):
         written, skipped = service.apply_edits(

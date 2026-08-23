@@ -39,6 +39,18 @@
 
   <div class="banner" id="notice" hidden></div>
 
+  <!-- Two pages, the same two the all-hands deck has: what happened this week,
+       and what is worth showing off. The deck is generated from this page, so
+       they cannot drift — and a presentation surface with eight equal sections
+       is a surface nobody knows where to start on. -->
+  <div class="ah-pager" id="pager" role="group" aria-label="Which page"></div>
+
+  <section class="ah-page" id="page-week">
+
+  <!-- The headline the deck leads with: this week's accumulated L6 yield
+       against last week's, and the decisions that go with it. -->
+  <section class="ah-headline" id="headline"></section>
+
   <section class="card full">
     <div class="card-head">
       <div>
@@ -121,6 +133,78 @@
       </table>
     </div>
   </section>
+
+  <!-- Priorities, as the deck defines them. Verbatim: these are the line's
+       words and the whole point of the table is that everyone is using the
+       same three definitions. -->
+  <section class="card full" style="margin-top:16px">
+    <div class="card-head">
+      <div>
+        <h2>How we triage</h2>
+        <p class="sub">The definitions the ramp meeting runs on.</p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table class="cz-table ah-triage">
+        <thead>
+          <tr><th scope="col">P</th><th scope="col">When</th>
+              <th scope="col">What happens</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row" class="ah-p ah-p0">P0</th>
+              <td>MP build blocker &amp; no root cause or solution
+                  identified.</td>
+              <td>Dedicated DRI, target closure timeline, weekly deep
+                  dive.</td></tr>
+          <tr><th scope="row" class="ah-p ah-p1">P1</th>
+              <td>Not an MP build blocker &amp; no root cause or solution
+                  identified.</td>
+              <td>Dedicated DRI, estimated closure timeline, weekly deep
+                  dive.</td></tr>
+          <tr><th scope="row" class="ah-p ah-p2">P2</th>
+              <td>Not an MP build blocker. Root cause identified and
+                  corrective action validated on limited data. Backlog.</td>
+              <td>Attend to it as resource allows.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  </section><!-- /page-week -->
+
+  <!-- Page 2. The deck's second slide is whatever is worth showing off, and
+       this week that is the second rack standing at Pega. Live, not a
+       screenshot: the four servers' state comes from the controllers, so the
+       page keeps telling the truth after the day it was written. -->
+  <section class="ah-page" id="page-win" hidden>
+    <section class="ah-headline" id="win-headline"></section>
+
+    <div class="ah-win">
+      <figure class="ah-photo">
+        <img id="win-photo" src="img/l11-rack-2.jpg"
+             alt="The second L11 rack assembled at Pegatron, four Sohu servers cabled in the frame">
+        <figcaption id="win-cap"></figcaption>
+      </figure>
+      <div class="ah-win-facts" id="win-facts"></div>
+    </div>
+
+    <section class="card full" style="margin-top:16px">
+      <div class="card-head">
+        <div>
+          <h2>Where its four servers stand</h2>
+          <p class="sub" id="win-sub"></p>
+        </div>
+        <span class="spacer"></span>
+        <div class="quick" id="win-link"></div>
+      </div>
+      <div class="table-wrap">
+        <table class="cz-table" id="win-table">
+          <thead id="win-head"></thead>
+          <tbody id="win-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </section><!-- /page-win -->
 
   <footer class="notes">
     <p id="footer-meta"></p>

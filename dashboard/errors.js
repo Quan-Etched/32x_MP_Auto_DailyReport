@@ -48,11 +48,20 @@
 
   var EDITABLE = ['rootCause', 'correctiveAction', 'note'];
 
+  /* Root cause is a choice between two answers, not a text box. "Test setup"
+     or "true DUT failure" is the decision the line acts on — whether to look at
+     the harness or scrap the part — and a free-text field produced a dozen
+     spellings of each and nothing countable. Detail goes in the note. */
+  var CAUSES = DATA.causes || { setup: 'Test setup', dut: 'True DUT failure' };
+  var CAUSE_ORDER = ['setup', 'dut'];
+
   var view = {
     from: null, to: null,
     stations: null,          /* null = every station, until section 2 reports */
     admin: null,             /* the signed-in name, or null */
-    dirty: {}                /* key -> the fields edited but not yet saved */
+    dirty: {},               /* key -> the fields edited but not yet saved */
+    sort: null,              /* column index, or null for the default order */
+    desc: false
   };
 
   function h(tag, attrs, kids) {
@@ -145,6 +154,50 @@
     return wrap;
   }
 
+  /* Root cause reads as a labelled chip so the two answers are tellable apart
+     down a column of eighty rows, which is the only way this column earns its
+     width. An established cause says so: the row did not need somebody to
+     decide it, and the reader should know which rows are settled. */
+  function causeCell(row) {
+    var value = valueOf(row, 'rootCause');
+    if (view.admin) {
+      var pick = h('select', { class: 'ec-edit ec-pick' });
+      pick.appendChild(h('option', { value: '', text: '— not decided —' }));
+      CAUSE_ORDER.forEach(function (key) {
+        pick.appendChild(h('option', { value: key, text: CAUSES[key] }));
+      });
+      pick.value = value;
+      pick.addEventListener('change', function () {
+        stage(row, 'rootCause', pick.value);
+      });
+      return pick;
+    }
+    if (!value) return h('span', { class: 'ec-blank', text: 'not decided' });
+    var wrap = h('span', { class: 'ec-cause ec-cause-' + value }, [
+      h('span', { text: CAUSES[value] || value })
+    ]);
+    if (row.established) {
+      wrap.appendChild(h('span', { class: 'ec-settled',
+        title: 'established for this test case, not decided per unit — see '
+             + 'errors/established.json',
+        text: ' established' }));
+    }
+    return wrap;
+  }
+
+  /* One place edits are recorded, so the select and the textareas agree about
+     what "back to what it was" means. */
+  function stage(row, field, value) {
+    var key = keyOf(row);
+    var pending = view.dirty[key] || (view.dirty[key] = {});
+    pending[field] = value;
+    if (value === (row[field] || '')) {
+      delete pending[field];
+      if (!Object.keys(pending).length) delete view.dirty[key];
+    }
+    renderAdmin();
+  }
+
   function editable(row, field, placeholder) {
     var value = valueOf(row, field);
     if (!view.admin) {
@@ -158,15 +211,7 @@
     });
     box.value = value;
     box.addEventListener('input', function () {
-      var key = keyOf(row);
-      var pending = view.dirty[key] || (view.dirty[key] = {});
-      pending[field] = box.value;
-      /* Unchanged again: drop it, so Save does not carry a no-op edit. */
-      if (box.value === (row[field] || '')) {
-        delete pending[field];
-        if (!Object.keys(pending).length) delete view.dirty[key];
-      }
-      renderAdmin();
+      stage(row, field, box.value);
     });
     return box;
   }
@@ -189,12 +234,53 @@
     ['Station', function (row) {
       return h('span', { text: LABELS[row.station] || row.station }); }],
     ['FI', fiCell],
-    ['Root Cause', function (row) {
-      return editable(row, 'rootCause', 'what actually broke'); }],
+    ['Root Cause', causeCell],
     ['Corrective Action', function (row) {
       return editable(row, 'correctiveAction', 'what was done about it'); }],
     ['Note', function (row) { return editable(row, 'note', 'anything else'); }]
   ];
+
+  /* What each column sorts on. Not the rendered text: the code column renders
+     a chip and a case name, and sorting a table by its own markup is how a
+     column ends up ordered by "<span". */
+  var SORT_KEY = [
+    function (row) { return (row.codes || [])[0] || '\uffff'; },
+    function (row) { return row.dut; },
+    function (row) { return row.day; },
+    function (row) { return LABELS[row.station] || row.station; },
+    function (row) { return row.run || ''; },
+    function (row) { return valueOf(row, 'rootCause'); },
+    function (row) { return valueOf(row, 'correctiveAction'); },
+    function (row) { return valueOf(row, 'note'); }
+  ];
+
+  function compare(left, right) {
+    var a = SORT_KEY[view.sort](left), b = SORT_KEY[view.sort](right);
+    /* Blank last whichever way the arrow points. A column sorted to put eighty
+       empty cells at the top is a column nobody sorted on purpose. */
+    if (!a && b) return 1;
+    if (a && !b) return -1;
+    if (a === b) return 0;
+    return (a < b ? -1 : 1) * (view.desc ? -1 : 1);
+  }
+
+  /* The default order, when nothing is sorted: settled cases first, then
+     newest. An established root cause is the answer somebody already worked
+     out, and burying it under three hundred undecided rows means the next
+     person works it out again. */
+  function ordered(rows) {
+    var out = rows.slice();
+    if (view.sort === null) {
+      out.sort(function (a, b) {
+        if (!!b.established !== !!a.established) return a.established ? -1 : 1;
+        if (a.day !== b.day) return a.day < b.day ? 1 : -1;
+        return a.dut < b.dut ? -1 : 1;
+      });
+      return out;
+    }
+    out.sort(compare);
+    return out;
+  }
 
   /* The failing test case is the join key and belongs on screen — it is what
      someone recognises from the tracker, and on a multi-code row it is the only
@@ -203,20 +289,47 @@
   function renderTable(rows) {
     var head = byId('err-head'), body = byId('err-body');
     head.innerHTML = ''; body.innerHTML = '';
-    head.appendChild(h('tr', {}, COLUMNS.map(function (column) {
-      return h('th', { scope: 'col', text: column[0] });
-    })));
-    rows.forEach(function (row) {
-      var tr = h('tr', { class: view.dirty[keyOf(row)] ? 'ec-dirty' : '' });
+    var tr = h('tr', {});
+    COLUMNS.forEach(function (column, at) {
+      var on = view.sort === at;
+      var button = h('button', {
+        type: 'button', class: 'ec-sort' + (on ? ' on' : ''),
+        title: 'sort by ' + column[0]
+      }, [
+        h('span', { text: column[0] }),
+        h('span', { class: 'ec-arrow',
+                    text: on ? (view.desc ? ' \u2193' : ' \u2191') : ' \u21c5' })
+      ]);
+      button.addEventListener('click', function () {
+        if (view.sort === at) {
+          /* Third click clears it, back to settled-first. Otherwise there is no
+             way back to the default order without reloading. */
+          if (view.desc) { view.sort = null; view.desc = false; }
+          else { view.desc = true; }
+        } else {
+          view.sort = at; view.desc = false;
+        }
+        render();
+      });
+      tr.appendChild(h('th', { scope: 'col',
+        'aria-sort': on ? (view.desc ? 'descending' : 'ascending') : 'none'
+      }, [button]));
+    });
+    head.appendChild(tr);
+    ordered(rows).forEach(function (row) {
+      var classes = [];
+      if (view.dirty[keyOf(row)]) classes.push('ec-dirty');
+      if (row.established) classes.push('ec-est');
+      var line = h('tr', { class: classes.join(' ') });
       COLUMNS.forEach(function (column, at) {
-        var td = h('td', { class: at > 4 ? 'ec-note-cell' : '' });
+        var td = h('td', { class: at > 5 ? 'ec-note-cell' : '' });
         td.appendChild(column[1](row));
         if (at === 0) {
           td.appendChild(h('span', { class: 'ec-case', text: row.case }));
         }
-        tr.appendChild(td);
+        line.appendChild(td);
       });
-      body.appendChild(tr);
+      body.appendChild(line);
     });
   }
 
@@ -412,17 +525,21 @@
   function csvRows(rows) {
     var lines = [['Error_Code', 'Possible_Codes', 'Test_Case', 'DUT_SN',
                   'Date_UTC', 'Station', 'FI_Link', 'Quick_Action', 'Component',
-                  'Bugs', 'Root_Cause', 'Corrective_Action', 'Note',
-                  'Noted_By']];
-    rows.forEach(function (row) {
+                  'Bugs', 'Root_Cause', 'Root_Cause_Established',
+                  'Corrective_Action', 'Note', 'Noted_By']];
+    ordered(rows).forEach(function (row) {
       var one = row.codes && row.codes.length === 1 ? row.codes[0] : '';
       var info = CODES[one] || {};
+      var cause = valueOf(row, 'rootCause');
       lines.push([
         one, (row.codes || []).join('; '), row.case, row.dut, row.day,
         LABELS[row.station] || row.station, row.fi || '',
         info.action || '', info.component || '', info.bugs || '',
-        valueOf(row, 'rootCause'), valueOf(row, 'correctiveAction'),
-        valueOf(row, 'note'), row.by || ''
+        /* The label, not the key: a spreadsheet reader should not have to know
+           that "setup" means the harness. */
+        cause ? (CAUSES[cause] || cause) : '',
+        row.established ? 'yes' : '',
+        valueOf(row, 'correctiveAction'), valueOf(row, 'note'), row.by || ''
       ]);
     });
     return lines;
@@ -449,6 +566,8 @@
         view.to + ' (UTC)'
       : 'No failure in this range at the stations picked above.';
 
+    var settled = rows.filter(function (row) {
+      return valueOf(row, 'rootCause'); }).length;
     var one = rows.filter(function (row) {
       return row.codes && row.codes.length === 1; }).length;
     var many = rows.filter(function (row) {
@@ -462,7 +581,11 @@
       + many + ' to more than one — the catalogue maps a test case to several '
       + 'codes when the code says how it failed and the tracker records only '
       + 'that it did — and ' + none + ' to none. FI is the line’s own column '
-      + 'name for the link to the run. ' }));
+      + 'name for the link to the run. Root cause is one of two answers — '
+      + '“' + CAUSES.setup + '” or “' + CAUSES.dut + '” — because that is the '
+      + 'decision the line acts on; ' + settled + ' of these ' + rows.length
+      + ' have one, and rows with a cause established for the whole test case '
+      + 'sort to the top. Everything else goes in the note. ' }));
     byId('err-note').appendChild(h('a', {
       class: 'ec-cat', href: CAT.source || '#', target: '_blank',
       rel: 'noopener noreferrer',

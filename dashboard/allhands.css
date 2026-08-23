@@ -137,3 +137,137 @@
 
 /* A week with no combined yield to report — dimmed, never zero. */
 .wk-pct.absent { color: var(--text-muted); font-weight: 400; }
+
+/* ------------------------------------------------------------ two pages ---
+ *
+ * The deck has two slides and so does this page. Tabs rather than a long scroll
+ * because the second one is a different kind of thing — a result, not an
+ * analysis — and putting it below the Pareto meant nobody reached it. */
+.ah-pager { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 18px; }
+.ah-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  text-align: left;
+  max-width: 32ch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  padding: 9px 14px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-secondary);
+}
+.ah-tab:hover { border-color: var(--accent-solid); }
+.ah-tab.on {
+  border-color: var(--accent-solid);
+  border-left-width: 3px;
+  color: var(--text-primary);
+}
+.ah-tab-k { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+.ah-tab-s { font-size: 11.5px; color: var(--text-muted); line-height: 1.4; }
+.ah-page[hidden] { display: none; }
+
+/* The headline. One number, big, with last week beside it — read from the back
+   of a room, which is the whole job of this page. */
+.ah-headline { margin: 0 0 16px; }
+.ah-hl {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  border-left: 3px solid var(--accent-solid);
+  padding: 4px 0 4px 14px;
+}
+.ah-hl-k {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.ah-hl-v {
+  font-size: 40px;
+  line-height: 1;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.ah-hl-word { font-size: 28px; }
+.ah-hl-w { font-size: 13px; color: var(--text-secondary); }
+/* Up is good here and down is bad, which is not true of every metric on this
+   site — so the colour is on this class and not on a shared "delta". */
+.ah-hl-d { font-size: 13px; font-weight: 600; }
+.ah-hl-d.up { color: var(--success-text); }
+.ah-hl-d.down { color: var(--status-critical); }
+.ah-hl-n {
+  flex: 1 1 22ch;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+.ah-said {
+  margin: 8px 0 0 17px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Triage. The P column is a label, not a number, so it is not tabular. */
+.ah-triage td { vertical-align: top; }
+.ah-p { font-weight: 700; text-align: left; white-space: nowrap; }
+.ah-p0 { color: var(--status-critical); }
+.ah-p1 { color: var(--status-warning); }
+.ah-p2 { color: var(--text-secondary); }
+
+/* ---------------------------------------------------------- achievement ---
+ * A photo and the numbers beside it, not the photo alone: a picture of a rack
+ * proves it was assembled and says nothing about whether it works. */
+.ah-win {
+  display: flex;
+  gap: 22px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+.ah-photo { margin: 0; flex: 0 1 320px; }
+.ah-photo img {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.ah-photo figcaption {
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.ah-win-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 220px;
+}
+.ah-fact { display: flex; flex-direction: column; gap: 1px; }
+.ah-fact-k {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+.ah-fact-v {
+  font-size: 15px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--text-primary);
+}
+.ah-fact-link {
+  align-self: flex-start;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent-solid);
+}
+.ah-slot { font-weight: 600; }
+.ah-pass { color: var(--success-text); font-weight: 600; }
+.ah-fail { color: var(--status-critical); font-weight: 600; }
+.ah-none { color: var(--text-muted); }

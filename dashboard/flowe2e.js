@@ -149,7 +149,13 @@
   function init() {
     if (!window.FactoryFlow) return;
     window.FactoryFlow.render({
-      id: 'e2e', lanes: LANES, nodes: NODES, edges: EDGES
+      id: 'e2e', lanes: LANES, nodes: NODES, edges: EDGES,
+      /* Its own canvas: this chart shares flow.html with the summary now, and
+         a shared #canvas meant whichever script ran second wiped the first.
+         The page chrome is flow.js's — one page, one build stamp. */
+      targets: { canvas: 'e2e-canvas', lanes: 'e2e-lanes',
+                 wires: 'e2e-wires', legend: 'e2e-legend' },
+      chrome: false
     });
   }
 

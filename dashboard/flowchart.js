@@ -53,8 +53,16 @@
     var ARROW = 'arrow-' + (chart.id || 'flow');
     var PREFIX = (chart.id || 'flow') + '-';
 
+    /* Which elements to draw into. Defaulted so a page with one chart says
+       nothing, and named so a page with two charts can host both: the summary
+       and the end-to-end flow live on flow.html together now, and a shared
+       #canvas meant whichever script ran second wiped the first. */
+    var into = chart.targets || {};
     var el = {
-      canvas: byId('canvas'), lanes: byId('lanes'), wires: byId('wires')
+      canvas: byId(into.canvas || 'canvas'),
+      lanes: byId(into.lanes || 'lanes'),
+      wires: byId(into.wires || 'wires'),
+      legend: into.legend || 'legend'
     };
     if (!el.canvas || !el.lanes || !el.wires) return;
     var boxes = {};
@@ -214,7 +222,7 @@
     /* --------------------------------------------------------------- chrome */
 
     function renderLegend() {
-      var host = byId('legend');
+      var host = byId(el.legend);
       if (!host) return;
       host.innerHTML = '';
       [['test', 'Tested here — the box carries its yield'],
@@ -236,6 +244,7 @@
         return node.station && summary(node.station);
       });
       var window_ = STATIONS.windowWeek || STATIONS.window || {};
+      if (chart.chrome === false) return;
       var meta = byId('meta');
       if (meta) {
         meta.textContent = counted.length + ' of ' + NODES.length +

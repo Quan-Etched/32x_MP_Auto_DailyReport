@@ -244,3 +244,39 @@
 .flow-combined .cb-v { font-size: 26px; color: var(--accent-solid);
                        font-variant-numeric: tabular-nums; }
 .flow-combined .cb-s { font-size: 12.5px; color: var(--text-secondary); }
+
+/* ---------------------------------------------------- which drawing ---
+ * Two charts of one line, on one page. The buttons carry a sentence each
+ * because "Summary" and "End-to-end" do not tell anyone which one has the
+ * number they came for. Same shape as the daily page's flow-mode buttons,
+ * deliberately: it is the same kind of choice. */
+.flow-switch {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 18px;
+}
+.fs-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  text-align: left;
+  max-width: 34ch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  padding: 9px 13px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-secondary);
+}
+.fs-btn:hover { border-color: var(--accent-solid); }
+.fs-btn.on {
+  border-color: var(--accent-solid);
+  border-left-width: 3px;
+  color: var(--text-primary);
+}
+.fs-k { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.fs-s { font-size: 11.5px; color: var(--text-muted); line-height: 1.4; }
+.flow-view[hidden] { display: none; }
