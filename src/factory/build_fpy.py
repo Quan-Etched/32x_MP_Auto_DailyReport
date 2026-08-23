@@ -113,16 +113,18 @@ MULTI_SUITE = ("vbb_provision",)
 #: Stages that report quantity only — units and runs, never a yield or a
 #: retest rate.
 #:
-#: L10 and L11 are chassis and rack level, in bring-up, and their volumes are
-#: single digits a week. A percentage over three chassis is arithmetic, not a
-#: yield: it swings 33 points on one unit, it gets quoted anyway, and no fix
-#: can be judged by it. The counts are real and are what the readiness question
-#: actually turns on at these stages, so those are what get published.
+#: Empty since 2026-08-23. L10 and L11 used to publish counts and no yield:
+#: their volumes are single digits a week, a percentage over three chassis
+#: swings 33 points on one unit, and it would get quoted anyway. The note said
+#: to remove the prefix when the line decided L10 yield meant something, and
+#: the line has.
 #:
-#: This is a policy about the stage, not about this week's volume — unlike
-#: MIN_COHORT, it does not lift when the numbers grow. Remove the prefix when
-#: the line decides L10 yield means something.
-COUNTS_ONLY_PREFIXES = ("l10_", "l11_")
+#: What makes it safe now is that the rolled figure is scoped to MLT x HTT
+#: (ROLLED_STATIONS). A two-unit stage can no longer drag the headline to zero,
+#: which was the actual damage this policy was preventing. The yields publish
+#: with their unit counts beside them and a thin-cohort mark, so the reader can
+#: see a 50% that is one unit of two for what it is.
+COUNTS_ONLY_PREFIXES: tuple = ()
 
 COUNTS_ONLY_NOTE = "chassis and rack level, in bring-up — quantity only"
 
@@ -188,6 +190,11 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
         yield_readable = len(window) >= floor
         if counts_only(key):
             readable = yield_readable = False
+        # Below the floor but not silent: publish the yield and mark it, rather
+        # than withholding it. Asked for explicitly for L10 and L11, where the
+        # counts are small and will stay small for a while, and the alternative
+        # was a column of dashes that read as "no testing happened".
+        thin_cohort = bool(len(window)) and not yield_readable
         first_pass = sum(1 for dut in fresh if units[dut][0]["status"] == "pass")
         passed = sum(1 for rs in window.values()
                      if any(r["status"] == "pass" for r in rs))
@@ -200,12 +207,19 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
             "units": len(window),
             "runs": sum(len(rs) for rs in window.values()),
             "newUnits": len(fresh),
-            # Below MIN_COHORT no yield is published, in either column. A
-            # 0.0% over two units is not a yield, and printing one invites
-            # somebody to quote it — the counts beside it say everything that
-            # can honestly be said about a stage that ran three chassis.
-            "fpy": (first_pass / len(fresh)) if (fresh and readable) else None,
-            "finalYield": (passed / len(window)) if yield_readable else None,
+            # Published whenever there is anything to divide, floor or no
+            # floor, and marked when the cohort is thin.
+            #
+            # It used to be withheld below MIN_COHORT, on the grounds that a
+            # 0.0% over two units is not a yield and printing one invites
+            # somebody to quote it. That was right about the arithmetic and
+            # wrong about the reader: a column of dashes across L10 and L11
+            # read as "no testing happened here", which is a worse claim than a
+            # number with its denominator beside it. `readable` still says
+            # whether the figure can be leaned on, and it still gates the
+            # rolled product; `thinCohort` says it on the page.
+            "fpy": (first_pass / len(fresh)) if fresh else None,
+            "finalYield": (passed / len(window)) if window else None,
             "readable": readable,
             "yieldReadable": yield_readable,
             "passedUnits": passed,
@@ -222,6 +236,9 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
                           ("repeat runs here are a provisioning sequence, not "
                            "retests") if key in MULTI_SUITE else None,
             "countsOnly": counts_only(key),
+            # True where a yield is published over too few units to lean on.
+            # The page prints it beside the number; nothing computes with it.
+            "thinCohort": thin_cohort,
             "topFailures": _top_failures(
                 [r for rs in window.values() for r in rs]),
             "measured": True,

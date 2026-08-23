@@ -160,6 +160,15 @@
 
   /* ------------------------------------------------------- stacked columns */
 
+  /* Retest load per day, in runs. First attempts and retests stack to the
+     day's total, so the bar height is fixture time and the coloured part is the
+     share of it spent going round again. Same renderer as the pass/fail mix —
+     it is the same shape of question. */
+  var RETEST_SERIES = [
+    { key: 'first', label: 'first attempt', color: 'var(--series-3)' },
+    { key: 'retest', label: 'retest run', color: 'var(--status-warning)' }
+  ];
+
   var MIX_SERIES = [
     { key: 'pass', label: 'pass', color: 'var(--status-good)' },
     { key: 'fail', label: 'fail', color: 'var(--status-critical)' },
@@ -186,6 +195,11 @@
   function renderMix(plot, rows, opts) {
     clear(plot);
     if (!rows.length) { emptyPlot(plot, opts.emptyText || 'No runs for this station.'); return; }
+
+    /* Which series to stack. Defaulted to pass/fail/abort, named so the same
+       renderer can draw the retest split — first attempt against retest run —
+       which is the same shape of question about a different pair of counts. */
+    var SERIES = opts.series || MIX_SERIES;
 
     var hasSub = rows.some(function (r) { return r.sub; });
     var width = Math.max(plot.clientWidth || 520, 320);
@@ -248,9 +262,9 @@
       var stackBottom = margin.top + innerH;
 
       var topIndex = -1;
-      MIX_SERIES.forEach(function (ser, si) { if ((row[ser.key] || 0) > 0) topIndex = si; });
+      SERIES.forEach(function (ser, si) { if ((row[ser.key] || 0) > 0) topIndex = si; });
 
-      MIX_SERIES.forEach(function (ser, si) {
+      SERIES.forEach(function (ser, si) {
         var value = row[ser.key] || 0;
         if (value <= 0) return;
         var raw = (value / yMax) * innerH;
@@ -327,7 +341,7 @@
       highlight.setAttribute('x', margin.left + i * band);
       highlight.setAttribute('opacity', '1');
       tip.show(margin.left + i * band + band / 2, margin.top + innerH / 2,
-        MIX_SERIES.map(function (ser) {
+        SERIES.map(function (ser) {
           return { color: ser.color, name: ser.label, value: fmtInt(row[ser.key] || 0) };
         }).concat([
           { name: 'total', value: fmtInt(row.total) },
@@ -907,6 +921,7 @@
     renderTrend: renderTrend,
     renderPareto: renderPareto,
     renderRetestDepth: renderRetestDepth,
+    RETEST_SERIES: RETEST_SERIES,
     renderTable: renderTable,
     renderLegend: renderLegend,
   };

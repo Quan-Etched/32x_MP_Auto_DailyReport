@@ -41,8 +41,12 @@
       sub: 'Wafer sort', owner: 'Sigurd' },
     { id: 'ft',     lane: 'asic', col: 1, row: 3, label: 'FT',   kind: 'test',
       sub: 'Final test', owner: 'Sigurd' },
+    /* Struck through: skipping it is the current proposal, and the box links
+       to the data that proposal rests on. */
     { id: 'slt',    lane: 'asic', col: 1, row: 4, label: 'SLT',  kind: 'test',
-      sub: 'System level test', owner: 'Sigurd', station: 'slt' },
+      sub: 'System level test', owner: 'Sigurd', station: 'slt',
+      struck: true, why: 'go/slt-ft',
+      whyUrl: 'https://literate-telegram-2y3e9lz.pages.github.io/index.html' },
 
     { id: 'smt_bb',  lane: 'l6', col: 1, row: 1, label: 'BB',  kind: 'build',
       sub: 'SMT / ICT' },

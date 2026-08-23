@@ -17,9 +17,8 @@
     <span class="meta" id="meta"></span>
     <span class="build" id="build" title="Which build of the analysis produced this page"></span>
     <span class="spacer"></span>
-    <a class="theme-toggle" href="index.html">← Station yield</a>
-    <a class="theme-toggle" href="runs.html">Raw runs →</a>
-    <a class="theme-toggle" href="dailyexcel.html">Daily tracker →</a>
+    <!-- One nav for every page, from nav.js. Hand-written lists had drifted to a different subset per page. -->
+    <nav class="masthead-nav" id="nav"></nav>
     <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
   </header>
 
@@ -133,6 +132,51 @@
       <p class="cz-note" id="err-unknown"></p>
     </section>
 
+
+    <!-- The station page's three charts, over the range and stations picked
+         above rather than one station at a time. Computed from the same rows
+         section 3 hands out as a CSV, so no number here can disagree with it. -->
+    <section class="card full" style="margin-top:16px" id="charts">
+      <div class="card-head">
+        <div>
+          <h2>5 · Yield and failures</h2>
+          <p class="sub" id="cc-sub"></p>
+        </div>
+      </div>
+
+      <div class="cc-block">
+        <div class="cc-head">
+          <h3>Yield by day</h3>
+          <span class="spacer"></span>
+          <div class="legend" id="cc-day-legend"></div>
+        </div>
+        <div class="plot" id="cc-day-plot"></div>
+        <div class="plot" id="cc-day-fpy"></div>
+        <div class="table-wrap" id="cc-day-table"></div>
+      </div>
+
+      <div class="cc-block">
+        <div class="cc-head">
+          <h3>Yield by software release</h3>
+          <span class="spacer"></span>
+          <div class="legend" id="cc-rel-legend"></div>
+        </div>
+        <div class="plot" id="cc-rel-plot"></div>
+        <div class="plot" id="cc-rel-fpy"></div>
+        <div class="table-wrap" id="cc-rel-table"></div>
+      </div>
+
+      <div class="cc-block">
+        <div class="cc-head">
+          <h3>Error pareto</h3>
+          <span class="spacer"></span>
+          <div class="legend" id="cc-pareto-legend"></div>
+        </div>
+        <div class="plot" id="cc-pareto-plot"></div>
+        <div class="table-wrap" id="cc-pareto-table"></div>
+      </div>
+    </section>
+
   </main>
 
   <footer class="notes">
@@ -156,9 +200,16 @@
 
 <script src="data/runs_pega.js"></script>
 <script src="data/errors.js"></script>
+<script src="charts.js"></script>
 <script src="tablecsv.js"></script>
-<script src="customize.js"></script>
+<!-- Sections 4 and 5 before section 1-3's script, not after: customize.js
+     publishes the day range and station selection on its first render, and a
+     consumer loaded later than that misses it and draws every station until
+     the reader happens to touch a checkbox. -->
 <script src="errors.js"></script>
+<script src="customcharts.js"></script>
+<script src="customize.js"></script>
+<script src="nav.js"></script>
 <script src="theme.js"></script>
 <script src="update.js"></script>
 </body>

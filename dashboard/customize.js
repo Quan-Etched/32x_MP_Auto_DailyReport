@@ -437,9 +437,15 @@
        which stations you care about, and the answer does not change between a
        run CSV and a failure table. Published rather than reached for: errors.js
        has no business inside this closure. */
+    var picked = Object.keys(view.stations).filter(
+      function (key) { return view.stations[key]; });
     if (window.FactoryErrors && window.FactoryErrors.stations) {
-      window.FactoryErrors.stations(Object.keys(view.stations).filter(
-        function (key) { return view.stations[key]; }));
+      window.FactoryErrors.stations(picked);
+    }
+    /* Section 5 takes the range as well as the stations — it is the only
+       section that charts the days themselves. */
+    if (window.FactoryCustomCharts) {
+      window.FactoryCustomCharts.show(view.from, view.to, picked);
     }
     byId('take-sub').textContent = rows.length
       ? plural(rows.length, 'run') + ' from ' + view.from + ' to ' + view.to +

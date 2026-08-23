@@ -362,6 +362,51 @@ def retest(
 
     depth = Counter(min(u["attempts"], 5) for u in units if u["attempts"] >= 1)
 
+    # Retests over days, counted in RUNS rather than units.
+    #
+    # The tiles above count units — "30 units needed a second go" — which is the
+    # flow question. This is the load question, and it has a different answer:
+    # one unit round five times is one retested unit and four retest runs, and
+    # it is the four that occupied a fixture. So a run is a retest when the same
+    # unit was graded at this station earlier, and it is filed under the day it
+    # ran, not the day the unit first appeared.
+    per_day: Dict[str, Dict[str, int]] = {}
+    for dut_runs in by_dut.values():
+        ordered = sorted((r for r in dut_runs if r.get("status") in GRADED),
+                         key=lambda r: r.get("startTs") or 0)
+        for index, run in enumerate(ordered):
+            if not run.get("startTs"):
+                continue
+            day = day_key(run["startTs"], tz_name)
+            bucket = per_day.setdefault(
+                day, {"runs": 0, "first": 0, "retests": 0, "passed": 0})
+            bucket["runs"] += 1
+            if index:
+                bucket["retests"] += 1
+                if run.get("status") == "pass":
+                    bucket["passed"] += 1
+            else:
+                bucket["first"] += 1
+
+    by_day = []
+    for day in sorted(per_day):
+        got = per_day[day]
+        by_day.append({
+            "day": day,
+            "runs": got["runs"],
+            "first": got["first"],
+            "retests": got["retests"],
+            # Of the day's runs, the share that were somebody's second or later
+            # attempt. This is the number that says how much of the fixture time
+            # went on rework.
+            "share": (got["retests"] / got["runs"]) if got["runs"] else None,
+            # Of the retest runs that day, how many passed. A low number means
+            # the retests are not recovering anything.
+            "passed": got["passed"],
+            "passRate": (got["passed"] / got["retests"]) if got["retests"]
+                        else None,
+        })
+
     return {
         "units": entered,
         "retestedUnits": len(retested),
@@ -374,6 +419,10 @@ def retest(
         "stillFailing": len(still_failing),
         # attempts -> unit count, 5 meaning "5 or more"
         "depth": [{"attempts": k, "units": depth[k]} for k in sorted(depth)],
+        # Runs per day, split first attempt vs retest. Counted in runs, which
+        # is a different question from the unit counts above.
+        "byDay": by_day,
+        "retestRuns": sum(row["retests"] for row in by_day),
         "detail": units,
     }
 

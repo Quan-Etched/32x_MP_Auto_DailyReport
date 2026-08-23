@@ -41,6 +41,7 @@
   var renderTable = C.renderTable;
   var renderLegend = C.renderLegend;
   var MIX_SERIES = C.MIX_SERIES;
+  var RETEST_SERIES = C.RETEST_SERIES;
 
   /* ------------------------------------------------------------ drill-down */
 
@@ -583,6 +584,70 @@
       ]));
     });
     renderRetestDepth(document.getElementById('plot-retest'), r.depth);
+    renderRetestDays(r);
+  }
+
+  /* Retests over days, counted in runs.
+   *
+   * The tiles above count units, which is the flow question — how many needed a
+   * second go. This is the load question, and it has a different answer: a unit
+   * round five times is one retested unit and four retest runs, and it is the
+   * four that occupied a fixture. So the bar is the day's graded runs and the
+   * coloured part is the share of them that were somebody's second or later
+   * attempt.
+   */
+  function renderRetestDays(r) {
+    var host = document.getElementById('plot-retest-days');
+    if (!host) return;
+    var rows = (r.byDay || []).map(function (d) {
+      return {
+        label: fmtDayShort(d.day), sub: '', heading: d.day,
+        first: d.first, retest: d.retests, total: d.runs,
+        share: d.share, passRate: d.passRate, raw: d
+      };
+    });
+    renderLegend(document.getElementById('legend-retest-days'), RETEST_SERIES);
+    renderMix(host, rows, {
+      series: RETEST_SERIES,
+      emptyText: 'No graded runs at this station in the window.',
+      ariaLabel: 'First attempts and retest runs per day. Click a bar for '
+               + 'its runs',
+      onSelect: function (row) { drill({ day: row.raw.day }); }
+    });
+
+    var sub = document.getElementById('retest-days-sub');
+    if (sub) {
+      var runs = rows.reduce(function (n, row) { return n + row.total; }, 0);
+      var again = rows.reduce(function (n, row) { return n + row.retest; }, 0);
+      sub.textContent = runs
+        ? fmtInt(again) + ' of ' + fmtInt(runs) + ' graded runs were a second '
+          + 'or later attempt (' + fmtPct(again / runs, 0) + ' of fixture '
+          + 'time). Counted in runs, not units \u2014 one unit round five '
+          + 'times is four retest runs.'
+        : '';
+    }
+
+    renderTable(document.getElementById('table-retest-days'),
+      'Retest runs by day', [
+        { label: 'Day', get: function (row) { return row.raw.day; },
+          href: function (row) { return runsHref({ day: row.raw.day }); } },
+        { label: 'Graded runs', get: function (row) { return fmtInt(row.total); },
+          href: function (row) { return runsHref({ day: row.raw.day,
+                                                   status: 'graded' }); } },
+        { label: 'First attempts',
+          get: function (row) { return fmtInt(row.first); },
+          href: function (row) { return runsHref({ day: row.raw.day,
+                                                   attempt: 'first' }); } },
+        { label: 'Retest runs', get: function (row) { return fmtInt(row.retest); },
+          href: function (row) { return runsHref({ day: row.raw.day,
+                                                   attempt: 'retest' }); } },
+        { label: 'Share of runs',
+          get: function (row) { return fmtPct(row.share, 0); } },
+        { label: 'Retests that passed',
+          get: function (row) {
+            return row.retest ? fmtInt(row.raw.passed) + ' ('
+                   + fmtPct(row.passRate, 0) + ')' : '\u2014'; } }
+      ], rows);
   }
 
   function renderTables(dailyRows, relRows, paretoRows, view) {

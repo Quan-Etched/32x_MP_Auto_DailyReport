@@ -90,9 +90,20 @@
                + (node.dashed ? ' dashed' : '') + (node.small ? ' small' : ''),
         id: PREFIX + node.id
       });
-      box.appendChild(h('span', { class: 'box-label', text: node.label }));
+      box.appendChild(h('span', {
+        class: 'box-label' + (node.struck ? ' struck' : ''),
+        text: node.label }));
       if (node.sub) {
         box.appendChild(h('span', { class: 'box-sub', text: node.sub }));
+      }
+      /* A struck-out box with no way to find out why is a decision nobody
+         outside the room can check. */
+      if (node.why) {
+        box.appendChild(h('a', {
+          class: 'box-why', href: node.whyUrl || '#', target: '_blank',
+          rel: 'noopener noreferrer',
+          title: 'the data behind the proposal to skip this stage'
+        }, [document.createTextNode(node.why + '\u2009\u2197')]));
       }
 
       if (measured) {

@@ -15,17 +15,8 @@
     <a class="masthead-jump" href="allhands.html" title="The all-hands view: five stages, one number each, week over week">All-hands view &rarr;</a>
     <span class="meta" id="meta"></span>
     <span class="spacer"></span>
-    <a class="theme-toggle" href="ocp.html">OCP-sourced view &rarr;</a>
-    <a class="theme-toggle" href="runs.html">Raw runs →</a>
-    <a class="theme-toggle" href="dailyexcel.html">Daily tracker →</a>
-    <a class="theme-toggle" href="requests.html">Feature requests →</a>
-    <a class="theme-toggle" href="releases.html">Test items by release →</a>
-    <a class="theme-toggle" href="hourly.html">Hourly rates →</a>
-    <a class="theme-toggle" href="flow.html">Test flow &rarr;</a>
-    <a class="theme-toggle" href="weekly.html">Weekly tracker &rarr;</a>
-    <a class="theme-toggle" href="rack2.html">Rack 2 &rarr;</a>
-    <a class="theme-toggle" href="allhands.html">Line yield &rarr;</a>
-    <a class="theme-toggle" href="customize.html">Customize &rarr;</a>
+    <!-- One nav for every page, from nav.js. Hand-written lists had drifted to a different subset per page. -->
+    <nav class="masthead-nav" id="nav"></nav>
     <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
   </header>
 
@@ -141,6 +132,24 @@
         <div class="retest-head" id="retest-tiles"></div>
         <div class="plot" id="plot-retest"></div>
         <div class="table-wrap" id="table-retest" hidden></div>
+      </div>
+
+      <!-- (d2) retest over days, counted in runs. A separate card because it is
+           a different question from the tiles above: those count units that
+           needed another go, this counts the fixture time that went on it. -->
+      <div class="card full" data-card="retest-days">
+        <div class="card-head">
+          <div>
+            <h2>Retest runs by day</h2>
+            <p class="sub" id="retest-days-sub"></p>
+          </div>
+          <span class="spacer"></span>
+          <div class="legend" id="legend-retest-days"></div>
+          <button type="button" class="view-toggle" data-toggle="retest-days"
+                  aria-pressed="false">Table</button>
+        </div>
+        <div class="plot" id="plot-retest-days"></div>
+        <div class="table-wrap" id="table-retest-days" hidden></div>
       </div>
 
     </section>

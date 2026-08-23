@@ -121,6 +121,25 @@ class RolledTest(unittest.TestCase):
                                  in totals["excludedThin"]],
                          "out of scope is not the same as too thin to read")
 
+    def test_l10_and_l11_publish_a_yield_now(self):
+        """They used to publish counts and no yield. The line asked for the
+        numbers; what makes it safe is that the rolled figure is scoped to
+        MLT x HTT, so a two-unit stage can no longer drag the headline."""
+        bundle = self.bundle(self.many("mlt", 40, 20) +
+                             self.many("l10_fat", 4, 1))
+        rows = {row["key"]: row for row in bundle["rows"]}
+        fat = rows["l10_fat"]
+        self.assertEqual(0.25, fat["fpy"], "the yield must be published")
+        self.assertFalse(fat["countsOnly"])
+        self.assertTrue(fat["thinCohort"], "and marked as thin")
+        self.assertEqual(["MLT"], bundle["totals"]["rolledOver"],
+                         "but it stays out of the rolled figure")
+
+    def test_a_thin_yield_is_marked_not_withheld(self):
+        bundle = self.bundle(self.many("mlt", 40, 20))
+        mlt = [row for row in bundle["rows"] if row["key"] == "mlt"][0]
+        self.assertFalse(mlt["thinCohort"], "40 units is not thin")
+
     def test_the_scope_is_the_module_line(self):
         self.assertEqual(("mlt", "htt"), build_fpy.ROLLED_STATIONS)
 
@@ -136,17 +155,22 @@ class RolledTest(unittest.TestCase):
         self.assertEqual([e["label"] for e in bundle["totals"]["excludedThin"]],
                          ["SLT"])
 
-    def test_below_the_floor_no_yield_is_published_at_all(self):
-        """A 0.0% over two units is not a yield. Printing one invites somebody
-        to quote it; the counts beside it say all that can honestly be said."""
+    def test_below_the_floor_the_yield_publishes_but_is_marked(self):
+        """It used to be withheld. A 0.0% over two units is still not a yield
+        to lean on, but a column of dashes read as "no testing happened", which
+        is a worse claim — so the number publishes with its denominator and a
+        thin mark, and `readable` stays false so nothing computes with it."""
         bundle = self.bundle([run("X", "slt", "fail", ts(1)),
                               run("Y", "slt", "pass", ts(1))])
         row = bundle["rows"][0]
-        self.assertIsNone(row["fpy"])
-        self.assertIsNone(row["finalYield"])
+        self.assertEqual(0.5, row["fpy"])
+        self.assertEqual(0.5, row["finalYield"])
         self.assertFalse(row["readable"])
+        self.assertTrue(row["thinCohort"])
         self.assertEqual(row["units"], 2)
         self.assertEqual(row["passedUnits"], 1)
+        self.assertIsNone(bundle["totals"]["rolledFpy"],
+                          "and it is not in the rolled product")
 
     def test_the_thin_stages_are_named_rather_than_dropped(self):
         """That they are too thin to read is the readiness finding; hiding
@@ -192,34 +216,52 @@ class FailureTest(unittest.TestCase):
         self.assertEqual(bundle["rows"][0]["topFailures"], [])
 
 
-class CountsOnlyTest(unittest.TestCase):
-    """L10 and L11 publish quantity, never a yield or a retest rate.
+class L10L11YieldTest(unittest.TestCase):
+    """L10 and L11 publish a yield now. They used to publish counts only.
 
-    Chassis and rack level, in bring-up, single-digit volumes: a percentage
-    over three chassis swings 33 points on one unit, gets quoted anyway, and no
-    fix can be judged by it. This is a policy about the stage, not about this
-    week's volume — unlike the cohort floor it does not lift when the numbers
-    grow.
+    The old policy withheld it: chassis and rack level, in bring-up,
+    single-digit volumes, and a percentage over three chassis swings 33 points
+    on one unit. All still true. What changed is that the line asked for the
+    numbers, and that the rolled figure is now scoped to MLT x HTT — so a
+    two-unit stage can no longer drag the whole-line headline to zero, which
+    was the damage the policy was actually preventing.
+
+    What replaces it is a mark, not a blank: `thinCohort` on any row whose yield
+    is over fewer than MIN_COHORT units. The reader sees the number and the
+    denominator together and can judge it.
     """
 
-    def bundle(self, runs):
-        return build_fpy.build_bundle(payload(runs), min_cohort=1)
+    def bundle(self, runs, **kwargs):
+        return build_fpy.build_bundle(payload(runs), **kwargs)
 
     def many(self, station, count, passing):
         return [run("%s-%d" % (station, i), station,
                     "pass" if i < passing else "fail", ts(2))
                 for i in range(count)]
 
-    def rows(self, runs):
-        return {row["key"]: row for row in self.bundle(runs)["rows"]}
+    def rows(self, runs, **kwargs):
+        return {row["key"]: row for row in self.bundle(runs, **kwargs)["rows"]}
 
-    def test_no_yield_however_many_units_ran(self):
-        rows = self.rows(self.many("l10_fat", 60, 40))
-        row = rows["l10_fat"]
-        self.assertIsNone(row["fpy"])
-        self.assertIsNone(row["finalYield"])
-        self.assertIsNone(row["retestRatio"])
-        self.assertTrue(row["countsOnly"])
+    def test_a_yield_is_published(self):
+        row = self.rows(self.many("l10_fat", 60, 40))["l10_fat"]
+        self.assertAlmostEqual(row["fpy"], 40 / 60)
+        self.assertAlmostEqual(row["finalYield"], 40 / 60)
+        self.assertFalse(row["countsOnly"])
+
+    def test_a_retest_rate_is_published(self):
+        """It was withheld under the same policy and for the same reason."""
+        row = self.rows(self.many("l10_fat", 60, 40))["l10_fat"]
+        self.assertIsNotNone(row["retestRatio"])
+
+    def test_a_small_cohort_is_marked_not_withheld(self):
+        rows = self.rows(self.many("l11_test", 5, 3))
+        row = rows["l11_test"]
+        self.assertAlmostEqual(row["fpy"], 0.6)
+        self.assertTrue(row["thinCohort"],
+                        "five units is a number, not a yield to lean on")
+        self.assertFalse(row["readable"],
+                         "and `readable` still says so, for anything that "
+                         "computes rather than displays")
 
     def test_the_counts_are_still_published(self):
         row = self.rows(self.many("l11_test", 5, 3))["l11_test"]
@@ -227,25 +269,21 @@ class CountsOnlyTest(unittest.TestCase):
         self.assertEqual(row["runs"], 5)
         self.assertEqual(row["passedUnits"], 3)
 
-    def test_the_reason_is_on_the_row(self):
-        row = self.rows(self.many("l10_2u", 3, 1))["l10_2u"]
-        self.assertIn("bring-up", row["retestNote"])
+    def test_a_big_cohort_is_not_marked(self):
+        row = self.rows(self.many("l10_fat", 60, 40))["l10_fat"]
+        self.assertFalse(row["thinCohort"])
 
     def test_module_stages_are_untouched(self):
         row = self.rows(self.many("mlt", 40, 20))["mlt"]
         self.assertAlmostEqual(row["fpy"], 0.5)
         self.assertFalse(row["countsOnly"])
 
-    def test_they_are_not_listed_as_too_thin(self):
-        """Two different reasons for a blank yield. Reporting L10 as "too few
-        units" would suggest volume alone would fix it."""
-        totals = self.bundle(self.many("l10_fat", 60, 40))["totals"]
-        self.assertEqual(totals["excludedThin"], [])
-
-
-if __name__ == "__main__":
-    unittest.main()
-
+    def test_no_stage_is_counts_only_any_more(self):
+        """The prefix list is empty. If something is added back, this says so
+        rather than a yield quietly vanishing from a page."""
+        self.assertEqual((), build_fpy.COUNTS_ONLY_PREFIXES)
+        for key in ("l10_fat", "l11_test", "mlt", "htt", "tim"):
+            self.assertFalse(build_fpy.counts_only(key), key)
 
 class ExternalYieldTest(unittest.TestCase):
     """WST and FT, which arrive by message and have nowhere else to come from.

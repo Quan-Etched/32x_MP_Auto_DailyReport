@@ -212,3 +212,9 @@
   margin: 8px 0 0; font-size: 11.5px; color: var(--text-muted);
   line-height: 1.5; max-width: 92ch;
 }
+
+/* A yield over too few units. Published, because a column of dashes read as
+   "no testing happened", and marked, because 50% of two units and 50% of two
+   hundred are the same number and not the same fact. */
+.thin-mark { color: var(--text-muted); font-weight: 600; }
+td.n.y.thin strong, td.n.y.thin { font-style: normal; }

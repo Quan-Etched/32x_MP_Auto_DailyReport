@@ -63,14 +63,14 @@ def data_scripts(name):
 
 
 #: page -> the page-specific scripts that reach into its DOM. Shared scripts
-#: (update.js, theme.js) are left out: they run on every page and each one
-#: guards for the elements it wants.
+#: (update.js, theme.js, nav.js, charts.js) are left out: they run on many pages
+#: and each one guards for the elements it wants.
 DOM_SCRIPTS = {
     "index.html": ["stations.js"],
     "ocp.html": ["stations.js"],
     "dailyexcel.html": ["dailysheet.js"],
     "weekly.html": ["weeklysummary.js"],
-    "customize.html": ["customize.js", "errors.js"],
+    "customize.html": ["customize.js", "errors.js", "customcharts.js"],
     "allhands.html": ["allhands.js"],
     "rack2.html": ["rack2.js"],
     "week.html": ["week.js"],
@@ -222,6 +222,30 @@ class LinkTest(unittest.TestCase):
             for key in dict.fromkeys(keys):
                 with self.subTest(chart=name, station=key):
                     self.assertIn(key, views)
+
+    def test_the_asic_lane_hands_off_from_ft_not_slt(self):
+        """SLT is a branch off FT, not a step on the way to a board.
+
+        The summary chart used to run SLT -> SMT / ICT, which says every die
+        goes through system level test before it reaches a board. It does not,
+        and the line is deciding whether to keep SLT at all — so the chart was
+        asserting the opposite of the thing under discussion.
+        """
+        flow = (DASHBOARD / "flow.js").read_text(encoding="utf-8")
+        self.assertIn("{ from: 'ft',     to: 'smt',    route: 'across' }", flow)
+        self.assertNotIn("from: 'slt',    to: 'smt'", flow)
+
+    def test_slt_is_struck_through_and_says_where_the_data_is(self):
+        """Struck, not deleted: the proposal is to skip it, not a fact that it
+        was skipped. And a struck-out box with no link is a decision nobody
+        outside the room can check."""
+        for name in ("flow.js", "flowe2e.js"):
+            source = (DASHBOARD / name).read_text(encoding="utf-8")
+            slt = source[source.index("id: 'slt'"):]
+            slt = slt[:slt.index("},")]
+            with self.subTest(chart=name):
+                self.assertIn("struck: true", slt)
+                self.assertIn("go/slt-ft", slt)
 
     def test_the_flowchart_links_at_the_default_station_page(self):
         flow = (DASHBOARD / "flow.js").read_text(encoding="utf-8")

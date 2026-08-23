@@ -52,8 +52,14 @@
       sub: 'Wafer sort', owner: 'Sigurd' },
     { id: 'ft',     lane: 'asic', label: 'FT',           kind: 'test',
       sub: 'Final test', owner: 'Sigurd' },
+    /* Struck through on the line's own chart, because skipping it is the
+       current proposal. The box carries the link to the data that proposal
+       rests on — a struck-out box with no way to find out why is a decision
+       nobody outside the room can check. */
     { id: 'slt',    lane: 'asic', label: 'SLT',          kind: 'test',
-      sub: 'System level test', owner: 'Sigurd', station: 'slt' },
+      sub: 'System level test', owner: 'Sigurd', station: 'slt',
+      struck: true, why: 'go/slt-ft',
+      whyUrl: 'https://literate-telegram-2y3e9lz.pages.github.io/index.html' },
 
     { id: 'smt',    lane: 'l6',   label: 'SMT / ICT',    kind: 'build',
       sub: 'HPB & VBB & PV1 & PDB' },
@@ -95,7 +101,11 @@
     { from: 'asic',   to: 'wst',    route: 'down' },
     { from: 'wst',    to: 'ft',     route: 'down' },
     { from: 'ft',     to: 'slt',    route: 'down' },
-    { from: 'slt',    to: 'smt',    route: 'across' },
+    /* FT hands off to the board line, not SLT. The chart used to run
+       SLT -> SMT / ICT, which says every die goes through system level test on
+       its way to a board — it does not, SLT is a branch off FT and the line is
+       deciding whether to keep it at all. */
+    { from: 'ft',     to: 'smt',    route: 'across' },
 
     { from: 'smt',    to: 'flash',  route: 'down',   label: 'VBB' },
     { from: 'flash',  to: 'assy6',  route: 'down' },
@@ -217,8 +227,16 @@
       box.appendChild(tags);
     }
 
-    box.appendChild(h('span', { class: 'box-label', text: node.label }));
+    box.appendChild(h('span', {
+      class: 'box-label' + (node.struck ? ' struck' : ''), text: node.label }));
     if (node.sub) box.appendChild(h('span', { class: 'box-sub', text: node.sub }));
+    if (node.why) {
+      box.appendChild(h('a', {
+        class: 'box-why', href: node.whyUrl || '#', target: '_blank',
+        rel: 'noopener noreferrer',
+        title: 'the data behind the proposal to skip this stage'
+      }, [document.createTextNode(node.why + ' \u2197')]));
+    }
 
     if (measured) {
       box.appendChild(h('span', { class: 'box-yield' }, [

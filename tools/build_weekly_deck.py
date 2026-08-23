@@ -370,7 +370,7 @@ def callout_lines(spec, by_station, external):
         else "{} unit{}".format(r["units"], "" if r["units"] == 1 else "s")
         for r in rows)
     return [[(counts, {"size": 10, "bold": True}),
-             ("  quantity only", {"size": 8, "color": MUTE})]]
+             ("  few units", {"size": 8, "color": MUTE})]]
 
 
 def headline(slide, data, week, x):
@@ -491,6 +491,13 @@ def draw_box(slide, box, by_station, external, data, geom=GEOM):
             if k in by_station]
     ext = external.get(box.get("external"))
     readable = bool(rows) and all(r.get("readable") for r in rows)
+    # Graded but under the floor. Since 2026-08-23 L10 and L11 publish a yield
+    # with a thin mark rather than a count and a blank, and the deck has to
+    # agree with the page it is generated from — a slide saying "16 units, too
+    # few for a yield" beside a page saying 0% is the two disagreeing in front
+    # of a room.
+    thin = (bool(rows) and not readable
+            and all(r.get("fpy") is not None for r in rows))
 
     fill, edge = GREY, GREY_EDGE
     if box["kind"] == "pack":
@@ -527,10 +534,10 @@ def draw_box(slide, box, by_station, external, data, geom=GEOM):
         lines.append([(pct(ext["yield"]), {"size": 15 * scale, "bold": True,
                                            "color": tone(ext["yield"])}),
                       (age, {"size": 8 * scale, "color": MUTE})])
-    elif readable and len(rows) == 1:
+    elif (readable or thin) and len(rows) == 1:
         lines.append([(pct(rows[0]["fpy"]), {"size": 16 * scale, "bold": True,
                                              "color": tone(rows[0]["fpy"])}),
-                      ("  {}u".format(rows[0]["units"]),
+                      ("  {}u{}".format(rows[0]["units"], "*" if thin else ""),
                        {"size": 9 * scale, "color": MUTE})])
     elif rows:
         # One box, one or two stations, none with enough units. Name each with
@@ -541,13 +548,18 @@ def draw_box(slide, box, by_station, external, data, geom=GEOM):
                 rows[0]["units"], "" if rows[0]["units"] == 1 else "s"),
                 {"size": 13 * scale, "bold": True})])
         else:
-            # Two stations behind one box: "3 units" would hide which of them
-            # ran, and on this chart that is the whole question.
+            # Two stations behind one box, each with its own yield. "3 units"
+            # hid which of them ran; printing only the count now also hides the
+            # numbers the line asked to see.
             lines.append([(" · ".join(
-                "{} {}u".format(r["label"].split()[-1], r["units"])
+                "{} {}".format(r["label"].split()[-1],
+                               pct(r["fpy"]) if r.get("fpy") is not None
+                               else "{}u".format(r["units"]))
                 for r in rows), {"size": 11 * scale, "bold": True})])
-        reason = ("quantity only" if all(r.get("countsOnly") for r in rows)
-                  else "too few for a yield")
+        graded = [r for r in rows if r.get("fpy") is not None]
+        reason = ("* over {} units".format(
+                      " and ".join(str(r["units"]) for r in graded))
+                  if graded else "no graded run this week")
         lines.append([(reason, {"size": 8 * scale, "color": MUTE})])
     elif box.get("note"):
         lines.append([(box["note"], {"size": 8.5 * scale, "color": MUTE})])
@@ -658,15 +670,15 @@ def footnote(slide, data, week):
         [("Green", {"size": 9.5, "bold": True, "color": MUTE}),
          (" = yields, and we measure it.   ", {"size": 9.5, "color": MUTE}),
          ("Amber", {"size": 9.5, "bold": True, "color": MUTE}),
-         (" = quantity only, no yield reported.   ", {"size": 9.5, "color": MUTE}),
+         (" = a yield over few units, marked *.   ", {"size": 9.5, "color": MUTE}),
          ("Grey", {"size": 9.5, "bold": True, "color": MUTE}),
          (" = builds, moves, or measured elsewhere.", {"size": 9.5, "color": MUTE})],
-        [("Quantity only: {}. {}L10 and L11 are chassis and rack level and in "
-          "bring-up — a percentage over three chassis swings 33 points on one "
-          "unit, so the counts are published and the yields are not."
-          .format(", ".join(counts) or "none",
-                  "Too few units this week: {}. ".format(", ".join(thin))
-                  if thin else ""),
+        [("{}A * marks a yield over fewer than {} units — published, because a "
+          "blank read as \u201cnothing was tested here\u201d, but it moves a "
+          "long way on one unit. Only MLT \u00d7 HTT is rolled up."
+          .format("Quantity only: {}. ".format(", ".join(counts))
+                  if counts else "",
+                  (week["totals"] or {}).get("minCohort", 20)),
           {"size": 8.5, "color": MUTE})],
         [("Source: {}, one row per unit. WST and FT reported by Sigurd. VBB "
           "provisioning drawn for the flow but left out of the yield view."

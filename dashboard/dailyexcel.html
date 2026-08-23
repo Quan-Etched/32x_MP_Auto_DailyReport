@@ -17,11 +17,8 @@
     <span class="meta" id="meta"></span>
     <span class="build" id="build" title="Which build of the analysis produced this page"></span>
     <span class="spacer"></span>
-    <a class="theme-toggle" href="index.html">← Station yield</a>
-    <a class="theme-toggle" href="runs.html">Raw runs →</a>
-    <a class="theme-toggle" href="requests.html">Feature requests →</a>
-    <a class="theme-toggle" href="flow.html">Test flow &rarr;</a>
-    <a class="theme-toggle" href="weekly.html">Weekly tracker &rarr;</a>
+    <!-- One nav for every page, from nav.js. Hand-written lists had drifted to a different subset per page. -->
+    <nav class="masthead-nav" id="nav"></nav>
     <!-- The sheet comparison. In the masthead rather than only in the table
          caption below: a link inside a caption is not somewhere anybody looks,
          and this one was not being found. Filled in by dailysheet.js so it
@@ -158,6 +155,7 @@
 <script src="data/dailyexcel.js"></script>
 <script src="tablecsv.js"></script>
 <script src="dailysheet.js"></script>
+<script src="nav.js"></script>
 <script src="theme.js"></script>
 <script src="update.js"></script>
 </body>

@@ -693,3 +693,13 @@ footer.notes code {
 
 /* A heading's button should not inherit the heading's weight or size. */
 .l10-head .csv-slot { margin-left: 10px; vertical-align: middle; }
+
+/* The shared nav. Wraps rather than scrolls: eleven destinations do not fit on
+   one line at any width worth designing for, and a masthead that scrolls
+   sideways hides its own last item. */
+.masthead-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}

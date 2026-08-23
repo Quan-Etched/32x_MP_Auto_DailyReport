@@ -86,6 +86,17 @@
         } else {
           td.className = 'n y ' + tone(row.fpy);
           td.appendChild(document.createTextNode(pct(row.fpy)));
+          /* A thin cohort still publishes its yield — L10 and L11 asked for
+             it — but says so, because 50% of two units and 50% of two hundred
+             are the same number and not the same fact. Marked on the number,
+             not instead of it. */
+          if (row.thinCohort) {
+            td.className += ' thin';
+            td.appendChild(h('span', { class: 'thin-mark',
+              title: 'fewer than ' + DATA.minCohort + ' units — the yield is '
+                   + 'published but it moves a long way on one unit',
+              text: '\u2009*' }));
+          }
           td.appendChild(h('span', { class: 'sub', text: row.units + ' u' }));
         }
         tr.appendChild(td);
@@ -97,7 +108,10 @@
     });
 
     byId('caption').textContent = WEEKS.length + ' weeks. ' +
-      'A cell shows first-pass yield with the unit count under it; where a ' +
+      'A cell shows first-pass yield with the unit count under it. A * marks a ' +
+      'yield over fewer than ' + DATA.minCohort + ' units — published since ' +
+      'L10 and L11 wanted their numbers, worth reading with the count beside ' +
+      'it. Where a ' +
       'step ran fewer than ' + DATA.minCohort + ' first-time units only the ' +
       'count is shown, because a yield over three chassis is not a yield.';
 
