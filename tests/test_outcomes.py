@@ -191,6 +191,64 @@ class ConservationTest(unittest.TestCase):
                 self.assertIn(row["key"], outcomes.SCOPE)
 
 
+class ReleaseSplitTest(unittest.TestCase):
+    """Build and release are two questions and the answers differ.
+
+    W29 has eight MLT recoveries on a rebuild of one release (2026.193, -opt to
+    -opt-no-aer). By build those are eight software changes; by release number
+    they are eight retests of the same software. The count on the page is the
+    build reading, both are in the CSV, and this pins the distinction so it does
+    not quietly collapse back into one.
+    """
+
+    SAME_BUILD = "mlt_2026.193.0-git02de3755-opt"
+    REBUILD = "mlt_2026.193.0-git02de3755-opt-no-aer"
+    NEW_RELEASE = "mlt_2026.230.0-git91a99a1f"
+
+    def detail(self, first, back):
+        got = outcomes.tally([
+            run("u", "mlt", "fail", 1000, first),
+            run("u", "mlt", "pass", 2000, back),
+        ])
+        return got[0], got[0]["detail"][0]
+
+    def test_a_rebuild_of_one_release_counts_as_a_new_build(self):
+        row, unit = self.detail(self.SAME_BUILD, self.REBUILD)
+        self.assertEqual(1, row["differentRelease"])
+        self.assertEqual("different", unit["cameBackOn"])
+        # and the release number says they were the same release
+        self.assertEqual(unit["release"], unit["backRelease"])
+        self.assertEqual("2026.193", unit["release"])
+
+    def test_the_same_build_twice_is_not_a_change(self):
+        row, unit = self.detail(self.SAME_BUILD, self.SAME_BUILD)
+        self.assertEqual(1, row["sameRelease"])
+        self.assertEqual("same", unit["cameBackOn"])
+
+    def test_a_new_release_counts_as_new_on_both_readings(self):
+        row, unit = self.detail(self.SAME_BUILD, self.NEW_RELEASE)
+        self.assertEqual(1, row["differentRelease"])
+        self.assertNotEqual(unit["release"], unit["backRelease"])
+
+    def test_the_row_says_what_it_compared(self):
+        row, _ = self.detail(self.SAME_BUILD, self.REBUILD)
+        self.assertEqual("exact build", row["comparedOn"])
+
+    def test_release_number_survives_a_station_prefix(self):
+        """stations.release_of does not, which is why this exists: it expects a
+        bare 2026.230.0 and these arrive as mlt_2026.230.0-git...."""
+        self.assertEqual("2026.230", outcomes.release_number(self.NEW_RELEASE))
+        self.assertIsNone(outcomes.release_number("no-version-here"))
+        self.assertIsNone(outcomes.release_number(None))
+
+    def test_a_unit_that_never_failed_carries_no_recovery_columns(self):
+        """Blank, not "n/a" in every row that passed first time."""
+        got = outcomes.tally([run("u", "mlt", "pass", 1000, self.SAME_BUILD)])
+        unit = got[0]["detail"][0]
+        self.assertIsNone(unit["cameBackOn"])
+        self.assertIsNone(unit["backBuild"])
+
+
 class SameRuleTest(unittest.TestCase):
     """The Python and the JavaScript must agree, on the same fixture.
 

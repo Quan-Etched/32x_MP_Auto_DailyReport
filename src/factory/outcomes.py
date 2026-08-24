@@ -43,6 +43,7 @@ line asked for the module line only.
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence
@@ -84,6 +85,31 @@ COLOURS = {
     BONEPILE: "#c0392b",
     NO_RESULT: "#8a8882",
 }
+
+
+#: The release number inside a suite version. stations.release_of expects a
+#: bare "2026.230.0" and these arrive station-prefixed
+#: ("mlt_2026.230.0-git91a99a1f-tpm-permanent"), so it fell through and returned
+#: the whole string. That still compared correctly — two identical builds are
+#: the same string — but it meant "same release" was silently comparing exact
+#: builds, which is a stricter test than the words suggest. Both are recorded
+#: now and the columns say which is which.
+#:
+#: They already disagree. W29 has eight MLT recoveries on a different build of
+#: the SAME release (2026.193, -opt to -opt-no-aer): by build those are eight
+#: software changes, by release number they are eight retests of the same
+#: software. Both columns are in the CSV for that reason, and the count on the
+#: page is the build reading — which is the question that matters, because what
+#: it asks is whether anything changed between the failure and the pass.
+_RELEASE_NUMBER = re.compile(r"(\d{4})\.(\d+)\.")
+
+
+def release_number(version: Optional[str]) -> Optional[str]:
+    """The release, as the floor names it: 2026.230 out of any version string."""
+    if not version:
+        return None
+    found = _RELEASE_NUMBER.search(str(version))
+    return "{}.{}".format(found.group(1), found.group(2)) if found else None
 
 
 def _day(ts: int) -> str:
@@ -142,18 +168,47 @@ def tally(runs: Iterable[Dict[str, Any]],
             continue
         counts = {name: 0 for name in EXCLUSIVE}
         same_rel = other_rel = 0
-        for dut, attempts in units.items():
+        # Per unit, so the page can hand over a CSV somebody can pivot on and
+        # then go and find the modules. A category with no way to list what is
+        # in it is a number people have to take on trust.
+        detail = []
+        for dut in sorted(units):
+            attempts = units[dut]
             outcome = classify(attempts)
             counts[outcome] += 1
-            if outcome != RETEST_PASS:
-                continue
             graded = [a for a in attempts if a.get("status") in GRADED]
-            failed_on = stations.release_of(graded[0].get("version"))
-            back = next(a for a in graded[1:] if a["status"] == "pass")
-            if stations.release_of(back.get("version")) == failed_on:
-                same_rel += 1
-            else:
-                other_rel += 1
+            first_build = graded[0].get("version") if graded else None
+            came_back = back_build = None
+            if outcome == RETEST_PASS:
+                back = next(a for a in graded[1:] if a["status"] == "pass")
+                back_build = back.get("version")
+                # Compared on the exact build, which is the question that
+                # matters: did anything change between the failure and the
+                # pass. `release_number` is carried alongside so a reader can
+                # see whether the change was a whole release or a rebuild.
+                came_back = "same" if back_build == first_build else "different"
+                if came_back == "same":
+                    same_rel += 1
+                else:
+                    other_rel += 1
+            detail.append({
+                "dut": dut,
+                "outcome": outcome,
+                "attempts": len(graded),
+                "runs": len(attempts),
+                "first": graded[0]["status"] if graded else None,
+                "last": graded[-1]["status"] if graded else None,
+                "firstDay": _day(attempts[0]["startTs"]),
+                "lastDay": _day(attempts[-1]["startTs"]),
+                "build": first_build,
+                "release": release_number(first_build),
+                "backBuild": back_build,
+                "backRelease": release_number(back_build),
+                # For a retest pass: was it the same build or a new one. None
+                # everywhere else, because the question does not apply and a
+                # blank is the honest answer to a question nobody asked.
+                "cameBackOn": came_back,
+            })
 
         total = len(units)
         first_failed = counts[RETEST_PASS] + counts[BONEPILE]
@@ -167,8 +222,13 @@ def tally(runs: Iterable[Dict[str, Any]],
             "firstPassYield": (counts[PASS] / total) if total else None,
             "recoveryRate": (counts[RETEST_PASS] / first_failed)
                             if first_failed else None,
+            # Named "release" because that is the word the question was asked
+            # in; compared on the exact build, which is the stricter reading of
+            # it. On every week so far the two agree.
             "sameRelease": same_rel,
             "differentRelease": other_rel,
+            "comparedOn": "exact build",
+            "detail": detail,
         })
     return rows
 

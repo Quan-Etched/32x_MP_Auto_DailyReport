@@ -250,8 +250,15 @@
       card.appendChild(h('p', { class: 'doe-note', text: row.fail
         ? back + ' of ' + row.fail + ' first-attempt failures came back ('
           + pct(row.recoveryRate) + ')'
+          /* Compared on the exact build, not the release number, and the two
+             are not the same question: W29 has eight recoveries on a rebuild
+             of one release. The build reading is the one that answers "did
+             anything change between the failure and the pass". */
           + (back ? ' — ' + row.sameRelease + ' on the same build, '
-                    + row.differentRelease + ' on a new one.' : '.')
+                    + row.differentRelease + ' on a new one. Compared on the '
+                    + 'exact build, so a rebuild of one release counts as new; '
+                    + 'the CSV carries the build and the release number.'
+                  : '.')
         : 'Nothing failed its first attempt.' }));
       host.appendChild(card);
     });
@@ -308,6 +315,90 @@
     });
   }
 
+  /* ------------------------------------------------------------------- csv */
+
+  /* One row per unit per station, with the category spelled out.
+   *
+   * The category column is the point: a bar chart says 90 units are in the
+   * bonepile and gives nobody a way to go and find them. This does, and it
+   * pivots — which is what happens to it about a minute after it is
+   * downloaded.
+   *
+   * The label, not the key: "Retest Pass" rather than "retest-pass", because
+   * the person opening this in Excel did not read outcomes.py. The key rides
+   * alongside for anyone filtering by formula.
+   */
+  function unitRows(weeks) {
+    var lines = [['Week', 'Station', 'DUT_SN', 'Category', 'Category_Key',
+                  'First_Result', 'Last_Result', 'Attempts', 'Runs',
+                  'First_Day_UTC', 'Last_Day_UTC', 'First_Build',
+                  'First_Release', 'Recovered_On', 'Recovery_Build',
+                  'Recovery_Release']];
+    weeks.forEach(function (week) {
+      (week.stations || []).forEach(function (row) {
+        (row.detail || []).forEach(function (unit) {
+          lines.push([
+            week.week, row.label, unit.dut,
+            nameOf(unit.outcome), unit.outcome,
+            unit.first || '', unit.last || '',
+            unit.attempts, unit.runs,
+            unit.firstDay || '', unit.lastDay || '',
+            unit.build || '', unit.release || '',
+            /* Blank where the question does not apply, rather than "n/a" in
+               every row that never failed. */
+            unit.cameBackOn === 'same' ? 'same build'
+              : unit.cameBackOn === 'different' ? 'different build' : '',
+            unit.backBuild || '', unit.backRelease || ''
+          ]);
+        });
+      });
+    });
+    return lines;
+  }
+
+  /* The Sankey, as rows. A ribbon is a count of units that went from one
+     category to another, and the chart is the only place that pairing exists —
+     without this the flow cannot be checked or pivoted. */
+  function flowRows(weeks) {
+    var lines = [['Week', 'MLT_Result', 'MLT_Result_Key', 'HTT_Result',
+                  'HTT_Result_Key', 'Units']];
+    weeks.forEach(function (week) {
+      ((week.flow || {}).ribbons || []).forEach(function (r) {
+        if (!r.units) return;
+        lines.push([week.week, nameOf(r.source), r.source,
+                    nameOf(r.target), r.target, r.units]);
+      });
+    });
+    return lines;
+  }
+
+  function renderDownloads(week) {
+    var host = byId('doe-download');
+    if (!host || !window.FactoryCsv) return;
+    host.innerHTML = '';
+
+    /* This week and every week, because both get asked for: the week is what
+       somebody is presenting, the whole set is what somebody is analysing. */
+    window.FactoryCsv.attach(host, {
+      label: 'Units CSV · ' + week.week,
+      title: 'one row per unit per station for this week, with its category',
+      name: function () { return 'result-types-' + week.week + '-units.csv'; },
+      rows: function () { return unitRows([weekOf(view.week)]); }
+    });
+    window.FactoryCsv.attach(host, {
+      label: 'Units CSV · all weeks',
+      title: 'every week in the bundle, one row per unit per station',
+      name: function () { return 'result-types-all-units.csv'; },
+      rows: function () { return unitRows(WEEKS); }
+    });
+    window.FactoryCsv.attach(host, {
+      label: 'Flow CSV',
+      title: 'the MLT → HTT ribbons behind the chart, as rows',
+      name: function () { return 'result-types-flow.csv'; },
+      rows: function () { return flowRows(WEEKS); }
+    });
+  }
+
   function render() {
     var week = weekOf(view.week);
     if (!week) return;
@@ -317,6 +408,7 @@
       + week.to + ' · one outcome per unit per station, counted over the '
       + 'units that ran that week';
     renderStations(week);
+    renderDownloads(week);
     renderSankey(byId('doe-flow'), week);
     byId('doe-flow-sub').textContent =
       'Every unit MLT saw in ' + week.week + ', and what happened to it at '
