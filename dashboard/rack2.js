@@ -205,8 +205,8 @@
     ]));
     if (ranSft.length && everPass.length === firstPass.length) {
       lines.push(h('p', { class: 'r2-note', text:
-        'After retests it is still ' + everPass.length + ' of '
-        + ranSft.length + ': nothing that failed SFT has since passed it.' }));
+        'Counting retests it is still ' + everPass.length + ' of '
+        + ranSft.length + ' that have ever passed SFT.' }));
     }
 
     /* FAT was not asked about but answers itself: nobody passed it first time,
@@ -280,18 +280,36 @@
     if (!runin.durations.length) {
       runinAnswer = 'No server has a run-in record at all.';
     } else {
-      var mins = runin.passing.map(function (d) {
-        return Math.round(d.mins) + ' min';
+      /* The question is about duration against a target, so the answer is
+         about the passing runs: a failed 156-minute attempt is not three hours
+         of run-in, it is an attempt that stopped. */
+      var target = AGREED_RUNIN_MIN / 60;
+      var atTarget = runin.passing.filter(function (d) {
+        return d.mins >= AGREED_RUNIN_MIN;
       });
-      runinAnswer = 'Confirmed, and shorter than 45 minutes for some of it. '
-        + 'The only run-in on record is ' + runin.rows.filter(
-            function (r) { return r.ran; }).map(function (r) {
-              return r.slot; }).join(', ')
-        + ' — passing runs of ' + mins.join(' and ')
-        + ', against the ' + (AGREED_RUNIN_MIN / 60) + '-hour target.';
+      var passList = runin.passing.map(function (d) {
+        return d.row.slot + ' ' + Math.round(d.mins) + ' min';
+      });
+      runinAnswer = 'Confirmed. ' + (atTarget.length
+        ? atTarget.length + ' passing run-in reached the ' + target + '-hour '
+          + 'target.'
+        : 'No passing run-in on any of the four reached the ' + target
+          + '-hour target'
+          + (passList.length
+             ? ' — the only passes are ' + passList.join(' and ') + '.'
+             : ': there is no passing run-in at all.'));
+      var longestAny = runin.durations.reduce(function (a, b) {
+        return a && a.mins > b.mins ? a : b;
+      }, null);
+      if (longestAny && longestAny.run.s !== 'pass') {
+        runinAnswer += ' The longest attempt of any kind is '
+          + Math.round(longestAny.mins) + ' min on ' + longestAny.row.slot
+          + ', and it ended ' + longestAny.run.s + '.';
+      }
       if (runin.missing.length) {
         runinAnswer += ' ' + runin.missing.map(function (r) { return r.slot; })
-          .join(', ') + ' have no run-in record on any controller.';
+          .join(', ') + (runin.missing.length === 1 ? ' has' : ' have')
+          + ' no run-in record on any controller.';
       }
     }
     var runinTable = h('div', { class: 'r2-mini' });
@@ -347,11 +365,18 @@
     }
     block('Did all 4 servers pass FAT / SFT? What was the FPY for the 4 '
           + 'servers at SFT? Were any retests involved?',
+          /* "Ever passed", said explicitly, because the last question asks
+             where they stand now and gets a different number: a server that
+             passed and then failed again counts here and not there. Two true
+             answers to two questions, and the page has to name which is which
+             or it reads as contradicting itself. */
           'No. ' + fatSft.fat.filter(function (r) { return r.passed; }).length
-          + ' of 4 passed FAT and ' + fatSft.sft.filter(
+          + ' of 4 have ever passed FAT and ' + fatSft.sft.filter(
               function (r) { return r.passed; }).length
-          + ' of 4 passed SFT. Retests were involved throughout — FAT took up '
-          + 'to ' + Math.max.apply(null, fatSft.fat.map(function (r) {
+          + ' of 4 have ever passed SFT — the last question below covers where '
+          + 'they stand now, which is not the same number. Retests throughout: '
+          + 'FAT took up to '
+          + Math.max.apply(null, fatSft.fat.map(function (r) {
               return r.attempts; })) + ' attempts on one server.',
           fatSft.lines.concat([fatSftTable]).concat(extra));
 
@@ -395,45 +420,152 @@
     });
     var top = Object.keys(tally).sort(function (a, b) {
       return tally[b] - tally[a]; }).slice(0, 5);
+    var virusSlots = virusRuns.map(function (i) { return i.slot; })
+      .filter(function (v, i, a) { return a.indexOf(v) === i; }).sort();
+    var virusInRunin = virusRuns.filter(function (i) {
+      return i.station === 'l10_rin'; });
+    var runinSlots = virusInRunin.map(function (i) { return i.slot; })
+      .filter(function (v, i, a) { return a.indexOf(v) === i; }).sort();
+    var virusAnswer;
+    if (!virusRuns.length) {
+      virusAnswer = 'Not in this data. No run on any of the four failed a '
+        + 'power-virus or thermal case.';
+    } else if (virusSlots.length === RACK.servers.length) {
+      /* All four. The claim is supported and the answer says so plainly —
+         hedging a confirmed finding is its own kind of wrong. */
+      virusAnswer = 'Yes, supported. All ' + RACK.servers.length
+        + ' servers have power-virus failures: ' + virusRuns.length
+        + ' runs in total'
+        + (runinSlots.length
+           ? ', of which ' + virusInRunin.length + ' are run-in failures on '
+             + runinSlots.join(', ') + '.'
+           : ', though none of them in run-in.')
+        + ' Logs linked below.';
+    } else {
+      virusAnswer = 'Partly. Power-virus failures appear on '
+        + virusSlots.length + ' of ' + RACK.servers.length + ' servers ('
+        + virusSlots.join(', ') + ') across ' + virusRuns.length + ' runs'
+        + (runinSlots.length
+           ? ', of which ' + virusInRunin.length + ' are in run-in.'
+           : ', none of them in run-in.')
+        + ' Logs linked below.';
+    }
     block('I heard that all 4 servers failed the preliminary run-in due to '
           + 'thermal virus. Do we have the factory test logs and failure '
           + 'details?',
-          virusRuns.length
-            ? 'Partly. A power-virus failure appears in ' + virusRuns.length
-              + ' run' + (virusRuns.length === 1 ? '' : 's') + ', not four '
-              + 'servers’ worth — and only on '
-              + virusRuns.map(function (i) { return i.slot; })
-                  .filter(function (v, i, a) { return a.indexOf(v) === i; })
-                  .join(', ') + '. Logs are linked below.'
-            : 'Not in this data. No run on any of the four failed a '
-              + 'power-virus or thermal case.',
+          virusAnswer,
           [virusTable,
-           h('p', { class: 'r2-note', text: 'What actually dominates the '
-             + 'failures on these four: ' + top.map(function (name) {
+           h('p', { class: 'r2-note', text: 'By volume the failures on these '
+             + 'four are dominated by: ' + top.map(function (name) {
                  return name + ' ×' + tally[name]; }).join(', ')
-             + '. Firmware and provisioning at FAT, disk and inference '
-             + 'validation at SFT — not thermal.' })]);
+             + '. Power-virus is a smaller count than those but it is the one '
+             + 'that recurs in run-in, which is the stage under discussion — '
+             + 'volume and relevance are not the same thing here.' })]);
 
-    /* --- the in-rack SFT --- */
-    var stamp = newest ? utcDay(newest) : null;
-    var collected = (DATA.collectedAt || '').slice(0, 10);
+    /* --- the later SFT round --- */
+    /* The question is about an SFT run *after* rack assembly, and the station
+     * key cannot answer it: an in-rack SFT still reports as l10_sft on pega4,
+     * and there is no l11_* run against any of these serials. What the data can
+     * answer is whether a later round happened and how it went — so that is
+     * what this says, with the inference left visible rather than asserted.
+     *
+     * The last round is taken as the last day on which SFT ran, because these
+     * four are tested together and a rack retest shows up as a cluster. */
+    var sftRuns = [];
+    RACK.servers.forEach(function (server) {
+      graded(historyFor(server.sn).l10_sft).forEach(function (run) {
+        sftRuns.push({ slot: server.slot, run: run, day: utcDay(run) });
+      });
+    });
+    sftRuns.sort(function (a, b) { return (a.run.t || 0) - (b.run.t || 0); });
+    var lastDay = sftRuns.length ? sftRuns[sftRuns.length - 1].day : null;
+    var lastRound = sftRuns.filter(function (item) {
+      return item.day === lastDay; });
+    var roundSlots = lastRound.map(function (i) { return i.slot; })
+      .filter(function (v, i, a) { return a.indexOf(v) === i; }).sort();
+    var roundPassed = lastRound.filter(function (i) {
+      return i.run.s === 'pass'; });
+
+    /* The latest verdict per server, which is the question actually asked —
+       "none of the 4 passed" is about where they stand now, not about whether
+       any of them ever passed. */
+    var standing = RACK.servers.map(function (server) {
+      var runs = graded(historyFor(server.sn).l10_sft);
+      var last = runs.length ? runs[runs.length - 1] : null;
+      var everPassed = runs.some(function (run) { return run.s === 'pass'; });
+      return { slot: server.slot, last: last, everPassed: everPassed,
+               standing: last ? last.s : null };
+    });
+    var passingNow = standing.filter(function (row) {
+      return row.standing === 'pass'; });
+    var supersededPass = standing.filter(function (row) {
+      return row.everPassed && row.standing !== 'pass'; });
+
+    var roundAnswer;
+    if (!lastRound.length) {
+      roundAnswer = 'No SFT record at all on these four serials.';
+    } else {
+      roundAnswer = 'Confirmed on the numbers. '
+        + (passingNow.length === 0
+           ? 'None of the ' + RACK.servers.length + ' is currently passing '
+             + 'SFT: '
+           : passingNow.length + ' of ' + RACK.servers.length
+             + ' is currently passing SFT: ')
+        + standing.map(function (row) {
+            return row.slot + ' ' + (row.standing || 'never ran');
+          }).join(', ')
+        + '. The last SFT round was ' + lastDay + ', covering '
+        + roundSlots.join(', ') + ', and '
+        + (roundPassed.length ? roundPassed.length + ' of those passed.'
+                              : 'none of them passed.');
+    }
+    var roundExtra = [];
+    if (supersededPass.length) {
+      /* The trap in this question. A server that passed and then failed is not
+         a server that passed — and reading only the earlier record would have
+         had us telling the room its own account was wrong. */
+      roundExtra.push(h('p', { class: 'r2-flag', text: supersededPass.map(
+        function (row) { return row.slot; }).join(', ')
+        + ' did pass SFT earlier and then failed it again on '
+        + supersededPass.map(function (row) { return utcDay(row.last); })
+            .join(', ')
+        + '. So an earlier snapshot of this page would have said the rack had '
+        + 'a passing server. It does not now.' }));
+    }
+    var roundVirus = lastRound.filter(function (item) {
+      return anyVirus([item.run]).length; });
+    if (roundVirus.length) {
+      roundExtra.push(h('p', { class: 'r2-note', text: roundVirus.length
+        + ' of the ' + lastRound.length + ' runs in that round failed a '
+        + 'power-virus case (' + roundVirus.map(function (i) {
+            return i.slot; }).join(', ') + '), which is consistent with the '
+        + 'thermal account.' }));
+    }
+    /* What cannot be told from here, said rather than glossed. */
+    roundExtra.push(h('p', { class: 'r2-note', text: 'Whether that round ran '
+      + 'in the rack cannot be read from the controllers: an in-rack SFT still '
+      + 'reports as L10 SFT on pega4, and there is no L11 run against any of '
+      + 'these serials. The timing fits — all '
+      + roundSlots.length + ' tested within hours of each other on ' + lastDay
+      + ' — but it is an inference, not a record. Data read '
+      + ((DATA.collectedAt || '').slice(0, 10) || 'unknown') + '.' }));
+
+    var roundTable = h('div', { class: 'r2-mini' });
+    lastRound.forEach(function (item) {
+      roundTable.appendChild(h('div', { class: 'r2-mini-row' }, [
+        h('span', { class: 'r2-slot', text: item.slot }),
+        h('span', { class: item.run.s === 'pass' ? 'r2-pass' : 'r2-fail',
+                    text: item.run.s }),
+        h('span', { class: 'r2-att', text: minutes(item.run) === null ? ''
+                    : Math.round(minutes(item.run)) + ' min' }),
+        runLink(item.run, 'log')
+      ]));
+    });
+
     block('These 4 servers were then assembled into the L11 rack and L10 SFT '
           + 'was conducted again in the rack. My understanding is that none of '
           + 'the 4 passed SFT due to thermal virus. Please confirm.',
-          'Cannot confirm — there is no record of it. The most recent run on '
-          + 'any of these four serials is ' + (stamp || 'unknown')
-          + ', and the controllers were read on ' + (collected || 'unknown')
-          + '. Whatever SFT ran in the rack has not reached pega4 or pega5, so '
-          + 'this dashboard has nothing to confirm or contradict.',
-          [h('p', { class: 'r2-flag', text: 'What the data does say cuts the '
-             + 'other way: '
-             + fatSft.sft.filter(function (r) { return r.passed; })
-                 .map(function (r) {
-                   return r.slot + ' passed SFT on ' + utcDay(r.pass) + ' in '
-                     + Math.round(minutes(r.pass)) + ' minutes, first attempt';
-                 }).join('; ')
-             + '. If the in-rack SFT then failed it, that is a change of state '
-             + 'worth having the log for.' })]);
+          roundAnswer, [roundTable].concat(roundExtra));
   }
 
   function renderRack() {
