@@ -47,7 +47,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
-from . import config, rootcause, stations, version
+from . import config, outcomes, rootcause, stations, version
 
 #: Days reported. A week: long enough to smooth a bad shift, short enough that
 #: a fix landed on Tuesday still shows.
@@ -211,8 +211,13 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
         # Population is the window-relative first attempt, the same one FPY
         # uses, so first-pass fails and FPY reconcile: 350 MLT units at 71.2%
         # leaves 100 first-pass failures, and this counts those 100.
-        bone = [dut for dut in window
-                if window[dut][0]["status"] in ("fail", "error")]
+        # MLT and HTT only. TIM is a bake: its repeats are a thermal soak
+        # being run again, not a module being given a second chance, and
+        # reporting a "bonepile recovery" for it invited the number to be read
+        # as the same kind of thing. It keeps its own yield column.
+        bone = [] if key not in outcomes.SCOPE else [
+            dut for dut in window
+            if window[dut][0]["status"] in ("fail", "error")]
         same_rel = other_rel = 0
         for dut in bone:
             attempts = window[dut]
@@ -261,7 +266,7 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
             # failed units are recovered from the bonepile and back into the
             # production flow. Split by whether the pass came on the same
             # software release or a different one.
-            "bonepile": {
+            "bonepile": None if key not in outcomes.SCOPE else {
                 "firstPassFailed": len(bone),
                 "recovered": recovered_back,
                 "recoveryRate": (recovered_back / len(bone)) if bone else None,

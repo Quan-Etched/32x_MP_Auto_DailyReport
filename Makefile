@@ -12,7 +12,8 @@ STATION ?= l10_sft
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
         dailyexcel requests pega-stations release-source suite-map reconcile \
-        errors annotate error-catalogue retest-slide fpy \
+        errors annotate error-catalogue retest-slide \
+        outcomes doe-deck fpy \
         weekly \
         weekly-deck ramp-deck archive \
         weekly-snapshot schedule-weekly-install schedule-weekly-uninstall \
@@ -166,6 +167,16 @@ weekly:
 # Reads the bundle `make weekly` wrote, so run that first.
 weekly-deck: weekly
 	$(PY) tools/build_weekly_deck.py
+
+# Pass / Retest Pass / Bonepile per unit, plus the MLT -> HTT flow, for
+# doe.html. Also part of `make build`.
+outcomes:
+	$(PY) -m factory.cli outcomes
+
+# The same four outcomes as slides, with the flow drawn as a Sankey.
+# WEEKS="2026-W33 2026-W34" to pick weeks; default is every week in the bundle.
+doe-deck: outcomes
+	$(PY) tools/build_doe_deck.py $(WEEKS)
 
 # Append the retest / bonepile-recovery slide to a hand-edited weekly deck.
 # DECK= the deck to append to (default: the newest weekly-*.pptx), WEEK= which

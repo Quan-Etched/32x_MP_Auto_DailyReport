@@ -41,7 +41,10 @@ BUNDLE = REPO / "dashboard" / "data" / "weekly.js"
 DECKS = REPO / "decks"
 
 #: The stations Chris meant by "primarily at the L6 level", in flow order.
-STATIONS = ("tim", "mlt", "htt")
+#: MLT and HTT only — TIM is a bake, its repeats are a soak being re-run rather
+#: than a module being given a second chance, and putting it on this slide
+#: invited its number to be read as the same kind of thing.
+STATIONS = ("mlt", "htt")
 
 INK = RGBColor(0x1F, 0x1F, 0x1F)
 MUTE = RGBColor(0x6B, 0x6B, 0x6B)

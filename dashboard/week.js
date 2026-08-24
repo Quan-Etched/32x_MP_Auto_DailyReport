@@ -266,17 +266,21 @@
        * passed on the same build they failed on" says most of the recovery is
        * the first failure not reproducing, which is a test-escape question
        * rather than a schedule one. */
-      var bone = row.bonepile || {};
+      /* null rather than zeroes where the question does not apply: TIM is a
+         bake and L10/L11 are chassis and rack level, and a 0% there would read
+         as "nothing recovers" rather than "we do not ask this here". */
+      var bone = row.bonepile;
       tr.appendChild(h('td', { class: 'n retest' }, [
-        document.createTextNode(bone.recoveryRate == null ? '—'
+        document.createTextNode(!bone || bone.recoveryRate == null ? '—'
                                 : pct(bone.recoveryRate)),
-        h('span', { class: 'sub', text: bone.firstPassFailed
-          ? bone.recovered + ' of ' + bone.firstPassFailed + ' back'
-            + (bone.recovered
-               ? ' · ' + bone.sameRelease + ' same build, '
-                 + bone.differentRelease + ' new build'
-               : '')
-          : 'nothing failed first pass' })
+        h('span', { class: 'sub', text: !bone ? 'not asked of this station'
+          : bone.firstPassFailed
+            ? bone.recovered + ' of ' + bone.firstPassFailed + ' back'
+              + (bone.recovered
+                 ? ' · ' + bone.sameRelease + ' same build, '
+                   + bone.differentRelease + ' new build'
+                 : '')
+            : 'nothing failed first pass' })
       ]));
 
       var fails = h('td', { class: 'fails' });

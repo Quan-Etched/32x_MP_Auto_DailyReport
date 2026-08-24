@@ -320,6 +320,21 @@ def cmd_build(args: argparse.Namespace) -> int:
                 pega_bundle, config.DASHBOARD_DATA_DIR / "pega_stations.js")
             print("Pega stations ({:.0f} KB, {} unit runs) -> {}".format(
                 pega_path.stat().st_size / 1024, pega_payload["runCount"], pega_path))
+
+            # Result types — pass / retest pass / bonepile per unit, and the
+            # MLT -> HTT flow. Here rather than beside the OCP steps because it
+            # reads the controllers: they are one row per unit, and a taxonomy
+            # about what happened to a unit cannot be built from fixture rows.
+            from . import outcomes as outcome_rules
+            try:
+                outcome_bundle = outcome_rules.build_bundle(pega_payload)
+            except Exception as exc:                      # noqa: BLE001
+                print("Outcomes skipped ({})".format(exc))
+            else:
+                outcome_path = outcome_rules.write_bundle(outcome_bundle)
+                print("Outcomes ({:.0f} KB, {} weeks) -> {}".format(
+                    outcome_path.stat().st_size / 1024,
+                    len(outcome_bundle["weeks"]), outcome_path))
         else:
             print("Pega stations skipped (controllers returned nothing)")
 
@@ -888,6 +903,30 @@ def cmd_errors(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_outcomes(args: argparse.Namespace) -> int:
+    """Pass / Retest Pass / Bonepile per unit, and the MLT -> HTT flow."""
+    from . import outcomes, pega_collect
+
+    payload = pega_collect.collect(days=args.days)
+    if not payload["runs"]:
+        print("No runs from the controllers.", file=sys.stderr)
+        return 1
+    bundle = outcomes.build_bundle(payload, count=args.weeks)
+    path = outcomes.write_bundle(bundle)
+    print("Outcomes ({:.0f} KB, {} weeks) -> {}".format(
+        path.stat().st_size / 1024, len(bundle["weeks"]), path))
+    for week in bundle["weeks"]:
+        print("  {}".format(week["week"]))
+        for row in week["stations"]:
+            counts = row["counts"]
+            print("    {:<4} {:>4} units   pass {:>4}   retest-pass {:>3}   "
+                  "bonepile {:>4}   no-result {:>3}".format(
+                      row["label"], row["units"], counts["pass"],
+                      counts["retest-pass"], counts["bonepile"],
+                      counts["no-result"]))
+    return 0
+
+
 def cmd_fpy(args: argparse.Namespace) -> int:
     """First-pass yield across every measured stage, for the week."""
     from . import build_fpy, pega_collect
@@ -1239,6 +1278,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "errors",
         help="failing test cases joined to the error-code catalogue")
     errors.set_defaults(handler=cmd_errors)
+
+    outc = subparsers.add_parser(
+        "outcomes",
+        help="pass / retest-pass / bonepile per unit, and the MLT -> HTT flow")
+    outc.add_argument("--days", type=int, default=60,
+                      help="how much history to collect (default 60)")
+    outc.add_argument("--weeks", type=int, default=6,
+                      help="how many weeks to report (default 6)")
+    outc.set_defaults(handler=cmd_outcomes)
 
     fpy = subparsers.add_parser(
         "fpy", help="end-to-end first-pass yield, one row per test step")

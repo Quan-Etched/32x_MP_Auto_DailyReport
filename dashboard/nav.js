@@ -32,12 +32,21 @@
     ['customize.html', 'Customize',
       'Pick days and stations, take the CSV, read the error codes'],
     ['flow.html', 'Test flow', 'Both drawings of the line, with yields'],
+    ['doe.html', 'Result types',
+      'Pass, retest pass and bonepile per unit, and the MLT → HTT flow'],
     ['releases.html', 'Releases', 'Test items by software release'],
     ['hourly.html', 'Hourly rates', 'Throughput and cycle time by the hour'],
     ['rack2.html', 'Rack 2', 'The second L11 rack, and where its servers are'],
     ['requests.html', 'Requests', 'What we need from other systems'],
     ['ocp.html', 'OCP view', 'The same stations, sourced from OCP instead']
   ];
+
+  /* Links a particular page does not want. The customize page builds its own
+     row-level view and a jump to the raw run table from there is a step
+     sideways into a worse version of what the reader is already looking at. */
+  var HIDE = {
+    'customize.html': ['runs.html']
+  };
 
   function here() {
     var path = (location.pathname || '').split('/').pop();
@@ -49,8 +58,10 @@
     if (!host) return;
     var page = here();
     host.innerHTML = '';
+    var hidden = HIDE[page] || [];
     LINKS.forEach(function (link) {
       if (link[0] === page) return;          /* no link to the page you are on */
+      if (hidden.indexOf(link[0]) !== -1) return;
       var a = document.createElement('a');
       a.setAttribute('class', 'theme-toggle');
       a.setAttribute('href', link[0]);

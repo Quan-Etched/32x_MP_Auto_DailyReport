@@ -41,7 +41,72 @@
   /* How many rows the preview shows. The CSV ignores this. */
   var PREVIEW = 200;
 
-  var view = { from: null, to: null, stations: null };
+  /* The four outcomes a unit can have at a station, and the one word that is
+     not a fifth one.
+   *
+   * This mirrors src/factory/outcomes.py exactly — same rule, same names, same
+   * order. Two implementations because this page classifies interactively from
+   * the run bundle while the Python builds the DOE page's numbers, and
+   * tests/test_outcomes.py compares them on the same window so they cannot
+   * drift apart quietly.
+   */
+  var OUTCOMES = [
+    ['pass', 'Pass', 'passed first time'],
+    ['fail', 'Fail', 'any first-attempt failure — Retest Pass plus Bonepile'],
+    ['retest-pass', 'Retest Pass',
+      'failed first, passed on a retest — back in the flow'],
+    ['bonepile', 'Bonepile',
+      'failed first and has never passed — no retest, or every retest failed'],
+    ['no-result', 'No result', 'ran but produced no verdict']
+  ];
+  /* Fail is the union of two of the others, so selecting it selects those two.
+     Offered because it is the word the line uses; expanded here so nothing
+     downstream has to know it is not exclusive. */
+  var FAIL_COVERS = ['retest-pass', 'bonepile'];
+  var GRADED = { pass: true, fail: true, error: true };
+
+  var view = { from: null, to: null, stations: null, types: null,
+               ran: false, running: false };
+
+  /* One unit's attempts at one station, in time order, to an outcome. */
+  function outcomeOf(attempts) {
+    var graded = attempts.filter(function (r) { return GRADED[r.s]; });
+    if (!graded.length) return 'no-result';
+    if (graded[0].s === 'pass') return 'pass';
+    for (var i = 1; i < graded.length; i += 1) {
+      if (graded[i].s === 'pass') return 'retest-pass';
+    }
+    return 'bonepile';
+  }
+
+  /* (unit|station) -> outcome, over the chosen days. Computed once per run
+     rather than per row: the classification depends on every attempt in the
+     window, so it cannot be decided one row at a time. */
+  function outcomeIndex(rows) {
+    var held = {};
+    rows.forEach(function (run) {
+      var key = run.d + '|' + run.k;
+      (held[key] || (held[key] = [])).push(run);
+    });
+    var out = {};
+    Object.keys(held).forEach(function (key) {
+      held[key].sort(function (a, b) { return (a.t || 0) - (b.t || 0); });
+      out[key] = outcomeOf(held[key]);
+    });
+    return out;
+  }
+
+  function wantedTypes() {
+    var picked = {};
+    (view.types || []).forEach(function (name) {
+      if (name === 'fail') {
+        FAIL_COVERS.forEach(function (k) { picked[k] = true; });
+      } else {
+        picked[name] = true;
+      }
+    });
+    return picked;
+  }
 
   function h(tag, attrs, kids) {
     var node = document.createElement(tag);
@@ -100,12 +165,25 @@
     });
   }
 
-  function selected() {
+  /* Every run inside the days and stations chosen, before any result-type
+     filter. The classification needs all of them: a unit's outcome depends on
+     attempts that the type filter might itself exclude. */
+  function inScope() {
     return RUNS.filter(function (run) {
       var day = utcDay(run);
       if (!day || day < view.from || day > view.to) return false;
       return view.stations[run.k];
     }).sort(function (a, b) { return (a.t || 0) - (b.t || 0); });
+  }
+
+  function selected() {
+    var scope = inScope();
+    var picked = wantedTypes();
+    if (!Object.keys(picked).length) return scope;
+    var index = outcomeIndex(scope);
+    return scope.filter(function (run) {
+      return picked[index[run.d + '|' + run.k]];
+    });
   }
 
   /* --------------------------------------------------------------- decoding */
@@ -398,6 +476,8 @@
     var all = allStations();
     var parts = ['from=' + view.from, 'to=' + view.to];
     if (picked.length !== all.length) parts.push('stations=' + picked.join(','));
+    if ((view.types || []).length) parts.push('types=' + view.types.join(','));
+    if (view.ran) parts.push('ran=1');
     location.replace('#' + parts.join('&'));
   }
 
@@ -412,14 +492,125 @@
     if (DAYS.length && view.from < DAYS[0]) view.from = DAYS[0];
     view.to = (to && to[1]) || last;
 
+    var types = /types=([a-z,-]+)/.exec(hash);
+    view.types = types ? types[1].split(',') : [];
+    /* A shared link that already ran should show its results, not make the
+       reader press RUN to see what they were sent. */
+    view.ran = /ran=1/.test(hash);
+
     view.stations = {};
     var wanted = stations ? stations[1].split(',') : null;
     allStations().forEach(function (key) {
-      view.stations[key] = wanted ? wanted.indexOf(key) !== -1 : true;
+      /* Nothing selected by default. Every station pre-ticked meant the first
+         thing anyone did was untick ten boxes, and it made the page look like
+         it was already showing them an answer about the whole line when they
+         had not asked a question yet. */
+      view.stations[key] = wanted ? wanted.indexOf(key) !== -1 : false;
     });
   }
 
   /* -------------------------------------------------------------------- run */
+
+  /* Section 3: which outcomes to keep. Nothing ticked means every outcome,
+     which is the sane default for a filter — a filter that starts by excluding
+     everything shows an empty page and looks broken. */
+  function renderTypes() {
+    var host = byId('types');
+    if (!host) return;
+    host.innerHTML = '';
+    OUTCOMES.forEach(function (spec) {
+      var key = spec[0];
+      var on = (view.types || []).indexOf(key) !== -1;
+      var box = h('label', { class: 'check' + (view.ran ? ' frozen' : '') });
+      var input = h('input', { type: 'checkbox', id: 'ty-' + key });
+      if (on) input.setAttribute('checked', 'checked');
+      if (view.ran) input.setAttribute('disabled', 'disabled');
+      input.addEventListener('change', function (event) {
+        var next = (view.types || []).filter(function (k) { return k !== key; });
+        if (event.target.checked) next.push(key);
+        view.types = next;
+        writeHash();
+        render();
+      });
+      box.appendChild(input);
+      box.appendChild(h('span', { class: 'check-k', text: spec[1] }));
+      box.appendChild(h('span', { class: 'check-n', text: spec[2] }));
+      host.appendChild(box);
+    });
+    var sub = byId('types-sub');
+    if (sub) {
+      sub.textContent = (view.types || []).length
+        ? (view.types || []).map(function (k) {
+            return (OUTCOMES.filter(function (o) { return o[0] === k; })[0]
+                    || [k, k])[1];
+          }).join(', ') + ' — Fail selects Retest Pass and Bonepile together, '
+          + 'because it is the two of them.'
+        : 'Nothing ticked: every outcome is included.';
+    }
+  }
+
+  /* The RUN gate.
+   *
+   * Sections 1 to 3 are a question and section 4 onward is its answer, and the
+   * page used to recompute the answer on every keystroke — which meant a reader
+   * scrolling down was looking at results for a selection they were halfway
+   * through changing. So nothing computes until RUN, the controls freeze while
+   * it does, and RUN greys out afterwards because pressing it again would
+   * recompute the same thing.
+   *
+   * Reset exists so the page is not single-use per load. It was not asked for;
+   * without it, changing one day means reloading and re-picking everything.
+   */
+  function renderRun() {
+    var host = byId('run');
+    if (!host) return;
+    host.innerHTML = '';
+    var picked = Object.keys(view.stations || {}).filter(
+      function (key) { return view.stations[key]; });
+    var ready = picked.length > 0;
+
+    var button = h('button', {
+      type: 'button',
+      class: 'view-toggle primary' + (view.ran ? ' done' : ''),
+      disabled: (view.ran || view.running || !ready) ? 'disabled' : null,
+      title: view.ran ? 'already run — press Reset to change the selection'
+             : ready ? 'compute the results for this selection'
+             : 'pick at least one station first'
+    }, [h('span', { text: view.running ? 'Running…'
+                          : view.ran ? 'Run complete' : 'RUN' })]);
+    button.addEventListener('click', function () {
+      if (view.ran || view.running || !ready) return;
+      view.running = true;
+      renderRun();
+      /* Yielding once so the frozen state and "Running…" actually paint before
+         the work starts — on a wide range this is a second of arithmetic on the
+         main thread, and without the yield the reader sees nothing happen. */
+      window.setTimeout(function () {
+        view.running = false;
+        view.ran = true;
+        writeHash();
+        render();
+      }, 0);
+    });
+    host.appendChild(button);
+
+    if (view.ran) {
+      var reset = h('button', { type: 'button', class: 'view-toggle',
+        title: 'unfreeze the selection so it can be changed and run again' },
+        [h('span', { text: 'Reset' })]);
+      reset.addEventListener('click', function () {
+        view.ran = false;
+        writeHash();
+        render();
+      });
+      host.appendChild(reset);
+    }
+
+    if (!ready) {
+      host.appendChild(h('span', { class: 'run-hint',
+        text: 'pick at least one station' }));
+    }
+  }
 
   function render() {
     if (view.from && view.to && view.from > view.to) {
@@ -428,6 +619,17 @@
     renderQuick();
     renderPickers();
     renderStations();
+    renderTypes();
+    renderRun();
+
+    /* Everything below the RUN button, shown only once it has been pressed. */
+    var out = byId('output');
+    if (out) out.hidden = !view.ran;
+    if (!view.ran) {
+      byId('meta').textContent = '';
+      return;
+    }
+
     var rows = selected();
     renderTiles(rows);
     renderBreakdown(rows);

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Result types — pass, retest pass, bonepile</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="stations.css">
+  <link rel="stylesheet" href="doe.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Result types</h1>
+    <a class="masthead-jump" href="allhands.html" title="The all-hands view: five stages, one number each, week over week">All-hands view &rarr;</a>
+    <span class="meta" id="meta"></span>
+    <span class="build" id="build" title="Which build of the analysis produced this page"></span>
+    <span class="spacer"></span>
+    <nav class="masthead-nav" id="nav"></nav>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <p class="lede">
+    Pass and fail could not carry the question. A module that failed once and
+    passed on the retest and one that failed and is still on a shelf were both
+    “fail”, and they are opposite situations — the first cost a fixture slot, the
+    second cost a module. So every unit gets exactly one of four outcomes at
+    each station, and the fourth is the absence of a verdict rather than a
+    verdict of its own.
+    <strong>MLT and HTT only</strong> — TIM is a bake, its repeats are a
+    different animal, and it is reported in its own column elsewhere.
+  </p>
+
+  <div class="doe-legend" id="doe-legend"></div>
+
+  <section class="card full">
+    <div class="card-head">
+      <div>
+        <h2>The week</h2>
+        <p class="sub" id="doe-sub"></p>
+      </div>
+      <span class="spacer"></span>
+      <div class="quick" id="doe-weeks"></div>
+    </div>
+    <div class="doe-cards" id="doe-cards"></div>
+  </section>
+
+  <section class="card full" style="margin-top:16px">
+    <div class="card-head">
+      <div>
+        <h2>MLT &rarr; HTT</h2>
+        <p class="sub" id="doe-flow-sub"></p>
+      </div>
+    </div>
+    <!-- Two stacked bars would say MLT had ten retest passes and HTT had none.
+         Only the flow says what became of the ten. -->
+    <div class="doe-flow" id="doe-flow"></div>
+  </section>
+
+  <section class="card full" style="margin-top:16px">
+    <div class="card-head">
+      <div>
+        <h2>MLT week over week</h2>
+        <p class="sub">The same four outcomes as a share of each week, with the
+          share of first-attempt failures that came back beside it.</p>
+      </div>
+    </div>
+    <div class="doe-trend" id="doe-trend"></div>
+  </section>
+
+  <footer class="notes">
+    <p id="footer-meta"></p>
+    <p>
+      <strong>One outcome per unit per station.</strong> Pass means the first
+      attempt in the week passed. Retest Pass means the first attempt failed and
+      a later one passed — the unit is back in the production flow. Bonepile
+      means the first attempt failed and the unit has never passed: no retest at
+      all, or every retest failed too. No result means it ran and produced no
+      verdict, which is rare and is kept separate because a unit with no result
+      is not a pass and blaming the module for it would be worse.
+    </p>
+    <p>
+      <strong>Fail is not a fifth bucket.</strong> It is Retest Pass plus
+      Bonepile — every unit whose first attempt failed. The four exclusive
+      outcomes add up to the units that ran; Fail is the part of that total the
+      line usually means when it says the word.
+    </p>
+    <p>
+      Counted over the units that ran in the week, which is a slightly wider
+      population than the first-pass yield on the weekly tracker: that one
+      counts units new to the station, so the two percentages differ by a
+      fraction. Both are stated where they appear rather than reconciled by
+      hand.
+    </p>
+  </footer>
+
+</div>
+
+<script src="data/outcomes.js"></script>
+<script src="doe.js"></script>
+<script src="nav.js"></script>
+<script src="theme.js"></script>
+<script src="update.js"></script>
+</body>
+</html>

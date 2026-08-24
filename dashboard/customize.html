@@ -66,10 +66,31 @@
       <div class="checks" id="stations"></div>
     </section>
 
+    <!-- Session 3. The four outcomes a unit can have at a station, plus Fail,
+         which is not a fifth one — it is Retest Pass and Bonepile together, and
+         ticking it ticks both. Defined once in src/factory/outcomes.py and
+         mirrored in customize.js; tests/test_outcomes.py holds them to the same
+         answer on the same window. -->
     <section class="card full" style="margin-top:16px">
       <div class="card-head">
         <div>
-          <h2>3 · Take it</h2>
+          <h2>3 · Result type</h2>
+          <p class="sub" id="types-sub"></p>
+        </div>
+      </div>
+      <div class="checks" id="types"></div>
+    </section>
+
+    <!-- The gate. Sections 1 to 3 are the question; everything below is the
+         answer, and it is not computed until asked for. -->
+    <div class="run-bar" id="run"></div>
+
+    <div id="output" hidden>
+
+    <section class="card full" style="margin-top:16px">
+      <div class="card-head">
+        <div>
+          <h2>4 · Take it</h2>
           <p class="sub" id="take-sub"></p>
         </div>
         <span class="spacer"></span>
@@ -94,7 +115,7 @@
     <section class="card full" style="margin-top:16px" id="errors">
       <div class="card-head">
         <div>
-          <h2>4 · Error codes</h2>
+          <h2>5 · Error codes</h2>
           <p class="sub" id="err-sub"></p>
         </div>
         <span class="spacer"></span>
@@ -139,7 +160,7 @@
     <section class="card full" style="margin-top:16px" id="charts">
       <div class="card-head">
         <div>
-          <h2>5 · Yield and failures</h2>
+          <h2>6 · Yield and failures</h2>
           <p class="sub" id="cc-sub"></p>
         </div>
       </div>
@@ -176,6 +197,8 @@
         <div class="table-wrap" id="cc-pareto-table"></div>
       </div>
     </section>
+
+    </div><!-- /output -->
 
   </main>
 

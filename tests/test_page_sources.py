@@ -26,6 +26,7 @@ EXPECTED = {
     "weekly.html": "data/weekly.js",
     "week.html": "data/weekly.js",
     "flow.html": "data/pega_stations.js",
+    "doe.html": "data/outcomes.js",
 }
 
 #: Addresses that were handed out and must keep resolving.
@@ -77,6 +78,7 @@ DOM_SCRIPTS = {
     # Two drawings on one page: flow.js draws the summary, flowchart.js draws
     # the end-to-end chart from flowe2e.js's data, flowswitch.js picks.
     "flow.html": ["flow.js", "flowchart.js", "flowswitch.js"],
+    "doe.html": ["doe.js"],
     "releases.html": ["releasesrc.js", "suitemap.js"],
 }
 
