@@ -12,7 +12,7 @@ STATION ?= l10_sft
 .PHONY: help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
         dailyexcel requests pega-stations release-source suite-map reconcile \
-        errors annotate error-catalogue fpy \
+        errors annotate error-catalogue retest-slide fpy \
         weekly \
         weekly-deck ramp-deck archive \
         weekly-snapshot schedule-weekly-install schedule-weekly-uninstall \
@@ -166,6 +166,13 @@ weekly:
 # Reads the bundle `make weekly` wrote, so run that first.
 weekly-deck: weekly
 	$(PY) tools/build_weekly_deck.py
+
+# Append the retest / bonepile-recovery slide to a hand-edited weekly deck.
+# DECK= the deck to append to (default: the newest weekly-*.pptx), WEEK= which
+# week. Writes <deck>_retest.pptx and never touches its input, because the deck
+# it reads has hand-drawn callouts on it.
+retest-slide: weekly
+	$(PY) tools/build_retest_slide.py $(DECK) $(WEEK)
 
 # The two slides the all-hands page hands out, into dashboard/data/ so
 # `make publish` ships them. Not part of `make build`: the hourly pipeline is

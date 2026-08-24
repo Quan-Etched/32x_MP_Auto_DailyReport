@@ -40,6 +40,13 @@
           <th scope="col" class="n">First-pass yield</th>
           <th scope="col" class="n">After retest</th>
           <th scope="col" class="n">Retest rate</th>
+          <!-- Chris Zhu's question, in his words: what share of first-pass
+               failed units are recovered from the bonepile and added back to
+               the production flow. Split by whether the recovering pass came on
+               the same software release or a different one, which is the part
+               that says whether a fix released the unit or the first failure
+               simply did not reproduce. -->
+          <th scope="col" class="n">Bonepile recovery</th>
           <th scope="col">Top failures</th>
         </tr>
       </thead>

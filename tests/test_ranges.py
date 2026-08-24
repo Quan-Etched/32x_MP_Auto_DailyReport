@@ -278,8 +278,18 @@ class WeekToDateTest(unittest.TestCase):
     """
 
     def payload(self):
-        from datetime import date, timedelta
-        today = date(2026, 8, 20)                       # a Thursday
+        """Built relative to the clock the code reads, not a fixed date.
+
+        This used to pin `today = date(2026, 8, 20)` and place its runs in that
+        Thursday's week. Which meant the fixture agreed with the code for
+        exactly one calendar week and then went quietly wrong: at 2026-08-24
+        00:00 UTC the week under test became last week, every run fell outside
+        the window, and two assertions failed on a Monday morning with nothing
+        having changed in the code. The boundary is what is being tested, so the
+        fixture has to be placed against the same boundary the code computes.
+        """
+        from datetime import datetime, timedelta, timezone
+        today = datetime.now(timezone.utc).date()
         monday = today - timedelta(days=today.weekday())
         return {
             "runs": [_run((monday + timedelta(days=d)).strftime("%Y-%m-%d"))

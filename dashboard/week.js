@@ -203,6 +203,10 @@
                                text: pct(item['yield']) }));
       tr.appendChild(h('td', { class: 'n', text: '—' }));
       tr.appendChild(h('td', { class: 'n', text: '—' }));
+      /* Bonepile recovery. A dash and not a zero: these come to us as one
+         reported yield per week, so we do not know what happened to any
+         individual unit that failed, let alone whether it came back. */
+      tr.appendChild(h('td', { class: 'n', text: '—' }));
       /* Two different sentences, because they are two different facts. A week
        * that has the figure says when it was for; a week that does not says so
        * and points at the one that does — the number used to be printed on
@@ -253,6 +257,26 @@
         h('span', { class: 'sub', text: row.retestUnits == null
           ? (row.retestNote || '')
           : row.retestUnits + ' of ' + row.units + ' units re-run' })
+      ]));
+
+      /* Recovered from the bonepile, and on which release.
+       *
+       * Two numbers in one cell because either alone misleads. "10% recovered"
+       * on its own reads as a recovery process working slowly; "7 of those 10
+       * passed on the same build they failed on" says most of the recovery is
+       * the first failure not reproducing, which is a test-escape question
+       * rather than a schedule one. */
+      var bone = row.bonepile || {};
+      tr.appendChild(h('td', { class: 'n retest' }, [
+        document.createTextNode(bone.recoveryRate == null ? '—'
+                                : pct(bone.recoveryRate)),
+        h('span', { class: 'sub', text: bone.firstPassFailed
+          ? bone.recovered + ' of ' + bone.firstPassFailed + ' back'
+            + (bone.recovered
+               ? ' · ' + bone.sameRelease + ' same build, '
+                 + bone.differentRelease + ' new build'
+               : '')
+          : 'nothing failed first pass' })
       ]));
 
       var fails = h('td', { class: 'fails' });
@@ -365,7 +389,16 @@
       'per fixture, so a fixture of eight modules is eight rows here. Every ' +
       'row links to the run on its controller. Attempts are numbered over ' +
       (DATA.historyDays || 30) + ' days of history, so a unit returning this ' +
-      'week counts as a retest rather than a first pass. VBB provisioning is ' +
+      'week counts as a retest rather than a first pass. Bonepile recovery is ' +
+      'the share of first-pass failures that later passed and rejoined the ' +
+      'production flow, split by whether that pass came on the same software ' +
+      'release or a different one — same build means the first failure did ' +
+      'not reproduce, a different build means a fix released the unit. ' +
+      'Counted per station: a module that failed MLT and later passed MLT is ' +
+      'recovered here even if it then failed HTT. The all-hands page counts ' +
+      'the same thing per stage, so MLT + HTT together reads lower — the two ' +
+      'agree exactly for TIM, which is a one-station stage. VBB ' +
+      'provisioning is ' +
       'left out: it is a real stage but not part of the product test flow. ' +
       'WST and FT are Sigurd’s and are asked for weekly in ' +
       '#production-test-eng. Built ' +

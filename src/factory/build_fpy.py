@@ -196,6 +196,35 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
         # was a column of dashes that read as "no testing happened".
         thin_cohort = bool(len(window)) and not yield_readable
         first_pass = sum(1 for dut in fresh if units[dut][0]["status"] == "pass")
+
+        # Bonepile recovery, asked for by name: of the units that failed their
+        # first pass, how many got back into the production flow — and did a
+        # software release do it, or did the same build pass on a second go?
+        #
+        # The distinction is the whole finding. Recovered on the SAME release
+        # means the first failure did not reproduce: marginal, flaky, or a
+        # handling problem, and the unit was probably always good. Recovered on
+        # a DIFFERENT release means a software fix released it. One of those is
+        # a test-escape problem and the other is a schedule item, and a single
+        # "recovery rate" hides which.
+        #
+        # Population is the window-relative first attempt, the same one FPY
+        # uses, so first-pass fails and FPY reconcile: 350 MLT units at 71.2%
+        # leaves 100 first-pass failures, and this counts those 100.
+        bone = [dut for dut in window
+                if window[dut][0]["status"] in ("fail", "error")]
+        same_rel = other_rel = 0
+        for dut in bone:
+            attempts = window[dut]
+            failed_on = stations.release_of(attempts[0].get("version"))
+            back = next((r for r in attempts[1:] if r["status"] == "pass"), None)
+            if back is None:
+                continue
+            if stations.release_of(back.get("version")) == failed_on:
+                same_rel += 1
+            else:
+                other_rel += 1
+        recovered_back = same_rel + other_rel
         passed = sum(1 for rs in window.values()
                      if any(r["status"] == "pass" for r in rs))
         repeats = sum(1 for rs in window.values() if len(rs) > 1)
@@ -228,6 +257,18 @@ def build_bundle(payload: Dict[str, Any], days: int = DEFAULT_DAYS,
             # out where repeat runs are a provisioning sequence rather than a
             # second attempt at the same test.
             # Plainly: the share of units that had to be run more than once.
+            # Chris Zhu's question, in his words: what share of first-pass
+            # failed units are recovered from the bonepile and back into the
+            # production flow. Split by whether the pass came on the same
+            # software release or a different one.
+            "bonepile": {
+                "firstPassFailed": len(bone),
+                "recovered": recovered_back,
+                "recoveryRate": (recovered_back / len(bone)) if bone else None,
+                "sameRelease": same_rel,
+                "differentRelease": other_rel,
+                "stillOut": len(bone) - recovered_back,
+            },
             "retestRatio": None if (key in MULTI_SUITE or counts_only(key))
                            else repeats / len(window),
             "retestUnits": None if (key in MULTI_SUITE or counts_only(key))

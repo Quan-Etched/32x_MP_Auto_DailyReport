@@ -578,3 +578,49 @@ class FlowWindowTest(unittest.TestCase):
         self.assertIn("week to date", text)
         self.assertIn("last counted", text)
         self.assertIn("function stamp(iso)", text)
+
+
+class TableWidthTest(unittest.TestCase):
+    """A table's header count must match what its script appends per row.
+
+    The failure mode is silent and total: add a <th> to the markup and forget
+    the matching appendChild, and every cell after it shifts one column left for
+    every row in the table. Nothing throws, the page renders, and the retest
+    rate appears under "Bonepile recovery". This caught nothing when written —
+    it is here because the bonepile column was the fourth column added to this
+    table and the first three were added by hand on both sides.
+    """
+
+    #: page, table id, and the function in the script that builds one row.
+    TABLES = [
+        ("week.html", "steps-table", "dashboard/week.js", "renderSteps"),
+    ]
+
+    def test_header_count_matches_the_cells_appended(self):
+        for page, table_id, script, _func in self.TABLES:
+            text = (DASHBOARD / page).read_text(encoding="utf-8")
+            # the <thead> of that table, and the <th> in it
+            start = text.index('id="' + table_id + '"')
+            head = text[start:text.index("</thead>", start)]
+            headers = re.findall(r"<th\b", head)
+
+            source = (config.REPO_ROOT / script).read_text(encoding="utf-8")
+            body = source[source.index("function renderSteps"):]
+            body = body[:body.index("\n  function ", 1)]
+
+            # One count per kind of row the function builds, not one for the
+            # function: renderSteps builds two — the reported externals (WST,
+            # FT) and the measured stations — and only one of them was updated
+            # when the bonepile column went in. Splitting on the `var tr =`
+            # that starts each row is what surfaces that.
+            chunks = body.split("var tr = h('tr'")[1:]
+            self.assertTrue(chunks, "no rows built in " + script)
+            for index, chunk in enumerate(chunks):
+                appends = re.findall(r"\btr\.appendChild\(", chunk)
+                with self.subTest(page=page, table=table_id, row_kind=index):
+                    self.assertEqual(
+                        len(headers), len(appends),
+                        "{} declares {} columns; row kind {} in {} appends {} "
+                        "cells — every cell after the mismatch shifts left"
+                        .format(table_id, len(headers), index, script,
+                                len(appends)))

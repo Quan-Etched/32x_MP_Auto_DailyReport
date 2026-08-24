@@ -20,9 +20,13 @@ def ts(days_ago, hour=12):
                               microsecond=0).timestamp())
 
 
-def run(dut, station, status, when, failures=()):
+def run(dut, station, status, when, failures=(), version=None):
     return {"dutSerial": dut, "stationKey": station, "status": status,
             "startTs": when, "suite": station,
+            # Bonepile recovery asks which release a unit came back on, so a
+            # run needs one. Defaulted per station so the cases that do not
+            # care about releases read as "one release, throughout".
+            "version": version or (station + "_2026.230.0"),
             "failures": [{"display": name, "test": name} for name in failures]}
 
 
@@ -139,6 +143,56 @@ class RolledTest(unittest.TestCase):
         bundle = self.bundle(self.many("mlt", 40, 20))
         mlt = [row for row in bundle["rows"] if row["key"] == "mlt"][0]
         self.assertFalse(mlt["thinCohort"], "40 units is not thin")
+
+    def test_bonepile_recovery_splits_by_release(self):
+        """Chris Zhu's question, and the split that answers it.
+
+        Recovered on the same release means the first failure did not
+        reproduce — a test-escape question. Recovered on a different release
+        means a fix released the unit — a schedule item. A single recovery rate
+        hides which, and for W34 the answer was mostly the former, so the split
+        is the finding rather than a detail.
+        """
+        runs = [
+            # failed, then passed on the same release: did not reproduce
+            run("A", "mlt", "fail", ts(3), version="mlt_2026.230.0"),
+            run("A", "mlt", "pass", ts(2), version="mlt_2026.230.0"),
+            # failed, then passed on a later release: a fix released it
+            run("B", "mlt", "fail", ts(3), version="mlt_2026.230.0"),
+            run("B", "mlt", "pass", ts(2), version="mlt_2026.231.0"),
+            # failed and stayed failed
+            run("C", "mlt", "fail", ts(3), version="mlt_2026.230.0"),
+            # passed first time: not in the population at all
+            run("D", "mlt", "pass", ts(3), version="mlt_2026.230.0"),
+        ]
+        row = [r for r in self.bundle(runs)["rows"] if r["key"] == "mlt"][0]
+        bone = row["bonepile"]
+        self.assertEqual(3, bone["firstPassFailed"], "D passed first time")
+        self.assertEqual(2, bone["recovered"])
+        self.assertAlmostEqual(2 / 3, bone["recoveryRate"])
+        self.assertEqual(1, bone["sameRelease"])
+        self.assertEqual(1, bone["differentRelease"])
+        self.assertEqual(1, bone["stillOut"])
+
+    def test_first_pass_failures_reconcile_with_the_yield(self):
+        """The population is the one FPY uses, so the two numbers agree.
+
+        If they used different populations, somebody would put 'FPY 71.2%' and
+        'recovery of 100 failures' on one slide out of 350 units and the
+        arithmetic would not close.
+        """
+        bundle = self.bundle(self.many("mlt", 40, 30))
+        row = [r for r in bundle["rows"] if r["key"] == "mlt"][0]
+        self.assertAlmostEqual(0.75, row["fpy"])
+        self.assertEqual(10, row["bonepile"]["firstPassFailed"],
+                         "40 units at 75% leaves 10 first-pass failures")
+
+    def test_a_stage_with_no_failures_reports_no_rate(self):
+        row = [r for r in self.bundle(self.many("mlt", 20, 20))["rows"]
+               if r["key"] == "mlt"][0]
+        self.assertEqual(0, row["bonepile"]["firstPassFailed"])
+        self.assertIsNone(row["bonepile"]["recoveryRate"],
+                          "0/0 is not 0% and must not print as one")
 
     def test_the_scope_is_the_module_line(self):
         self.assertEqual(("mlt", "htt"), build_fpy.ROLLED_STATIONS)
