@@ -478,6 +478,18 @@
     if (picked.length !== all.length) parts.push('stations=' + picked.join(','));
     if ((view.types || []).length) parts.push('types=' + view.types.join(','));
     if (view.ran) parts.push('ran=1');
+    /* Carry through the keys this script does not own.
+     *
+     * searchmode.js owns `mode` and dutsearch.js owns `dut`, and this function
+     * used to write the hash from scratch — which meant opening a shared
+     * #mode=dut&dut=... link had the range view rewrite the address on its
+     * first render and drop both, before the serial search had read them. The
+     * link worked in the address bar for about a millisecond. */
+    ['mode', 'dut'].forEach(function (key) {
+      var found = new RegExp('(?:^|[#&])' + key + '=([^&]+)')
+        .exec(location.hash || '');
+      if (found) parts.push(key + '=' + found[1]);
+    });
     location.replace('#' + parts.join('&'));
   }
 

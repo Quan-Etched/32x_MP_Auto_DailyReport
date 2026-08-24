@@ -303,3 +303,119 @@
   line-height: 1.35;
   font-variant-numeric: normal;
 }
+
+/* ------------------------------------------------------- search by serial ---
+ *
+ * The mode switch borrows flow.html's shape deliberately: it is the same kind
+ * of choice — two views of one thing — and a second visual language for it
+ * would make them look like different mechanisms. Those rules live in flow.css,
+ * which this page does not load, so the few that matter are repeated here
+ * rather than making every page load a chart stylesheet.
+ */
+.flow-switch { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 18px; }
+.fs-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  text-align: left;
+  max-width: 36ch;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  padding: 9px 13px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-secondary);
+}
+.fs-btn:hover { border-color: var(--accent-solid); }
+.fs-btn.on {
+  border-color: var(--accent-solid);
+  border-left-width: 3px;
+  color: var(--text-primary);
+}
+.fs-k { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.fs-s { font-size: 11.5px; color: var(--text-muted); line-height: 1.4; }
+
+.dut-box {
+  width: 100%;
+  margin-top: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  resize: vertical;
+}
+.dut-box:focus {
+  outline: none;
+  border-color: var(--accent-solid);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-solid) 22%, transparent);
+}
+.dut-box[disabled] { opacity: 0.62; }
+
+/* A serial nobody has heard of. Said, not swallowed: "was this ever tested
+   here" is a real question and an empty page answers it ambiguously. */
+.dut-missing {
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  border-left: 2px solid var(--status-warning);
+  background: color-mix(in srgb, var(--status-warning) 8%, transparent);
+  border-radius: 3px;
+}
+
+.dut-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  padding: 14px 16px;
+  margin-top: 14px;
+}
+.dut-head {
+  display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.dut-sn {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 15px; font-weight: 600; color: var(--text-primary);
+}
+.dut-when { font-size: 12px; color: var(--text-muted); }
+
+/* The journey before the detail: one chip per station, in flow order, coloured
+   by the same four outcomes the result-types page uses. */
+.dut-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.dut-stage {
+  display: flex; flex-direction: column; gap: 0;
+  border: 1px solid var(--border);
+  border-left-width: 3px;
+  border-radius: 4px;
+  padding: 4px 9px;
+  min-width: 8em;
+}
+.dut-stage-k { font-size: 11px; color: var(--text-muted); }
+.dut-stage-v { font-size: 12.5px; font-weight: 600; }
+.dut-stage-n {
+  font-size: 10.5px; color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.dut-stage.o-pass { border-left-color: var(--status-good); }
+.dut-stage.o-retest-pass { border-left-color: var(--status-warning); }
+.dut-stage.o-bonepile { border-left-color: var(--status-critical); }
+.dut-stage.o-no-result { border-left-color: var(--border); }
+
+.dut-table { margin-top: 4px; }
+.dut-table td { vertical-align: top; }
+.dut-pass { color: var(--success-text); font-weight: 600; }
+.dut-fail { color: var(--status-critical); font-weight: 600; }
+.dut-other { color: var(--text-muted); }
+.dut-suite {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; max-width: 26ch; word-break: break-all;
+}
+.dut-cases { font-size: 11px; max-width: 30ch; color: var(--text-secondary); }
+.dut-link { color: var(--accent-solid); font-weight: 600; }

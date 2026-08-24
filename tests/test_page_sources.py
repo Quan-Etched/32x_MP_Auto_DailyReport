@@ -71,7 +71,8 @@ DOM_SCRIPTS = {
     "ocp.html": ["stations.js"],
     "dailyexcel.html": ["dailysheet.js"],
     "weekly.html": ["weeklysummary.js"],
-    "customize.html": ["customize.js", "errors.js", "customcharts.js"],
+    "customize.html": ["customize.js", "errors.js", "customcharts.js",
+                       "dutsearch.js", "searchmode.js"],
     "allhands.html": ["allhands.js"],
     "rack2.html": ["rack2.js"],
     "week.html": ["week.js"],
@@ -626,3 +627,40 @@ class TableWidthTest(unittest.TestCase):
                         "cells — every cell after the mismatch shifts left"
                         .format(table_id, len(headers), index, script,
                                 len(appends)))
+
+
+class HashOwnershipTest(unittest.TestCase):
+    """Three scripts write one address bar, and they must not erase each other.
+
+    customize.js owns the range keys, searchmode.js owns `mode`, dutsearch.js
+    owns `dut`. customize.js writes its hash from scratch on every render, so
+    without carrying the other two through, opening a shared
+    #mode=dut&dut=... link had the range view drop both on first paint — the
+    link worked for about a millisecond. That is the bug this pins.
+    """
+
+    OWNED = {
+        "customize.js": ["from", "to", "stations", "types", "ran"],
+        "searchmode.js": ["mode"],
+        "dutsearch.js": ["dut"],
+    }
+
+    def source(self, name):
+        return (DASHBOARD / name).read_text(encoding="utf-8")
+
+    def test_customize_carries_the_keys_it_does_not_own(self):
+        text = self.source("customize.js")
+        writer = text[text.index("function writeHash"):]
+        writer = writer[:writer.index("\n  }")]
+        for key in self.OWNED["searchmode.js"] + self.OWNED["dutsearch.js"]:
+            with self.subTest(key=key):
+                self.assertIn("'" + key + "'", writer,
+                              "writeHash drops " + key + ", so a shared link "
+                              "carrying it loses it on the first render")
+
+    def test_each_script_reads_the_key_it_owns(self):
+        for name, keys in self.OWNED.items():
+            text = self.source(name)
+            for key in keys:
+                with self.subTest(script=name, key=key):
+                    self.assertIn(key + "=", text)

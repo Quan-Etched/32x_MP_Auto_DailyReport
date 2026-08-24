@@ -33,6 +33,13 @@
 
   <main id="content">
 
+    <!-- Two shapes of question, two sets of inputs. Range is the default: it is
+         what this page has always done. -->
+    <div class="flow-switch" id="search-mode" role="group"
+         aria-label="What to search by"></div>
+
+    <div id="mode-range">
+
     <section class="card full">
       <div class="card-head">
         <div>
@@ -200,6 +207,39 @@
 
     </div><!-- /output -->
 
+    </div><!-- /mode-range -->
+
+    <!-- By serial. No date range on purpose: the whole point of looking a unit
+         up is that you do not know when the interesting run happened. -->
+    <div id="mode-dut" hidden>
+      <section class="card full">
+        <div class="card-head">
+          <div>
+            <h2>DUT_SN</h2>
+            <p class="sub">One serial per line. Commas and tabs are fine too —
+              paste a column straight out of a spreadsheet.</p>
+          </div>
+        </div>
+        <textarea id="dut-input" class="dut-box" rows="5" spellcheck="false"
+                  placeholder="268645410001&#10;268645440007&#10;268645430002"></textarea>
+        <div class="run-bar" id="dut-run"></div>
+      </section>
+
+      <div id="dut-output" hidden>
+        <section class="card full" style="margin-top:16px">
+          <div class="card-head">
+            <div>
+              <h2>History</h2>
+              <p class="sub" id="dut-sub"></p>
+            </div>
+            <span class="spacer"></span>
+            <div class="quick" id="dut-download"></div>
+          </div>
+          <div id="dut-results"></div>
+        </section>
+      </div>
+    </div><!-- /mode-dut -->
+
   </main>
 
   <footer class="notes">
@@ -232,6 +272,8 @@
 <script src="errors.js"></script>
 <script src="customcharts.js"></script>
 <script src="customize.js"></script>
+<script src="dutsearch.js"></script>
+<script src="searchmode.js"></script>
 <script src="nav.js"></script>
 <script src="theme.js"></script>
 <script src="update.js"></script>
