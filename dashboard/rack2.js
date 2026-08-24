@@ -100,6 +100,342 @@
 
   /* ------------------------------------------------------------------ rack */
 
+  /* ------------------------------------------- the ramp review's questions */
+
+  /* Four questions were asked about these four servers on 2026-08-24, and each
+   * one is answerable from the controllers. They are here rather than in a
+   * Slack reply because two of the answers contradict the premise of the
+   * question, and a number that contradicts what the room believes needs to be
+   * standing somewhere it can be checked.
+   *
+   * Everything below is computed. Nothing is transcribed from the discussion
+   * except the questions themselves and the agreed run-in target.
+   */
+  var AGREED_RUNIN_MIN = 180;          /* the three hours agreed on Thursday */
+
+  function graded(runs) {
+    return (runs || []).filter(function (run) {
+      return run.s === 'pass' || run.s === 'fail' || run.s === 'error';
+    });
+  }
+
+  function minutes(run) {
+    return run && run.u ? run.u / 60 : null;
+  }
+
+  /* Per server per stage: attempts, whether it ever passed, and on which try.
+     Attempt counts matter here — "did they pass" and "how many goes did it
+     take" are different questions and only the second explains the schedule. */
+  function stageFacts(stage) {
+    return RACK.servers.map(function (server) {
+      var runs = graded(historyFor(server.sn)[stage]);
+      var passAt = -1;
+      runs.forEach(function (run, index) {
+        if (passAt < 0 && run.s === 'pass') passAt = index;
+      });
+      return {
+        slot: server.slot, sn: server.sn, runs: runs,
+        attempts: runs.length,
+        ran: runs.length > 0,
+        passed: passAt >= 0,
+        passOn: passAt >= 0 ? passAt + 1 : null,
+        firstPass: runs.length ? runs[0].s === 'pass' : null,
+        pass: passAt >= 0 ? runs[passAt] : null,
+        last: runs.length ? runs[runs.length - 1] : null
+      };
+    });
+  }
+
+  /* The failing test cases in a run, de-noised of the per-run id prefix so the
+     same case reads the same way it does everywhere else on this site. */
+  var RUN_PREFIX = /^[0-9a-f]{6,10}_(chip\d+_|sohu_)?/i;
+  function failedCases(run) {
+    var names = DATA.testNames || [], statuses = DATA.testStatuses || [];
+    var out = [];
+    (run.T || []).forEach(function (test) {
+      var status = statuses[test[1]];
+      if (status !== 'fail' && status !== 'error') return;
+      var name = String(names[test[0]] || '').replace(RUN_PREFIX, '');
+      if (name && out.indexOf(name) === -1) out.push(name);
+    });
+    return out;
+  }
+
+  function anyVirus(runs) {
+    var hits = [];
+    (runs || []).forEach(function (run) {
+      failedCases(run).forEach(function (name) {
+        if (/virus/i.test(name) && hits.indexOf(name) === -1) hits.push(name);
+      });
+    });
+    return hits;
+  }
+
+  function runLink(run, text) {
+    var url = runUrl(run);
+    if (!url) return h('span', { class: 'r2-none', text: text });
+    return h('a', { class: 'r2-run', href: url, target: '_blank',
+                    rel: 'noopener noreferrer', title: url, text: text });
+  }
+
+  /* Question 1 — did all four pass FAT and SFT, what was SFT's first-pass
+     yield, and were retests involved. */
+  function answerFatSft() {
+    var fat = stageFacts('l10_fat'), sft = stageFacts('l10_sft');
+    var ranSft = sft.filter(function (row) { return row.ran; });
+    var firstPass = ranSft.filter(function (row) { return row.firstPass; });
+    var everPass = ranSft.filter(function (row) { return row.passed; });
+
+    var lines = [];
+    /* FPY over the servers that ran it, not over four. Three ran SFT; dividing
+       by four would report a yield for a server that was never tested. */
+    lines.push(h('p', {}, [
+      h('strong', { text: 'SFT first-pass yield: ' }),
+      h('span', { text: ranSft.length
+        ? firstPass.length + ' of ' + ranSft.length + ' ('
+          + Math.round(1000 * firstPass.length / ranSft.length) / 10
+          + '%) passed SFT on the first attempt'
+          + (ranSft.length < RACK.servers.length
+             ? ' — over the ' + ranSft.length + ' that ran it, not four: '
+               + sft.filter(function (row) { return !row.ran; })
+                    .map(function (row) { return row.slot; }).join(', ')
+               + ' has no SFT record at all.'
+             : '.')
+        : 'no server has an SFT record.' })
+    ]));
+    if (ranSft.length && everPass.length === firstPass.length) {
+      lines.push(h('p', { class: 'r2-note', text:
+        'After retests it is still ' + everPass.length + ' of '
+        + ranSft.length + ': nothing that failed SFT has since passed it.' }));
+    }
+
+    /* FAT was not asked about but answers itself: nobody passed it first time,
+       so its first-pass yield is zero and every FAT pass on this rack is a
+       retest. That is the more useful number for the schedule question behind
+       the question. */
+    var ranFat = fat.filter(function (row) { return row.ran; });
+    var fatFirst = ranFat.filter(function (row) { return row.firstPass; });
+    if (ranFat.length) {
+      lines.push(h('p', {}, [
+        h('strong', { text: 'FAT first-pass yield: ' }),
+        h('span', { text: fatFirst.length + ' of ' + ranFat.length + ' ('
+          + Math.round(1000 * fatFirst.length / ranFat.length) / 10 + '%)'
+          + (fatFirst.length === 0
+             ? ' — no server passed FAT on its first attempt, so every FAT '
+               + 'pass on this rack is a retest.' : '.') })
+      ]));
+    }
+    return { fat: fat, sft: sft, lines: lines };
+  }
+
+  /* Question 2 — the run-in was 45 minutes against three hours agreed. */
+  function answerRunin() {
+    var rows = stageFacts('l10_rin');
+    var withAny = rows.filter(function (row) { return row.ran; });
+    var durations = [];
+    withAny.forEach(function (row) {
+      row.runs.forEach(function (run) {
+        var mins = minutes(run);
+        if (mins !== null) durations.push({ row: row, run: run, mins: mins });
+      });
+    });
+    var passing = durations.filter(function (d) { return d.run.s === 'pass'; });
+    return {
+      rows: rows, durations: durations, passing: passing,
+      missing: rows.filter(function (row) { return !row.ran; }),
+      longest: passing.length
+        ? passing.reduce(function (a, b) { return a.mins > b.mins ? a : b; })
+        : null
+    };
+  }
+
+  function renderReview() {
+    var host = byId('review');
+    if (!host) return;
+    host.innerHTML = '';
+
+    var fatSft = answerFatSft();
+    var runin = answerRunin();
+    var newest = null;
+    RACK.servers.forEach(function (server) {
+      var hist = historyFor(server.sn);
+      Object.keys(hist).forEach(function (key) {
+        hist[key].forEach(function (run) {
+          if (!newest || (run.t || 0) > (newest.t || 0)) newest = run;
+        });
+      });
+    });
+
+    function block(question, answer, kids) {
+      var card = h('div', { class: 'r2-qa' }, [
+        h('p', { class: 'r2-q', text: question }),
+        h('p', { class: 'r2-a', text: answer })
+      ]);
+      (kids || []).forEach(function (kid) { if (kid) card.appendChild(kid); });
+      host.appendChild(card);
+    }
+
+    /* --- run-in duration --- */
+    var runinAnswer;
+    if (!runin.durations.length) {
+      runinAnswer = 'No server has a run-in record at all.';
+    } else {
+      var mins = runin.passing.map(function (d) {
+        return Math.round(d.mins) + ' min';
+      });
+      runinAnswer = 'Confirmed, and shorter than 45 minutes for some of it. '
+        + 'The only run-in on record is ' + runin.rows.filter(
+            function (r) { return r.ran; }).map(function (r) {
+              return r.slot; }).join(', ')
+        + ' — passing runs of ' + mins.join(' and ')
+        + ', against the ' + (AGREED_RUNIN_MIN / 60) + '-hour target.';
+      if (runin.missing.length) {
+        runinAnswer += ' ' + runin.missing.map(function (r) { return r.slot; })
+          .join(', ') + ' have no run-in record on any controller.';
+      }
+    }
+    var runinTable = h('div', { class: 'r2-mini' });
+    runin.rows.forEach(function (row) {
+      var cells = [h('span', { class: 'r2-slot', text: row.slot })];
+      if (!row.ran) {
+        cells.push(h('span', { class: 'r2-none', text: 'no run-in record' }));
+      } else {
+        row.runs.forEach(function (run) {
+          var mins = minutes(run);
+          cells.push(h('span', { class: 'r2-cell' }, [
+            h('span', { class: run.s === 'pass' ? 'r2-pass' : 'r2-fail',
+                        text: run.s }),
+            h('span', { class: 'r2-att',
+                        text: mins === null ? '' : Math.round(mins) + ' min' }),
+            runLink(run, utcDay(run))
+          ]));
+        });
+      }
+      runinTable.appendChild(h('div', { class: 'r2-mini-row' }, cells));
+    });
+    block('The L10 servers went through standalone SFT and 45 minutes of '
+          + 'run-in, which deviated from the agreed 3-hour run-in.',
+          runinAnswer, [runinTable]);
+
+    /* --- FAT / SFT --- */
+    var fatSftTable = h('div', { class: 'r2-mini' });
+    [['FAT', fatSft.fat], ['SFT', fatSft.sft]].forEach(function (spec) {
+      spec[1].forEach(function (row) {
+        fatSftTable.appendChild(h('div', { class: 'r2-mini-row' }, [
+          h('span', { class: 'r2-slot', text: row.slot + ' ' + spec[0] }),
+          h('span', { class: !row.ran ? 'r2-none'
+                      : row.passed ? 'r2-pass' : 'r2-fail',
+            text: !row.ran ? 'never ran'
+                  : row.passed ? 'passed on attempt ' + row.passOn
+                  : 'never passed' }),
+          h('span', { class: 'r2-att', text: row.attempts
+            ? plural(row.attempts, 'attempt') : '' }),
+          row.last ? runLink(row.last, 'last run ' + utcDay(row.last)) : null
+        ]));
+      });
+    });
+    var notPassedFat = fatSft.fat.filter(function (row) {
+      return row.ran && !row.passed; });
+    var extra = [];
+    if (notPassedFat.length) {
+      /* A unit at SFT without a FAT pass behind it is the same mis-flow the
+         daily tracker tracks at MLT and HTT, one stage up. */
+      extra.push(h('p', { class: 'r2-flag', text:
+        notPassedFat.map(function (row) { return row.slot; }).join(', ')
+        + ' never passed FAT — and reached SFT anyway. That is a wrong flow at '
+        + 'L10, the same kind the module line tracks between MLT and HTT.' }));
+    }
+    block('Did all 4 servers pass FAT / SFT? What was the FPY for the 4 '
+          + 'servers at SFT? Were any retests involved?',
+          'No. ' + fatSft.fat.filter(function (r) { return r.passed; }).length
+          + ' of 4 passed FAT and ' + fatSft.sft.filter(
+              function (r) { return r.passed; }).length
+          + ' of 4 passed SFT. Retests were involved throughout — FAT took up '
+          + 'to ' + Math.max.apply(null, fatSft.fat.map(function (r) {
+              return r.attempts; })) + ' attempts on one server.',
+          fatSft.lines.concat([fatSftTable]).concat(extra));
+
+    /* --- thermal virus --- */
+    var virusRuns = [];
+    RACK.servers.forEach(function (server) {
+      var hist = historyFor(server.sn);
+      Object.keys(hist).forEach(function (key) {
+        hist[key].forEach(function (run) {
+          var hits = anyVirus([run]);
+          if (hits.length) {
+            virusRuns.push({ slot: server.slot, station: key, run: run,
+                             cases: hits });
+          }
+        });
+      });
+    });
+    var virusTable = h('div', { class: 'r2-mini' });
+    virusRuns.forEach(function (item) {
+      virusTable.appendChild(h('div', { class: 'r2-mini-row' }, [
+        h('span', { class: 'r2-slot', text: item.slot + ' ' +
+                    labelOf(item.station) }),
+        h('span', { class: 'r2-fail', text: utcDay(item.run) }),
+        h('span', { class: 'r2-att', text: item.cases.slice(0, 3).join(', ') }),
+        runLink(item.run, 'log')
+      ]));
+    });
+    /* The dominant failures, so the answer names what actually went wrong
+       rather than only what did not. */
+    var tally = {};
+    RACK.servers.forEach(function (server) {
+      var hist = historyFor(server.sn);
+      Object.keys(hist).forEach(function (key) {
+        hist[key].forEach(function (run) {
+          if (run.s === 'pass') return;
+          failedCases(run).forEach(function (name) {
+            tally[name] = (tally[name] || 0) + 1;
+          });
+        });
+      });
+    });
+    var top = Object.keys(tally).sort(function (a, b) {
+      return tally[b] - tally[a]; }).slice(0, 5);
+    block('I heard that all 4 servers failed the preliminary run-in due to '
+          + 'thermal virus. Do we have the factory test logs and failure '
+          + 'details?',
+          virusRuns.length
+            ? 'Partly. A power-virus failure appears in ' + virusRuns.length
+              + ' run' + (virusRuns.length === 1 ? '' : 's') + ', not four '
+              + 'servers’ worth — and only on '
+              + virusRuns.map(function (i) { return i.slot; })
+                  .filter(function (v, i, a) { return a.indexOf(v) === i; })
+                  .join(', ') + '. Logs are linked below.'
+            : 'Not in this data. No run on any of the four failed a '
+              + 'power-virus or thermal case.',
+          [virusTable,
+           h('p', { class: 'r2-note', text: 'What actually dominates the '
+             + 'failures on these four: ' + top.map(function (name) {
+                 return name + ' ×' + tally[name]; }).join(', ')
+             + '. Firmware and provisioning at FAT, disk and inference '
+             + 'validation at SFT — not thermal.' })]);
+
+    /* --- the in-rack SFT --- */
+    var stamp = newest ? utcDay(newest) : null;
+    var collected = (DATA.collectedAt || '').slice(0, 10);
+    block('These 4 servers were then assembled into the L11 rack and L10 SFT '
+          + 'was conducted again in the rack. My understanding is that none of '
+          + 'the 4 passed SFT due to thermal virus. Please confirm.',
+          'Cannot confirm — there is no record of it. The most recent run on '
+          + 'any of these four serials is ' + (stamp || 'unknown')
+          + ', and the controllers were read on ' + (collected || 'unknown')
+          + '. Whatever SFT ran in the rack has not reached pega4 or pega5, so '
+          + 'this dashboard has nothing to confirm or contradict.',
+          [h('p', { class: 'r2-flag', text: 'What the data does say cuts the '
+             + 'other way: '
+             + fatSft.sft.filter(function (r) { return r.passed; })
+                 .map(function (r) {
+                   return r.slot + ' passed SFT on ' + utcDay(r.pass) + ' in '
+                     + Math.round(minutes(r.pass)) + ' minutes, first attempt';
+                 }).join('; ')
+             + '. If the in-rack SFT then failed it, that is a change of state '
+             + 'worth having the log for.' })]);
+  }
+
   function renderRack() {
     byId('rack-sn').textContent = RACK.sn;
     var sfis = byId('rack-sfis');
@@ -253,6 +589,7 @@
         ? ', ' + String(DATA.collectedAt).replace('T', ' ') : '') + '.';
     renderRack();
     renderServers();
+    renderReview();
   }
 
   if (document.readyState === 'loading') {
