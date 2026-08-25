@@ -78,7 +78,7 @@ DOM_SCRIPTS = {
     "week.html": ["week.js"],
     # Two drawings on one page: flow.js draws the summary, flowchart.js draws
     # the end-to-end chart from flowe2e.js's data, flowswitch.js picks.
-    "flow.html": ["flow.js", "flowchart.js", "flowswitch.js"],
+    "flow.html": ["flow.js", "flowchart.js", "flowswitch.js", "flowcsv.js"],
     "doe.html": ["doe.js"],
     "releases.html": ["releasesrc.js", "suitemap.js"],
 }
@@ -664,3 +664,60 @@ class HashOwnershipTest(unittest.TestCase):
             for key in keys:
                 with self.subTest(script=name, key=key):
                     self.assertIn(key + "=", text)
+
+
+class FlowKindTest(unittest.TestCase):
+    """Process stations are not test stations, and the difference is the point.
+
+    A test station judges the DUT: it fails, the unit is held, the failure is in
+    the yield. A process station judges the process — the bake, the provisioning
+    write, the board build — and when it fails an engineer fixes the line and
+    the unit goes round again. Counting those against DUT yield charges the unit
+    for the line's problem, so the two must stay distinguishable in the data
+    that draws the chart and in the CSV that comes out of it.
+    """
+
+    PROCESS = ("tim", "flash", "bft", "pdb")
+
+    def source(self):
+        return (DASHBOARD / "flowe2e.js").read_text(encoding="utf-8")
+
+    def node(self, node_id):
+        text = self.source()
+        at = text.index("id: '" + node_id + "'")
+        return text[at:text.index("},", at)]
+
+    def test_the_four_process_stations_are_marked(self):
+        for node_id in self.PROCESS:
+            with self.subTest(node=node_id):
+                self.assertIn("kind: 'process'", self.node(node_id))
+
+    def test_ck_is_gone(self):
+        """A checkpoint no controller reported and no unit was held at. A box
+        for it put a stage on the chart that existed nowhere else."""
+        text = self.source()
+        self.assertNotIn("id: 'ck'", text)
+        self.assertNotIn("to: 'ck'", text)
+        self.assertNotIn("'pdb_ck'", text)
+
+    def test_the_renderer_and_the_stylesheet_know_the_kind(self):
+        chart = (DASHBOARD / "flowchart.js").read_text(encoding="utf-8")
+        css = (DASHBOARD / "flow.css").read_text(encoding="utf-8")
+        self.assertIn("'process'", chart, "the legend must name it")
+        self.assertIn(".k-process", css, "an unstyled kind draws as nothing")
+
+    def test_every_node_the_csv_ships_has_a_type(self):
+        """The CSV maps node.kind to a Station Type column; a kind with no
+        mapping would ship a blank type or a raw internal word."""
+        csv_source = (DASHBOARD / "flowcsv.js").read_text(encoding="utf-8")
+        mapped = set(re.findall(r"(\w+): '(?:Test|Process|Build|Pack)'",
+                                csv_source))
+        # NODES only. EDGES uses `kind` too, for how a wire is drawn — "dashed"
+        # and "lead" are line styles, not station types, and sweeping the whole
+        # file picks them up and asks the CSV to name them.
+        text = self.source()
+        nodes = text[text.index("var NODES = ["):text.index("var EDGES = [")]
+        used = set(re.findall(r"kind: '(\w+)'", nodes))
+        self.assertTrue(used, "no kinds found in the chart")
+        self.assertEqual(set(), used - mapped,
+                         "chart uses kinds the CSV cannot name")

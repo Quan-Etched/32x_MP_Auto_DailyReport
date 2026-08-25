@@ -96,6 +96,13 @@
       if (node.sub) {
         box.appendChild(h('span', { class: 'box-sub', text: node.sub }));
       }
+      /* An open question about the stage itself. Marked on the box, because
+         the chart is where somebody notices the stage and the question is
+         about what the chart is asserting. */
+      if (node.question) {
+        box.appendChild(h('span', { class: 'box-ask', title: node.question,
+                                    text: '? open question' }));
+      }
       /* A struck-out box with no way to find out why is a decision nobody
          outside the room can check. */
       if (node.why) {
@@ -237,6 +244,7 @@
       if (!host) return;
       host.innerHTML = '';
       [['test', 'Tested here — the box carries its yield'],
+       ['process', 'Process station — checked, but not the DUT’s yield'],
        ['build', 'Built or moved, not tested'],
        ['pack', 'Shipped']].forEach(function (pair) {
         host.appendChild(h('span', { class: 'lg' }, [
@@ -248,6 +256,12 @@
         h('span', { class: 'lg-sw k-test dashed' }),
         h('span', { text: 'Dashed as the line’s own chart dashes it' })
       ]));
+      /* Said in the legend and not only in a comment: a reader looking at a
+         process station's pass rate needs to know it is not in the yield. */
+      host.appendChild(h('span', { class: 'lg lg-wide', text:
+        'A process station judges the process, not the part: when it fails an '
+        + 'engineer fixes the line and the unit goes round again, so its '
+        + 'failures are monitored but are not charged to DUT yield.' }));
     }
 
     function renderMeta() {

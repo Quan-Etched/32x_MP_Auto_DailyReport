@@ -18,6 +18,23 @@
  * measured", because it is the one where an unmeasured stage has its own box
  * instead of hiding inside a neighbour's.
  *
+ * PROCESS STATIONS
+ * Flash, BFT, PDB and TIM are drawn as process stations rather than test
+ * stations, because they answer a different question. A test station judges the
+ * DUT: it fails, the unit is held, and the failure belongs in the yield. A
+ * process station judges the process — the bake, the provisioning write, the
+ * board build — and when it fails, a factory engineer fixes the process and the
+ * unit goes round again. Nothing is wrong with the module, so counting those
+ * failures against DUT yield would charge the unit for the line's problem.
+ *
+ * They are still monitored, and monitored the same way: the runs are collected,
+ * the pass rate is drawn, and a process station that is failing repeatedly is a
+ * finding — it is just a finding about the line rather than about the parts.
+ *
+ * CK is gone. It was a checkpoint on the line's own drawing that no controller
+ * reported and no unit was ever held at, so a box for it added a stage to the
+ * chart that did not exist anywhere else.
+ *
  * The drawing is data; flowchart.js renders it.
  */
 (function () {
@@ -54,14 +71,13 @@
       sub: 'SMT / ICT' },
     { id: 'htt',     lane: 'l6', col: 2, row: 3, label: 'HTT', kind: 'test',
       station: 'htt' },
-    /* The checkpoint between HTT and 4U assembly. On the line's chart and not
-     * in any controller, so it says so. */
-    { id: 'ck',      lane: 'l6', col: 3, row: 3, label: 'CK', kind: 'test',
-      dashed: true, small: true, note: 'not collected' },
     { id: 'mlt',     lane: 'l6', col: 2, row: 4, label: 'MLT', kind: 'test',
       station: 'mlt' },
-    { id: 'tim',     lane: 'l6', col: 2, row: 5, label: 'TIM', kind: 'test',
-      sub: 'Coldplate bake', station: 'tim' },
+    /* A process station, not a test station. See the note at the foot of this
+       file: a TIM failure is a bake that has to be re-run, and the module is
+       not the thing that failed. */
+    { id: 'tim',     lane: 'l6', col: 2, row: 5, label: 'TIM',
+      kind: 'process', sub: 'Coldplate bake', station: 'tim' },
     { id: 'smt_pv1', lane: 'l6', col: 1, row: 6, label: 'PV1', kind: 'build',
       sub: 'SMT / ICT' },
     { id: 'assy_pv1', lane: 'l6', col: 2, row: 6, label: 'PV1 ASSY',
@@ -69,25 +85,29 @@
     /* Board functional test: I2C, UART, GPIO, power-on sequence, PRBS.
      * ETCH-39584. No controller reports it, so it carries no number — which is
      * the point of giving it its own box. */
-    { id: 'bft',     lane: 'l6', col: 3, row: 6, label: 'BFT', kind: 'test',
-      note: 'not collected · ETCH-39584' },
+    { id: 'bft',     lane: 'l6', col: 3, row: 6, label: 'BFT',
+      kind: 'process', note: 'not collected · ETCH-39584' },
     { id: 'smt_vbb', lane: 'l6', col: 1, row: 7, label: 'VBB', kind: 'build',
       sub: 'SMT / ICT' },
     /* ROT OTP, production certificate, bootloader lock — the VBB provisioning
      * suites this repo does collect. */
-    { id: 'flash',   lane: 'l6', col: 2, row: 7, label: 'Flash', kind: 'test',
-      sub: 'OTP · cert · lock BL', station: 'vbb_provision' },
+    { id: 'flash',   lane: 'l6', col: 2, row: 7, label: 'Flash',
+      kind: 'process', sub: 'OTP · cert · lock BL',
+      station: 'vbb_provision' },
     { id: 'smt_pdb', lane: 'l6', col: 1, row: 8, label: 'PDB', kind: 'build',
       sub: 'SMT / ICT' },
-    { id: 'pdb_ck',  lane: 'l6', col: 3, row: 8, label: 'PDB', kind: 'test',
-      dashed: true, small: true, note: 'not collected' },
+    { id: 'pdb',     lane: 'l6', col: 3, row: 8, label: 'PDB',
+      kind: 'process', note: 'not collected' },
 
     { id: 'assy4u',  lane: 'fatp', col: 1, row: 1, label: '4U ASSY',
       kind: 'build' },
     { id: 'assy2u',  lane: 'fatp', col: 1, row: 2, label: '2U ASSY',
       kind: 'build' },
     { id: 'u2_comp', lane: 'fatp', col: 1, row: 3, label: '2U Component',
-      kind: 'test', station: 'l10_2u', dashed: true, shared: true },
+      kind: 'test', station: 'l10_2u', dashed: true, shared: true,
+      question: 'One station key covers both 2U insertions, so Component and '
+              + 'System cannot be told apart in the data. Which of the two is '
+              + 'POR, and should they report separately?' },
 
     { id: 'run10',   lane: 'l106', col: 2, row: 1, label: 'Runin', kind: 'test',
       station: 'l10_rin' },
@@ -96,7 +116,9 @@
     { id: 'fat10',   lane: 'l106', col: 1, row: 2, label: 'FAT',   kind: 'test',
       station: 'l10_fat' },
     { id: 'u2_sys',  lane: 'l106', col: 1, row: 3, label: '2U System',
-      kind: 'test', station: 'l10_2u', dashed: true, shared: true },
+      kind: 'test', station: 'l10_2u', dashed: true, shared: true,
+      question: 'Same station key as 2U Component. Open: are these one test at '
+              + 'two insertions or two tests, and which is POR at each stage?' },
     { id: 'assy6u',  lane: 'l106', col: 1, row: 4, label: 'ASSY',  kind: 'build' },
 
     { id: 'assy11',  lane: 'l11', col: 1, row: 1, label: 'ASSY', kind: 'build' },
@@ -121,8 +143,7 @@
     { from: 'assy_pv1', to: 'tim' },
     { from: 'tim',     to: 'mlt' },
     { from: 'mlt',     to: 'htt' },
-    { from: 'htt',     to: 'ck' },
-    { from: 'ck',      to: 'assy4u',  across: true },
+    { from: 'htt',     to: 'assy4u',  across: true },
     { from: 'smt_hpb', to: 'assy4u',  across: true },
     { from: 'smt_bb',  to: 'assy4u',  across: true, kind: 'dashed' },
 
@@ -130,8 +151,8 @@
     { from: 'flash',   to: 'bft' },
     { from: 'bft',     to: 'assy4u',  across: true },
 
-    { from: 'smt_pdb', to: 'pdb_ck',  kind: 'lead' },
-    { from: 'pdb_ck',  to: 'assy2u',  across: true, kind: 'lead' },
+    { from: 'smt_pdb', to: 'pdb',     kind: 'lead' },
+    { from: 'pdb',     to: 'assy2u',  across: true, kind: 'lead' },
 
     { from: 'assy2u',  to: 'u2_comp' },
     { from: 'assy4u',  to: 'assy6u',  across: true },
@@ -152,7 +173,7 @@
 
   function init() {
     if (!window.FactoryFlow) return;
-    window.FactoryFlow.render({
+    var chart = {
       id: 'e2e', lanes: LANES, nodes: NODES, edges: EDGES,
       /* Its own canvas: this chart shares flow.html with the summary now, and
          a shared #canvas meant whichever script ran second wiped the first.
@@ -160,7 +181,11 @@
       targets: { canvas: 'e2e-canvas', lanes: 'e2e-lanes',
                  wires: 'e2e-wires', legend: 'e2e-legend' },
       chrome: false
-    });
+    };
+    window.FactoryFlow.render(chart);
+    /* The station table is the same list of stages as the drawing, so it is
+       handed the chart rather than keeping its own copy. */
+    if (window.FactoryFlowCsv) window.FactoryFlowCsv.attach(chart);
   }
 
   if (document.readyState === 'loading') {

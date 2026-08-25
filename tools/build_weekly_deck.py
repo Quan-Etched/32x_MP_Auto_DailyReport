@@ -55,6 +55,10 @@ WARN = RGBColor(0xB5, 0x6B, 0x00)
 BAD = RGBColor(0xB3, 0x28, 0x1E)
 
 # The line's own palette, kept so the slide reads as the same diagram.
+#: Process stations. Blue-grey, not green: green on this chart means "a yield
+#: we count", which is exactly what these are not.
+PROCESS = RGBColor(0xDF, 0xE7, 0xEF)
+PROCESS_EDGE = RGBColor(0x8F, 0xA8, 0xC0)
 GREEN = RGBColor(0xD5, 0xE8, 0xD4)
 GREEN_EDGE = RGBColor(0x82, 0xB3, 0x66)
 GREY = RGBColor(0xD9, 0xD9, 0xD9)
@@ -500,7 +504,12 @@ def draw_box(slide, box, by_station, external, data, geom=GEOM):
             and all(r.get("fpy") is not None for r in rows))
 
     fill, edge = GREY, GREY_EDGE
-    if box["kind"] == "pack":
+    if box["kind"] == "process":
+        # A process station judges the process, not the part: when it fails an
+        # engineer fixes the line and the unit goes round again, so it is drawn
+        # apart from the green test boxes whose failures are in the yield.
+        fill, edge = PROCESS, PROCESS_EDGE
+    elif box["kind"] == "pack":
         fill, edge = BLUE, BLUE_EDGE
     elif box["kind"] == "flash":
         fill, edge = PINK, PINK_EDGE

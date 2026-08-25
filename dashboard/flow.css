@@ -293,3 +293,43 @@
   margin-top: 2px;
 }
 .box-why:hover { text-decoration: underline; }
+
+/* ------------------------------------------------------ process stations ---
+ * Flash, BFT, PDB and TIM judge the process, not the part. When one fails, an
+ * engineer fixes the line and the unit goes round again — so they are drawn
+ * apart from test stations, in a different colour, and their pass rates are
+ * monitored without being charged to DUT yield.
+ *
+ * Blue-grey rather than green: green on this chart means "a yield we count",
+ * and that is exactly what these are not. */
+.k-process {
+  background: #dfe7ef;
+  border: 1px solid #8fa8c0;
+}
+.k-process .box-label { font-weight: 700; }
+.swatch.k-process, .lg-sw.k-process {
+  background: #dfe7ef; border: 1px solid #8fa8c0;
+}
+
+/* An open question about a stage. Not an error and not a warning — a question
+   somebody still owes an answer to, which is a third thing. */
+.box-ask {
+  display: block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #8a5a00;
+  cursor: help;
+}
+
+/* A legend line that is a sentence rather than a swatch. */
+.lg-wide {
+  flex-basis: 100%;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+/* The station table's download. Above the legend because it is about the whole
+   chart, not about a colour in it. */
+.e2e-tools { display: flex; justify-content: flex-end; margin: 0 0 10px; }

@@ -78,21 +78,19 @@ E2E_LANES = [
          "station": "htt"},
         {"label": "MLT", "x": 3.48, "w": 1.30, "row": 3, "kind": "test",
          "station": "mlt"},
-        {"label": "TIM", "x": 3.48, "w": 1.30, "row": 4, "kind": "test",
+        {"label": "TIM", "x": 3.48, "w": 1.30, "row": 4, "kind": "process",
          "station": "tim", "note": "Coldplate bake"},
         {"label": "PV1 ASSY", "x": 3.48, "w": 1.30, "row": 5, "kind": "build"},
         # ROT OTP, production certificate, bootloader lock — the VBB
         # provisioning suites this repo does collect.
-        {"label": "Flash", "x": 3.48, "w": 1.30, "row": 6, "kind": "flash",
+        {"label": "Flash", "x": 3.48, "w": 1.30, "row": 6, "kind": "process",
          "station": "vbb_provision", "note": "OTP · cert · lock BL"},
         # Column 3: checkpoints and the board functional test. None of the
         # three reports to a controller, and each has its own box so that shows
         # — drawn inside a neighbour they borrow its yield.
-        {"label": "CK",  "x": 4.92, "w": 0.58, "row": 2, "kind": "test",
-         "note": "not collected"},
-        {"label": "BFT", "x": 4.92, "w": 0.58, "row": 5, "kind": "test",
+        {"label": "BFT", "x": 4.92, "w": 0.58, "row": 5, "kind": "process",
          "note": "not collected · ETCH-39584"},
-        {"label": "PDB CK", "x": 4.92, "w": 0.58, "row": 7, "kind": "test",
+        {"label": "PDB CK", "x": 4.92, "w": 0.58, "row": 7, "kind": "process",
          "note": "not collected"},
     ]},
     {"title": "FATP L10 2U/4U", "owner": "", "divider": 7.36, "boxes": [
@@ -149,8 +147,7 @@ E2E_WIRES = [
 
     ("PV1", "PV1 ASSY", "h"),
     ("PV1 ASSY", "TIM", "v"), ("TIM", "MLT", "v"), ("MLT", "HTT", "v"),
-    ("HTT", "CK", "h"),
-    ("CK", "4U ASSY", "vh"),
+    ("HTT", "4U ASSY", "vh"),
     # BB runs straight across at its own row; HPB is directly under it, so its
     # wire goes over the top rather than through the BB box.
     ("BB", "4U ASSY", "h"),
