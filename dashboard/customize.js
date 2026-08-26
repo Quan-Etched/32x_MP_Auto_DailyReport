@@ -504,11 +504,18 @@
     if (DAYS.length && view.from < DAYS[0]) view.from = DAYS[0];
     view.to = (to && to[1]) || last;
 
+    /* Arriving from the nav's Error codes tab. That section lives inside the
+       RUN-gated output, so a bare #section=errors link would land on a page
+       where the table it names is invisible until the reader ticks a station
+       and presses RUN — which reads as a broken link, not as a gate. So the
+       deep link brings its own answer: every station, already run. */
+    var deepLink = /section=errors/.test(hash) && !/ran=1/.test(hash);
+
     var types = /types=([a-z,-]+)/.exec(hash);
     view.types = types ? types[1].split(',') : [];
     /* A shared link that already ran should show its results, not make the
        reader press RUN to see what they were sent. */
-    view.ran = /ran=1/.test(hash);
+    view.ran = /ran=1/.test(hash) || deepLink;
 
     view.stations = {};
     var wanted = stations ? stations[1].split(',') : null;
@@ -517,7 +524,7 @@
          thing anyone did was untick ten boxes, and it made the page look like
          it was already showing them an answer about the whole line when they
          had not asked a question yet. */
-      view.stations[key] = wanted ? wanted.indexOf(key) !== -1 : false;
+      view.stations[key] = wanted ? wanted.indexOf(key) !== -1 : deepLink;
     });
   }
 

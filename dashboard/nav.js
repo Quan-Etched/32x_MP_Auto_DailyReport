@@ -30,7 +30,9 @@
       'The line’s own daily MLT/HTT sheet, rebuilt'],
     ['runs.html', 'Raw runs', 'One row per unit run — the drill-down'],
     ['customize.html', 'Customize',
-      'Pick days and stations, take the CSV, read the error codes'],
+      'Pick days and stations by range or by serial, take the CSV'],
+    ['customize.html#section=errors', 'Error codes',
+      'Every failure joined to the error-code catalogue, with root cause'],
     ['flow.html', 'Test flow', 'Both drawings of the line, with yields'],
     ['doe.html', 'Result types',
       'Pass, retest pass and bonepile per unit, and the MLT → HTT flow'],
@@ -60,13 +62,32 @@
     host.innerHTML = '';
     var hidden = HIDE[page] || [];
     LINKS.forEach(function (link) {
-      if (link[0] === page) return;          /* no link to the page you are on */
       if (hidden.indexOf(link[0]) !== -1) return;
+
+      /* Every destination on every page, including the one you are standing
+         on.
+       *
+       * It used to omit the current page, on the grounds that a link to where
+       * you already are is a dead control. True, but it made the row of tabs a
+       * different row on every page — and someone looking for "Weekly tracker"
+       * on the weekly page concluded it had gone. A visible, marked-as-current
+       * tab costs one slot and makes the set stable, which is what a reader
+       * uses a tab row for.
+       *
+       * A fragment link counts as the current page only when the fragment
+       * matches too: Customize and Error codes are the same document, and
+       * marking both current on either would say the reader is in two places. */
+      var target = link[0].split('#')[0];
+      var fragment = link[0].indexOf('#') === -1 ? '' : link[0].split('#')[1];
+      var isHere = target === page
+        && (fragment === '' || ('#' + fragment) === (location.hash || ''));
+
       var a = document.createElement('a');
-      a.setAttribute('class', 'theme-toggle');
+      a.setAttribute('class', 'theme-toggle' + (isHere ? ' current' : ''));
       a.setAttribute('href', link[0]);
-      a.setAttribute('title', link[2]);
-      a.textContent = link[1] + ' →';
+      a.setAttribute('title', isHere ? 'you are here' : link[2]);
+      if (isHere) a.setAttribute('aria-current', 'page');
+      a.textContent = link[1] + (isHere ? '' : ' →');
       host.appendChild(a);
     });
   }

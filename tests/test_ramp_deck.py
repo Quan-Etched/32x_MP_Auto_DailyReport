@@ -150,9 +150,30 @@ class LayoutTest(unittest.TestCase):
         """It exists to draw TIM and the split of Flash from BFT."""
         labels = {box["label"] for lane in ramp.E2E_LANES
                   for box in lane["boxes"]}
-        for wanted in ("TIM", "Flash", "BFT", "CK", "PDB CK",
+        for wanted in ("TIM", "Flash", "BFT", "PDB CK",
                        "2U Component", "2U System"):
             self.assertIn(wanted, labels)
+
+    def test_ck_is_gone_from_the_deck_too(self):
+        """It was a checkpoint no controller reported and no unit was held at,
+        so a box for it put a stage on the chart that existed nowhere else. The
+        page dropped it; a deck still drawing it would disagree with the page it
+        is generated from."""
+        labels = {box["label"] for lane in ramp.E2E_LANES
+                  for box in lane["boxes"]}
+        self.assertNotIn("CK", labels)
+        wired = {end for wire in ramp.E2E_WIRES for end in wire[:2]}
+        self.assertNotIn("CK", wired)
+
+    def test_the_process_stations_are_drawn_as_process(self):
+        """Flash, BFT, PDB and TIM judge the process, not the part, and a deck
+        that draws them the same green as MLT says their failures are in the
+        yield. They are not."""
+        kinds = {box["label"]: box["kind"] for lane in ramp.E2E_LANES
+                 for box in lane["boxes"]}
+        for label in ("TIM", "Flash", "BFT", "PDB CK"):
+            with self.subTest(box=label):
+                self.assertEqual("process", kinds.get(label))
 
 
 if __name__ == "__main__":

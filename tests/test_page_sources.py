@@ -7,7 +7,9 @@ somebody quoting the wrong number. The pairing is asserted here so it cannot
 drift silently.
 """
 
+import json
 import re
+import subprocess
 import unittest
 
 from factory import config
@@ -721,3 +723,122 @@ class FlowKindTest(unittest.TestCase):
         self.assertTrue(used, "no kinds found in the chart")
         self.assertEqual(set(), used - mapped,
                          "chart uses kinds the CSV cannot name")
+
+
+class NavTest(unittest.TestCase):
+    """The tab row must be the same row on every page.
+
+    It used to omit the link to the page you were on, which is defensible in the
+    abstract — a link to where you already are is a dead control — and wrong in
+    practice: the row was a different row on every page, and a reader looking
+    for "Weekly tracker" while standing on the weekly page concluded it had been
+    removed. A marked-as-current tab costs one slot and makes the set stable.
+    """
+
+    def source(self):
+        return (DASHBOARD / "nav.js").read_text(encoding="utf-8")
+
+    def links(self):
+        text = self.source()
+        block = text[text.index("var LINKS = ["):]
+        block = block[:block.index("\n  ];")]
+        return re.findall(r"\['([^']+)',\s*'([^']+)'", block)
+
+    def test_every_page_with_a_masthead_renders_the_nav(self):
+        for page in sorted(DASHBOARD.glob("*.html")):
+            text = page.read_text(encoding="utf-8")
+            if "masthead" not in text:
+                continue                       # a redirect stub
+            with self.subTest(page=page.name):
+                self.assertIn('id="nav"', text)
+                self.assertIn('src="nav.js"', text)
+
+    #: A DOM small enough to run nav.js against, so this tests what the page
+    #: does rather than what its source says. Checking for the absence of one
+    #: particular line let a differently-spelled `return` back in.
+    SHIM = """
+var KNOWN_IDS = ['nav'];
+function El(t){ this.tag=t; this.attrs={}; this.kids=[]; this._text=''; }
+Object.defineProperty(El.prototype,'textContent',{
+  get:function(){ return this._text; },
+  set:function(v){ this._text = String(v); }});
+Object.defineProperty(El.prototype,'innerHTML',{
+  get:function(){ return ''; }, set:function(v){ if(!v) this.kids=[]; }});
+El.prototype.setAttribute=function(k,v){ this.attrs[k]=v; };
+El.prototype.appendChild=function(n){ this.kids.push(n); return n; };
+var REG={};
+var document={ createElement:function(t){ return new El(t); },
+  getElementById:function(id){
+    return KNOWN_IDS.indexOf(id)===-1 ? null : (REG[id]||(REG[id]=new El('nav')));
+  },
+  addEventListener:function(){} };
+var location={ pathname:'/%s', hash:'' };
+"""
+
+    def render_nav(self, page):
+        """nav.js's own output for a page, as (label, is_current) pairs."""
+        harness = (self.SHIM % page) + self.source() + """
+JSON.stringify(document.getElementById('nav').kids.map(function (a) {
+  return [a.textContent.replace(' \u2192',''),
+          /current/.test(a.attrs['class'] || '')];
+}));
+"""
+        try:
+            got = subprocess.run(
+                ["osascript", "-l", "JavaScript", "-e", harness],
+                capture_output=True, text=True, timeout=60)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            self.skipTest("no JavaScript runtime: {}".format(exc))
+        if got.returncode:
+            self.fail("nav.js would not run: " + got.stderr)
+        return json.loads(got.stdout)
+
+    def test_the_current_page_appears_and_is_marked(self):
+        """The behaviour, not the spelling. Every page must render a tab for
+        itself, marked current — that is the property that keeps the row the
+        same row everywhere."""
+        for page, label in (("index.html", "Station yield"),
+                            ("weekly.html", "Weekly tracker"),
+                            ("doe.html", "Result types"),
+                            ("flow.html", "Test flow")):
+            rendered = self.render_nav(page)
+            names = [name for name, _ in rendered]
+            marked = [name for name, current in rendered if current]
+            with self.subTest(page=page):
+                self.assertIn(label, names,
+                              page + " does not render its own tab")
+                self.assertEqual([label], marked,
+                                 "exactly one tab should be marked current")
+
+    def test_the_row_is_the_same_row_everywhere(self):
+        """Bar the per-page exclusions, which are deliberate and listed."""
+        base = [name for name, _ in self.render_nav("index.html")]
+        for page in ("weekly.html", "doe.html", "flow.html", "rack2.html"):
+            with self.subTest(page=page):
+                self.assertEqual(base, [n for n, _ in self.render_nav(page)])
+
+    def test_the_majors_are_all_there(self):
+        """The pages people asked to always see. A page reachable only from one
+        other page is a page nobody finds."""
+        targets = [href for href, _ in self.links()]
+        for wanted in ("index.html", "weekly.html", "dailyexcel.html",
+                       "customize.html", "customize.html#section=errors",
+                       "flow.html", "doe.html", "releases.html", "rack2.html"):
+            with self.subTest(target=wanted):
+                self.assertIn(wanted, targets)
+
+    def test_every_target_exists(self):
+        for href, label in self.links():
+            page = href.split("#")[0]
+            with self.subTest(link=label):
+                self.assertTrue((DASHBOARD / page).exists(),
+                                label + " points at " + page + ", which is not "
+                                "in dashboard/")
+
+    def test_the_error_codes_deep_link_brings_its_own_answer(self):
+        """That section sits inside the RUN-gated output, so a bare fragment
+        would land on a page where the table it names is invisible."""
+        customize = (DASHBOARD / "customize.js").read_text(encoding="utf-8")
+        self.assertIn("section=errors", customize,
+                      "customize.js must recognise the deep link")
+        self.assertIn("deepLink", customize)

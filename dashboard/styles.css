@@ -703,3 +703,15 @@ footer.notes code {
   gap: 6px;
   justify-content: flex-end;
 }
+
+/* The tab you are on. Shown rather than omitted — the row used to differ on
+   every page, and a reader looking for the tab of the page they were already
+   on concluded it had been removed. Marked, not hidden: it is a landmark, not
+   a destination. */
+.theme-toggle.current {
+  border-color: var(--accent-solid);
+  color: var(--text-primary);
+  font-weight: 600;
+  cursor: default;
+}
+.theme-toggle.current:hover { background: var(--surface-1); }
