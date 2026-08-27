@@ -977,7 +977,7 @@ def _seen_before(day: str, lookback: int = NEW_INPUT_LOOKBACK
     for offset in range(lookback, 0, -1):
         past = (start - timedelta(days=offset)).strftime("%Y-%m-%d")
         try:
-            listing = pega.day_suite_runs(past)
+            listing = pega.day_suite_runs(past, host="pega3")
         except pega.PegaUnavailable:
             continue
         for entry in sorted(listing, key=lambda e: e.get("start_time") or ""):
@@ -989,7 +989,7 @@ def _seen_before(day: str, lookback: int = NEW_INPUT_LOOKBACK
             if ENGINEERING.search(run_id) or ENGINEERING.search(suite):
                 continue
             try:
-                detail = pega.suite_run(run_id)
+                detail = pega.suite_run(run_id, host="pega3")
             except pega.PegaUnavailable:
                 continue
             for part in pega.participants(detail):
@@ -1086,7 +1086,7 @@ def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
     if not pega.enabled():
         return None
     try:
-        listing = pega.day_suite_runs(day)
+        listing = pega.day_suite_runs(day, host="pega3")
     except pega.PegaUnavailable:
         return None
 
@@ -1118,7 +1118,7 @@ def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
         if DEBUG_BUILD.search(suite) or DEBUG_BUILD.search(run_id):
             debug_builds[station].append(suite)
         try:
-            detail = pega.suite_run(run_id)
+            detail = pega.suite_run(run_id, host="pega3")
         except pega.PegaUnavailable:
             continue
         runs_seen += 1
@@ -1273,6 +1273,16 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
             "runs": runs_seen,
             "source": "pega3",
             "versions": labels,
+            # Whether this day's runs came off the network or out of the
+            # cache after a failed fetch.
+            #
+            # On 2026-08-27 one listing call timed out, the cache caught the
+            # fall, and the cached copy was hours old — so the tab was built
+            # from six runs when pega3 had fifteen, reported nothing excluded,
+            # and its note said it had been rebuilt from pega3. A stale answer
+            # presented as a fresh one is the exact failure this page exists to
+            # avoid, so now it says.
+            "staleListing": pega.fell_back("pega3"),
             "excluded": {station: sorted(set(names))
                          for station, names in excluded.items() if names},
             "excludedRuns": {station: len(names)

@@ -103,9 +103,38 @@ def enabled() -> bool:
 CACHE_DIR = config.RAW_DIR / "pega"
 
 
+#: Hosts whose answer came from the cache after the network failed, this run.
+#: A caller can ask, so a page built from a stale copy can say so instead of
+#: presenting it as fresh.
+_FELL_BACK: set = set()
+
+
+def fell_back(host: Optional[str] = None) -> bool:
+    """Did this host's data come from the cache after a failed fetch?"""
+    if host is None:
+        return bool(_FELL_BACK)
+    return host in _FELL_BACK
+
+
+def _default_host_name() -> str:
+    """The name behind ``host=None``, so it shares an identity with the
+    explicitly-named calls to the same machine."""
+    base = base_url(None)
+    for name in ("pega1", "pega2", "pega3", "pega4", "pega5", "pega6"):
+        if "//{}:".format(name) in base or "//{}/".format(name) in base:
+            return name
+    return "default"
+
+
 def _cache_path(path: str, host: Optional[str] = None) -> Path:
     # The host is part of the key: pega3 and pega4 answer the same paths with
     # different data, and a shared key would serve one line's runs to the other.
+    # Literal, deliberately. Resolving `host=None` to a name here would make
+    # the key depend on base_url(), which depends on FACTORY_PEGA_URL — so a
+    # cache written before that variable changed could not be found after, and
+    # every existing cache file would be orphaned by the rename. Callers name
+    # their host instead (asserted in tests), which is what makes the collector
+    # and the daily tracker share one entry.
     key = "{}|{}".format(host or "", path)
     return CACHE_DIR / (hashlib.sha1(key.encode("utf-8")).hexdigest() + ".json")
 
@@ -147,11 +176,20 @@ def _get(path: str, cache: bool = False, stale_ok: bool = False,
         if hit is not None:
             return hit
 
-    who = host or "default"
+    # One machine, one identity. `host=None` and `host="pega3"` build the same
+    # URL, and treating them as two names meant a single timeout under
+    # "default" marked that name dead for the rest of the process while the
+    # pega3-named calls carried on working. The daily tracker was the only
+    # caller using the unnamed form, so it was the only one that silently fell
+    # back to a stale listing — on 2026-08-27 that cost it eight runs and it
+    # said nothing. Callers should name their host; this makes the two agree
+    # anyway.
+    who = host or _default_host_name()
     if who in _UNREACHABLE:
         if cache:
             hit = _read_cache(path, host)
             if hit is not None:
+                _FELL_BACK.add(who)
                 return hit
         raise PegaUnavailable("{} was unreachable earlier in this run".format(who))
 
@@ -173,6 +211,7 @@ def _get(path: str, cache: bool = False, stale_ok: bool = False,
         if cache:
             hit = _read_cache(path, host)
             if hit is not None:
+                _FELL_BACK.add(who)
                 return hit
         raise PegaUnavailable("{}: {}".format(url, exc)) from exc
 

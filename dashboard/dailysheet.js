@@ -1386,10 +1386,18 @@
   function renderCaption(tab, showing, els) {
     els = els || el;
     var total = (tab.rows || []).length;
+    var from = tab.derivedFrom || {};
     var source = tab.derived
       ? (tab.day || tab.label) + ', rebuilt from ' +
-        (((tab.derivedFrom || {}).source === 'pega3') ? 'pega3' : 'EOS')
+        (from.source === 'pega3' ? 'pega3' : 'EOS')
       : (tab.day || tab.label) + ', as recorded by the line';
+    /* A day whose listing came out of the cache after a failed fetch is not a
+       complete day, and it looks exactly like one. Said here, next to the
+       count, because the count is the number somebody quotes. */
+    if (from.staleListing) {
+      source += ' — from a cached copy after the controller did not answer, '
+              + 'so runs newer than the cache are missing';
+    }
     els.caption.innerHTML = '';
     if (showing === total) {
       els.caption.appendChild(document.createTextNode(

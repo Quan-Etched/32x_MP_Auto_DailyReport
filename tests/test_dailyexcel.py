@@ -714,8 +714,8 @@ class PegaTabTest(unittest.TestCase):
         from factory import pega
         self.addCleanup(setattr, pega, "day_suite_runs", pega.day_suite_runs)
         self.addCleanup(setattr, pega, "suite_run", pega.suite_run)
-        pega.day_suite_runs = lambda day: list(self.LISTING)
-        pega.suite_run = lambda run_id: self.DETAIL[run_id]
+        pega.day_suite_runs = lambda day, host=None: list(self.LISTING)
+        pega.suite_run = lambda run_id, host=None: self.DETAIL[run_id]
 
     def build(self):
         return build_dailyexcel._pega_tab("2026-08-13", None)
@@ -767,8 +767,8 @@ class PegaTabTest(unittest.TestCase):
                                            "slot_number": 0, "status": "Failed"}],
                         "test_cases": [_case(run, 0, "SltModuleNestedTestCase",
                                                   "failed", "01:00")]}}
-        pega.day_suite_runs = lambda day: listing
-        pega.suite_run = lambda run_id: detail[run_id]
+        pega.day_suite_runs = lambda day, host=None: listing
+        pega.suite_run = lambda run_id, host=None: detail[run_id]
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
         self.assertEqual(rows["268494130000045"][self.at("F")]["v"], "SltModuleNestedTestCase")
 
@@ -795,8 +795,8 @@ class PegaTabTest(unittest.TestCase):
         detail = dict(self.DETAIL)
         detail[late] = {"status": "passed", "participating": [
             {"dut_sn": "268494130000045", "slot_number": 0, "status": "Passed"}]}
-        pega.day_suite_runs = lambda day: listing
-        pega.suite_run = lambda run_id: detail[run_id]
+        pega.day_suite_runs = lambda day, host=None: listing
+        pega.suite_run = lambda run_id, host=None: detail[run_id]
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
         self.assertEqual(rows["268494130000045"][self.at("E")]["v"], "Passed")
         self.assertTrue(rows["268494130000045"][self.at("G")]["h"].endswith(
@@ -831,8 +831,8 @@ class PegaTabTest(unittest.TestCase):
         detail = dict(self.DETAIL)
         detail[run] = {"status": "passed", "participating": [
             {"dut_sn": "268494130000044", "slot_number": 3, "status": "Passed"}]}
-        pega.day_suite_runs = lambda day: listing
-        pega.suite_run = lambda run_id: detail[run_id]
+        pega.day_suite_runs = lambda day, host=None: listing
+        pega.suite_run = lambda run_id, host=None: detail[run_id]
         rows = {r[1]["v"]: r for r in self.build()["rows"]}
         self.assertEqual(rows["268494130000044"][self.at("Hv")]["v"],
                          "htt_2026.224.0-gitdef_validation")
@@ -853,7 +853,7 @@ class PegaTabTest(unittest.TestCase):
 
     def test_an_unreachable_pega_yields_none_rather_than_raising(self):
         from factory import pega
-        def boom(day):
+        def boom(day, host=None):
             raise pega.PegaUnavailable("no route to host")
         pega.day_suite_runs = boom
         self.assertIsNone(build_dailyexcel._pega_tab("2026-08-13", None))
@@ -882,14 +882,18 @@ class PegaCacheTest(unittest.TestCase):
 
     def test_a_cached_answer_is_served_when_the_host_is_unreachable(self):
         self.pega._write_cache("/api/test_suite_run/x", {"dut_sn": "268494130000045"})
-        # Unreachable is tracked per host now: pega4 being down says nothing
-        # about pega3, and a shared flag would stop reading one that answers.
-        self.pega._UNREACHABLE = {"default"}
+        # Unreachable is tracked per host: pega4 being down says nothing about
+        # pega3, and a shared flag would stop reading one that answers. The
+        # bucket is named by the resolved host — `host=None` resolves to the
+        # machine base_url() points at — so the literal "default" would name a
+        # bucket nothing is filed under and this would test the network path by
+        # accident.
+        self.pega._UNREACHABLE = {self.pega._default_host_name()}
         self.assertEqual(self.pega._get("/api/test_suite_run/x", cache=True),
                          {"dut_sn": "268494130000045"})
 
     def test_an_uncached_path_still_fails_when_unreachable(self):
-        self.pega._UNREACHABLE = {"default"}
+        self.pega._UNREACHABLE = {self.pega._default_host_name()}
         with self.assertRaises(self.pega.PegaUnavailable):
             self.pega._get("/api/test_suite_run/missing", cache=True)
 
@@ -1464,3 +1468,98 @@ class SerialHeadingTest(unittest.TestCase):
         tab = self.tab("DUT SN")
         build_dailyexcel._serial_heading(tab)          # must not raise
         self.assertEqual(tab["columns"][1]["title"], "SN")
+
+
+class HostIdentityTest(unittest.TestCase):
+    """One machine, one identity — the bug of 2026-08-27.
+
+    ``pega.day_suite_runs(day)`` and ``pega.day_suite_runs(day, host="pega3")``
+    build the same URL, and pega.py used to treat them as two names. A single
+    timeout under the unnamed call marked "default" dead for the rest of the
+    process while every pega3-named call carried on working, so the daily
+    tracker — the only caller using the unnamed form — silently fell back to a
+    cached listing hours old. The 08-27 tab was built from six runs when pega3
+    had fifteen, reported nothing excluded, and its note said it had been
+    rebuilt from pega3.
+
+    Two things keep it fixed, and both are asserted: the names resolve to one
+    identity, and every caller says which host it means.
+    """
+
+    def test_the_unnamed_host_resolves_to_the_named_one(self):
+        from factory import pega
+        self.assertEqual(pega.base_url(None), pega.base_url("pega3"))
+        self.assertEqual("pega3", pega._default_host_name())   # noqa: SLF001
+
+    def test_a_failure_under_either_name_stops_both(self):
+        """The behaviour, not the helper.
+
+        Checking that `_default_host_name()` returns "pega3" passes even if
+        `_get` never calls it — which is exactly the state the bug was in. So
+        this marks the machine unreachable under its explicit name and requires
+        the unnamed call to know: same machine, same verdict.
+        """
+        from factory import pega
+        before = set(pega._UNREACHABLE)                       # noqa: SLF001
+        try:
+            pega._UNREACHABLE.add("pega3")                    # noqa: SLF001
+            with self.assertRaises(pega.PegaUnavailable) as caught:
+                pega._get("/api/nothing", cache=False, host=None)  # noqa: SLF001
+            # The short-circuit's own words. Asserting on "pega3" alone was
+            # useless: the fallthrough path raises with the URL in it, and the
+            # URL contains pega3 whichever bucket the call landed in.
+            self.assertIn("unreachable earlier in this run",
+                          str(caught.exception),
+                          "host=None was bucketed apart from pega3, so a "
+                          "timeout under one name leaves the other running")
+        finally:
+            pega._UNREACHABLE.clear()                         # noqa: SLF001
+            pega._UNREACHABLE.update(before)                  # noqa: SLF001
+
+    def test_the_cache_key_does_not_depend_on_the_environment(self):
+        """Resolving host=None to a name inside the key looked tidy and was
+        wrong: the key would then depend on FACTORY_PEGA_URL, so a cache
+        written before that variable changed could not be found after, and
+        every existing cache file would be orphaned by the rename. Sharing is
+        achieved by callers naming their host, not by rewriting the key."""
+        import os
+        from factory import pega
+        path = "/api/history/data-analysis/suite-runs?start=x&end=y"
+        first = pega._cache_path(path, None)                  # noqa: SLF001
+        previous = os.environ.get("FACTORY_PEGA_URL")
+        os.environ["FACTORY_PEGA_URL"] = "http://pega4:3000"
+        try:
+            self.assertEqual(first,
+                             pega._cache_path(path, None))    # noqa: SLF001
+        finally:
+            if previous is None:
+                os.environ.pop("FACTORY_PEGA_URL", None)
+            else:
+                os.environ["FACTORY_PEGA_URL"] = previous
+
+    def test_every_pega_call_names_its_host(self):
+        """A caller that does not name its host is a caller whose failures are
+        bucketed apart from everybody else's."""
+        import re
+        from factory import config
+        pattern = re.compile(r"pega\.(day_suite_runs|suite_run)\(([^)]*)\)")
+        offenders = []
+        for source in sorted((config.REPO_ROOT / "src" / "factory").glob("*.py")):
+            if source.name == "pega.py":
+                continue
+            for found in pattern.finditer(source.read_text(encoding="utf-8")):
+                if "host=" not in found.group(2):
+                    offenders.append("{}: {}".format(source.name,
+                                                     found.group(0)))
+        self.assertEqual([], offenders)
+
+    def test_a_stale_listing_is_recorded(self):
+        """The tab has to be able to say its listing came from the cache. A
+        stale answer presented as a fresh one is what this page exists to
+        avoid."""
+        from factory import build_dailyexcel, pega
+        self.assertTrue(hasattr(pega, "fell_back"))
+        source = (build_dailyexcel.__file__).replace(".pyc", ".py")
+        with open(source, encoding="utf-8") as handle:
+            text = handle.read()
+        self.assertIn('"staleListing": pega.fell_back("pega3")', text)

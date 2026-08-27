@@ -124,7 +124,7 @@ def releases_seen(days: int = DEFAULT_DAYS) -> List[Dict[str, Any]]:
     seen: Dict[Tuple[str, str], Dict[str, Any]] = {}
     for day in window:
         try:
-            listing = pega.day_suite_runs(day)
+            listing = pega.day_suite_runs(day, host="pega3")
         except pega.PegaUnavailable:
             continue
         for entry in listing:
