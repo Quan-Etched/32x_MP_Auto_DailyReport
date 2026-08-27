@@ -738,11 +738,21 @@ class NavTest(unittest.TestCase):
     def source(self):
         return (DASHBOARD / "nav.js").read_text(encoding="utf-8")
 
-    def links(self):
+    def block(self, name):
         text = self.source()
-        block = text[text.index("var LINKS = ["):]
-        block = block[:block.index("\n  ];")]
-        return re.findall(r"\['([^']+)',\s*'([^']+)'", block)
+        at = text.index("var " + name + " = [")
+        return text[at:text.index("\n  ];", at)]
+
+    def links(self, name=None):
+        """Every destination the nav offers. Both blocks by default: a page
+        behind More is folded, not removed, and a test that read only the
+        visible row would call a folded page unreachable."""
+        names = [name] if name else ["LINKS", "MORE"]
+        out = []
+        for each in names:
+            out.extend(re.findall(r"\['([^']+)',\s*'([^']+)'",
+                                  self.block(each)))
+        return out
 
     def test_every_page_with_a_masthead_renders_the_nav(self):
         for page in sorted(DASHBOARD.glob("*.html")):
@@ -826,6 +836,28 @@ JSON.stringify(document.getElementById('nav').kids.map(function (a) {
                        "flow.html", "doe.html", "releases.html", "rack2.html"):
             with self.subTest(target=wanted):
                 self.assertIn(wanted, targets)
+
+    def test_the_reference_pages_are_folded_not_dropped(self):
+        """Releases, Hourly, Requests and OCP live behind More — the row was
+        thirteen tabs and wrapped on a laptop. Folded, so still one click from
+        every page, which is the thing that must not regress."""
+        folded = [href for href, _ in self.links("MORE")]
+        self.assertEqual(["releases.html", "hourly.html", "requests.html",
+                          "ocp.html"], folded)
+        visible = [href for href, _ in self.links("LINKS")]
+        for href in folded:
+            with self.subTest(page=href):
+                self.assertNotIn(href, visible, "in both rows at once")
+
+    def test_the_daily_reading_stays_visible(self):
+        """What must not end up behind a click: the pages people open to see
+        how the line is doing, as opposed to answer a specific question."""
+        visible = [href for href, _ in self.links("LINKS")]
+        for wanted in ("index.html", "weekly.html", "dailyexcel.html",
+                       "customize.html#section=errors", "flow.html",
+                       "doe.html"):
+            with self.subTest(page=wanted):
+                self.assertIn(wanted, visible)
 
     def test_every_target_exists(self):
         for href, label in self.links():

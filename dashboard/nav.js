@@ -36,9 +36,19 @@
     ['flow.html', 'Test flow', 'Both drawings of the line, with yields'],
     ['doe.html', 'Result types',
       'Pass, retest pass and bonepile per unit, and the MLT → HTT flow'],
+    ['rack2.html', 'Rack 2', 'The second L11 rack, and where its servers are']
+  ];
+
+  /* Behind "More". Reference pages rather than daily reading: somebody opens
+     these to answer a specific question, not to see how the line is doing. The
+     row was thirteen tabs wide and wrapped to two lines on a laptop, which
+     costs more than the two clicks this adds.
+   *
+   * They stay in the same file and the same order — this is a fold, not a
+   * demotion, and a page in here is still one click away from every page. */
+  var MORE = [
     ['releases.html', 'Releases', 'Test items by software release'],
     ['hourly.html', 'Hourly rates', 'Throughput and cycle time by the hour'],
-    ['rack2.html', 'Rack 2', 'The second L11 rack, and where its servers are'],
     ['requests.html', 'Requests', 'What we need from other systems'],
     ['ocp.html', 'OCP view', 'The same stations, sourced from OCP instead']
   ];
@@ -82,14 +92,49 @@
       var isHere = target === page
         && (fragment === '' || ('#' + fragment) === (location.hash || ''));
 
-      var a = document.createElement('a');
-      a.setAttribute('class', 'theme-toggle' + (isHere ? ' current' : ''));
-      a.setAttribute('href', link[0]);
-      a.setAttribute('title', isHere ? 'you are here' : link[2]);
-      if (isHere) a.setAttribute('aria-current', 'page');
-      a.textContent = link[1] + (isHere ? '' : ' →');
-      host.appendChild(a);
+      host.appendChild(tab(link, isHere, page));
     });
+
+    /* "More", holding the reference pages. A <details> rather than scripted
+       show/hide: it opens on click, closes on Escape, and works before any of
+       this file's own JavaScript has anything to do — which matters for a
+       control whose whole job is reaching the rest of the site. */
+    var folded = MORE.filter(function (link) {
+      return hidden.indexOf(link[0]) === -1;
+    });
+    if (!folded.length) return;
+
+    var wrap = document.createElement('details');
+    wrap.setAttribute('class', 'nav-more');
+    var open = document.createElement('summary');
+    open.setAttribute('class', 'theme-toggle');
+    /* Marked when the page you are on is one of the folded ones, so the row
+       still says where you are without being expanded. */
+    var hereInside = folded.some(function (link) {
+      return link[0].split('#')[0] === page;
+    });
+    if (hereInside) open.setAttribute('class', 'theme-toggle current');
+    open.textContent = hereInside ? 'More ▾' : 'More ▾';
+    wrap.appendChild(open);
+
+    var sheet = document.createElement('div');
+    sheet.setAttribute('class', 'nav-more-sheet');
+    folded.forEach(function (link) {
+      var target = link[0].split('#')[0];
+      sheet.appendChild(tab(link, target === page, page));
+    });
+    wrap.appendChild(sheet);
+    host.appendChild(wrap);
+  }
+
+  function tab(link, isHere, page) {
+    var a = document.createElement('a');
+    a.setAttribute('class', 'theme-toggle' + (isHere ? ' current' : ''));
+    a.setAttribute('href', link[0]);
+    a.setAttribute('title', isHere ? 'you are here' : link[2]);
+    if (isHere) a.setAttribute('aria-current', 'page');
+    a.textContent = link[1] + (isHere ? '' : ' →');
+    return a;
   }
 
   if (document.readyState === 'loading') {
