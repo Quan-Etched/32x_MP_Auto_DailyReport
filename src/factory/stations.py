@@ -229,21 +229,45 @@ STATIONS: List[Station] = [
              "starts at VBB provisioning implies the line starts there, and it "
              "does not — the first three stages happen before a board exists, "
              "and a chart drawn from this registry was missing them.\n\n"
-             "Where the data is: the STDF datalogs behind "
-             "strata6.sv9.i.etched.com:8235, and SPLM "
-             "(https://splm.i.etched.com/api/v1/query, read-only SQL, needs a "
-             "token). Joining it to this dashboard needs a chip serial on our "
-             "rows; pega3 returns asic_lot_code and it is empty on every run.",
+             "Probed 2026-08-29, and EOS really has nothing: levels() answers "
+             "l6, l10, l11, slt, module, bringup, and the readable ones carry "
+             "only mlt, rdqs_sweep_training and chip_tpm_hsm_token_check. "
+             "There is no wafer-sort level to ask for.\n\n"
+             "Where the data is: SPLM "
+             "(https://splm.i.etched.com/api/v1/query, read-only SQL) is up and "
+             "answers TOKEN_MISSING — a token is the single thing standing "
+             "between this station and the pipeline every other station has. "
+             "strata6.sv9.i.etched.com:8235 serves a SimpleHTTP listing of "
+             "somebody's working directory, in which die_yield_summary.csv is "
+             "496 dies with hard and soft bins.\n\n"
+             "Two limits found by using it, both in src/factory/chip_collect: "
+             "the CSV has no date column at all, so it cannot be bucketed by "
+             "day or hour; and it computes 41.1% over lots U8G375 and U8G384 "
+             "against the 32.5% reported, which says it is an analysis subset "
+             "rather than the production population. Read access to the "
+             "bringup bucket, refused today with level_unavailable, would fix "
+             "both at once.",
     ),
     Station(
         key="ft", label="FT", state=EXTERNAL, order=2,
         note="Final test, at Sigurd. The earliest insertion that can see an "
              "HBM lane, because the stacks are attached at CoWoS and there is "
              "no HBM at wafer sort.\n\n"
-             "Same sources as [wst]: STDF on strata6 and SPLM. Someone has "
-             "already joined FT to SLT per physical die — hbm_ft_vs_slt.csv on "
-             "that host is one row per die carrying ft_sbin, repaired lanes, "
-             "and the SLT verdict beside them.",
+             "Same sources as [wst]: SPLM, and strata6. Someone has already "
+             "joined FT to SLT per physical die — hbm_ft_vs_slt.csv is 318 "
+             "rows carrying ft_sbin, repaired lanes and the SLT verdict.\n\n"
+             "That file also settles the join question this registry used to "
+             "call blocked. It is blocked on pega3, which returns an empty "
+             "asic_lot_code — but the file carries `serial`, the 22-character "
+             "JE… serial, and EOS reports the slt level on those same serials. "
+             "So FT joins to SLT today, and `die` (LOT_Wnn_Xn_Yn) gives the "
+             "wafer coordinate.\n\n"
+             "Do not read ft_status as the verdict: it is the HBM repair state "
+             "(Clean / Repairable / Non-repairable) and reading it that way "
+             "gives 0% pass over 318 dies. The verdict is ft_sbin, where 1 is "
+             "a clean pass. On that reading the file gives 36.2% against the "
+             "84.3% reported, over different lots, with 107 of 318 dies in "
+             "SA_FUNC — a screening population, not a production one.",
     ),
     Station(
         key="l11_provision", label="L11 Provision", level="l11",

@@ -13,7 +13,7 @@ STATION ?= l10_sft
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
         dailyexcel requests pega-stations release-source suite-map reconcile \
         errors annotate error-catalogue retest-slide \
-        outcomes doe-deck fpy \
+        outcomes doe-deck chips fpy \
         weekly \
         weekly-deck ramp-deck archive \
         weekly-snapshot schedule-weekly-install schedule-weekly-uninstall \
@@ -118,6 +118,13 @@ pega-stations:
 # and the bundle it writes is committed for the box to publish.
 release-source:
 	$(PY) -m factory.cli release-source
+
+# Wafer sort and final test, per die. Not part of `make build`: the only source
+# reachable today is a snapshot in somebody's working directory, and the figures
+# it gives are diagnostics rather than the published yield — see the module
+# docstring. SPLM_TOKEN=... makes SPLM the source and this a real feed.
+chips:
+	$(PY) -m factory.cli chips
 
 # Failing test cases joined to the error-code catalogue, for section 4 of the
 # customize page. Also part of `make build`.

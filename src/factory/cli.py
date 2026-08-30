@@ -927,6 +927,34 @@ def cmd_outcomes(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_chips(args: argparse.Namespace) -> int:
+    """Wafer sort and final test, per die, from SPLM or the strata6 snapshots."""
+    from . import chip_collect
+
+    bundle = chip_collect.collect()
+    path = chip_collect.write_bundle(bundle)
+    print("Chip stations ({:.0f} KB) -> {}".format(
+        path.stat().st_size / 1024, path))
+    for name, got in sorted(bundle["stations"].items()):
+        print("  {:<4} {:>6} over {:>4} dies   lots {}".format(
+            name.upper(),
+            "n/a" if got["yield"] is None else "{:.1%}".format(got["yield"]),
+            got["dies"], ", ".join(got.get("lots") or []) or "unknown"))
+        print("       source {} ({})".format(got["source"], got["sourceKind"]))
+        if not got.get("publishable"):
+            print("       NOT PUBLISHABLE: {}".format(
+                got.get("whyNotPublishable")))
+        top = ", ".join("{} x{}".format(b["bin"], b["dies"])
+                        for b in (got.get("bins") or [])[:4])
+        if top:
+            print("       bins: {}".format(top))
+    for name, why in sorted(bundle.get("problems", {}).items()):
+        print("  {:<4} unavailable: {}".format(name.upper(), why))
+    for what, why in sorted(bundle.get("blocked", {}).items()):
+        print("  blocked [{}] {}".format(what, why))
+    return 0
+
+
 def cmd_fpy(args: argparse.Namespace) -> int:
     """First-pass yield across every measured stage, for the week."""
     from . import build_fpy, pega_collect
@@ -1287,6 +1315,11 @@ def _build_parser() -> argparse.ArgumentParser:
     outc.add_argument("--weeks", type=int, default=6,
                       help="how many weeks to report (default 6)")
     outc.set_defaults(handler=cmd_outcomes)
+
+    chips = subparsers.add_parser(
+        "chips",
+        help="wafer sort and final test per die, from SPLM or strata6")
+    chips.set_defaults(handler=cmd_chips)
 
     fpy = subparsers.add_parser(
         "fpy", help="end-to-end first-pass yield, one row per test step")
