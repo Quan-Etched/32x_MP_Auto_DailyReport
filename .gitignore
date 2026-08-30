@@ -21,3 +21,10 @@ venv/
 
 # Fetched CA bundle (public certs, but machine-local — refetch with `make trust`)
 certs/
+
+# SiVal, checked out here for reference. It is its own repository
+# (github.com/etched-ai/sival) with its own remote and history, and committing
+# it into this one would vendor 70 MB of somebody else's project and detach it
+# from its upstream. src/factory/chip_collect.py reads SiVal over its HTTP API,
+# not off this path, so nothing here depends on the checkout existing.
+sival/

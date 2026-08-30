@@ -107,6 +107,86 @@ class PopulationTest(unittest.TestCase):
                                places=3)
 
 
+class SivalTest(unittest.TestCase):
+    """SiVal is the system built for this, so reading it correctly matters.
+
+    sival/ is a Flask + Postgres dashboard for wafer sort, final test and SLT —
+    the answer to "is there already a backend counting this" is yes. Its
+    lot_phase_stats carries per-phase die counts and its session_test_result
+    carries start_ts, which is everything daily and hourly need.
+    """
+
+    def setUp(self):
+        self.calls = []
+        self._real = chip_collect.sival
+        chip_collect.sival = self.fake
+
+    def tearDown(self):
+        chip_collect.sival = self._real
+
+    def fake(self, path):
+        self.calls.append(path)
+        if "project_yield_stats" in path:
+            return self.stats
+        if "lot_trend" in path:
+            return self.lots
+        return []
+
+    def test_a_phase_that_tested_nothing_is_untested_not_zero(self):
+        """The bug this pins shipped for one run of the collector.
+
+        test_phase_breakdown divides by `total_dies` — every die in the lot,
+        touched by that phase or not — so FinalTest came out as "0.0% over
+        19863 dies" when it had tested none of them. 0% and "not measured" are
+        opposite claims about a station and the first one was on its way to a
+        page.
+        """
+        self.stats = {"wafersort_tested": 100, "wafersort_passed": 40,
+                      "finaltest_tested": 0, "finaltest_passed": 0,
+                      "slt_tested": 0, "slt_passed": 0}
+        self.lots = []
+        got = chip_collect.sival_stations()
+        self.assertEqual(0.4, got["wst"]["yield"])
+        self.assertIsNone(got["ft"]["yield"], "0/0 is unknown, not zero")
+        self.assertEqual(0, got["ft"]["dies"])
+        self.assertIn("tested no dies", got["ft"]["note"])
+
+    def test_the_phase_names_map_to_our_station_keys(self):
+        """SiVal speaks STDF — Wafersort / FinalTest / SLT."""
+        self.assertEqual({"Wafersort": "wst", "FinalTest": "ft", "SLT": "slt"},
+                         chip_collect.SIVAL_PHASE)
+
+    def test_per_lot_rows_come_through(self):
+        self.stats = {"wafersort_tested": 100, "wafersort_passed": 40}
+        self.lots = [{"lot_name": "U8G384", "ws_tested": 60, "ws_passed": 30,
+                      "ft_tested": 0, "ft_passed": 0}]
+        got = chip_collect.sival_stations()
+        self.assertEqual([{"wafer": "U8G384", "dies": 60, "passed": 30,
+                           "yield": 0.5}], got["wst"]["byWafer"])
+        self.assertEqual(["U8G384"], got["wst"]["lots"])
+
+    def test_a_database_source_says_it_has_a_clock(self):
+        """Unlike the CSVs: session_test_result has start_ts, so daily and
+        hourly are available from this source once it is reachable."""
+        self.stats = {"wafersort_tested": 10, "wafersort_passed": 5}
+        self.lots = []
+        got = chip_collect.sival_stations()
+        self.assertTrue(got["wst"]["hasClock"])
+        self.assertEqual("database", got["wst"]["sourceKind"])
+
+    def test_the_daily_endpoint_is_reported_unusable_with_the_reason(self):
+        """yield_trend proves the clock exists and cannot be used as-is: it
+        formats 'Mon DD' with no year and pools every session_type. Saying so
+        beats parsing 'Jan 28' and guessing a year."""
+        chip_collect.sival = lambda path: [{"test_date": "Jan 28",
+                                            "total_tests": 103,
+                                            "passed_tests": 0}]
+        got = chip_collect.sival_daily()
+        self.assertFalse(got["available"])
+        self.assertIn("no year", got["why"])
+        self.assertIn("session_type", got["why"])
+
+
 class ProvenanceTest(unittest.TestCase):
     """What the bundle has to say about itself."""
 

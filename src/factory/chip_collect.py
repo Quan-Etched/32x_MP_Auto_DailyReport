@@ -10,6 +10,28 @@ and HTT, however much it would like to be.
 
 WHERE THE DATA IS, IN ORDER OF HOW MUCH IT DESERVES TO BE TRUSTED
 
+0. SiVal — ``sival/`` in this repo, and the answer to "is there a backend that
+   already counts this". Yes: a Flask + Postgres dashboard whose schema is built
+   for exactly these three stages. ``lot_phase_stats`` carries
+   ``(lot_id, test_phase, tested_dies, passed_dies, failed_dies, yield_pct,
+   last_updated)`` with ``test_phase`` in Wafersort / FinalTest / SLT, kept by
+   triggers. ``session_test_result`` carries ``session_type`` — the same three
+   phases — with ``start_ts`` and ``overall_status``, which is per-insertion
+   with a clock and therefore everything daily, weekly and hourly buckets need.
+   This is the source. The other entries below are what to do until it is
+   reachable.
+
+   Reachability, probed 2026-08-30 from both a laptop and the dashboard host:
+   ``sival-dashboard-dev0`` answers on :5001; ``sival-dashboard-prod0``
+   refuses the connection on 80, 443 and 5001 and times out on 8080, 3000 and
+   5432. Dev is seeded with placeholder lots — "Lot 1", "USHL Lot" — where the
+   real ones are U8G375 and N8R264, its FinalTest and SLT counts are zero, and
+   its newest session is February. So the shape is right and the data is not.
+
+   What that costs, precisely: the collector below reads SiVal when it can, and
+   one of two things unblocks the real numbers — the prod API exposed to the
+   dashboard host, or read credentials for the replica in ``DB_READ_HOST``.
+
 1. SPLM — ``https://splm.i.etched.com/api/v1/query``, read-only SQL. Up and
    answering; it wants a bearer token and we do not have one, so it replies
    ``{"code":"TOKEN_MISSING"}``. This is the source this module is *written
@@ -61,6 +83,14 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from . import config
+
+#: SiVal's API. Dev by default because it is the one that answers; point this
+#: at prod the moment prod is reachable and nothing else changes.
+SIVAL_URL = os.environ.get(
+    "SIVAL_URL", "http://sival-dashboard-dev0.usw2.i.etched.com:5001")
+
+#: SiVal's phase names, and ours. Its vocabulary is the STDF one.
+SIVAL_PHASE = {"Wafersort": "wst", "FinalTest": "ft", "SLT": "slt"}
 
 #: Read-only SQL over the datalog store. The source this module is written for.
 SPLM_URL = os.environ.get("SPLM_URL", "https://splm.i.etched.com/api/v1/query")
@@ -140,6 +170,129 @@ def _strata_csv(name: str) -> List[Dict[str, str]]:
     except (urllib.error.URLError, OSError) as exc:
         raise ChipDataUnavailable("{}: {}".format(url, exc)) from exc
     return list(csv.DictReader(io.StringIO(raw)))
+
+
+def sival(path: str) -> Any:
+    """One SiVal API call."""
+    url = "{}/{}".format(SIVAL_URL.rstrip("/"), path.lstrip("/"))
+    try:
+        return json.loads(_get(url).decode("utf-8", "replace"))
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        raise ChipDataUnavailable("{}: {}".format(url, exc)) from exc
+
+
+def sival_stations() -> Dict[str, Dict[str, Any]]:
+    """WST, FT and SLT as SiVal counts them, per phase and per lot.
+
+    Read from the rollups SiVal's own frontend reads, so a number here and a
+    number on that dashboard cannot disagree — which is the point of using it
+    rather than re-deriving yield from the datalogs a second time.
+    """
+    # project_yield_stats, not test_phase_breakdown.
+    #
+    # The breakdown endpoint's denominator is `total_dies` — every die in the
+    # lot, whether that phase touched it or not. Dividing by that gave FinalTest
+    # "0.0% over 19863 dies" when the truth is that FinalTest has tested none of
+    # them. 0% and "not measured" are opposite claims about a station, and the
+    # first one would have gone on a page. project_yield_stats reports
+    # `*_tested` and `*_passed`, which are the two numbers a yield is made of.
+    stats = sival("/api/project_yield_stats") or {}
+    lots = sival("/api/lot_trend")
+
+    counts = {
+        "wst": (stats.get("wafersort_tested"), stats.get("wafersort_passed")),
+        "ft": (stats.get("finaltest_tested"), stats.get("finaltest_passed")),
+        "slt": (stats.get("slt_tested"), stats.get("slt_passed")),
+    }
+
+    out: Dict[str, Dict[str, Any]] = {}
+    for key, (tested, passed) in counts.items():
+        tested = tested or 0
+        passed = passed or 0
+        # A phase that has tested nothing is reported as untested, not as zero.
+        if not tested:
+            out[key] = {
+                "station": key, "yield": None, "dies": 0, "passed": 0,
+                "source": "sival:{}".format(SIVAL_URL),
+                "sourceKind": "database", "hasClock": True,
+                "note": "this phase has tested no dies in the database read",
+                "collectedAt": datetime.now(timezone.utc).replace(
+                    microsecond=0).isoformat(),
+                "byWafer": [], "bins": [], "lots": [],
+            }
+            continue
+        out[key] = {
+            "station": key,
+            "yield": _rate(passed, tested),
+            "dies": tested,
+            "passed": passed,
+            "source": "sival:{}".format(SIVAL_URL),
+            # A rollup kept live by triggers, not a file somebody exported.
+            "sourceKind": "database",
+            # session_test_result has start_ts, so daily and hourly are
+            # available from this source — through SQL, see the note in
+            # sival_daily().
+            "hasClock": True,
+            "collectedAt": datetime.now(timezone.utc).replace(
+                microsecond=0).isoformat(),
+            "byWafer": [],
+            "bins": [],
+            "lots": [],
+        }
+
+    # Per lot, which is the grain people actually ask about — "how did U8G384
+    # come out" — and the grain the hand-reported figure is quoted at.
+    for row in lots or []:
+        name = row.get("lot_name") or ""
+        for key, tested_field, passed_field in (
+                ("wst", "ws_tested", "ws_passed"),
+                ("ft", "ft_tested", "ft_passed")):
+            station = out.get(key)
+            if not station:
+                continue
+            tested = row.get(tested_field) or 0
+            if not tested:
+                continue
+            station["byWafer"].append({
+                "wafer": name, "dies": tested,
+                "passed": row.get(passed_field) or 0,
+                "yield": _rate(row.get(passed_field) or 0, tested),
+            })
+            if name not in station["lots"]:
+                station["lots"].append(name)
+    return out
+
+
+def sival_daily() -> Dict[str, Any]:
+    """The daily series, and what is missing from it.
+
+    ``/api/yield_trend`` groups ``session_test_result`` by day, which proves the
+    clock is there — but it is not usable as a per-station feed as it stands,
+    for two reasons worth writing down because both are one-line fixes in
+    SiVal rather than problems here:
+
+      * it formats the day as ``TO_CHAR(..., 'Mon DD')`` — "Jan 28", with no
+        year, so it cannot be bucketed into a week without guessing;
+      * it does not filter or group by ``session_type``, so WST, FT and SLT are
+        pooled into one number.
+
+    Reported rather than worked around: a collector that parsed "Jan 28" and
+    assumed a year would be inventing data, and one that presented a pooled
+    figure as WST would be mislabelling it.
+    """
+    try:
+        trend = sival("/api/yield_trend")
+    except ChipDataUnavailable as exc:
+        return {"available": False, "why": str(exc)}
+    return {
+        "available": False,
+        "points": len(trend or []),
+        "why": "yield_trend gives 'Mon DD' with no year and pools every "
+               "session_type, so it cannot be split per station or bucketed "
+               "into weeks. Needs either DATE(start_ts) and a GROUP BY "
+               "session_type in SiVal, or direct SQL against the same table.",
+        "sample": (trend or [])[:3],
+    }
 
 
 def wafer_sort() -> Dict[str, Any]:
@@ -354,6 +507,13 @@ def collect() -> Dict[str, Any]:
         # Recorded so the page can say what is blocking daily/hourly rather
         # than leaving a reader to wonder why these two stations are different.
         "blocked": {
+            "sival": "SiVal is the source: lot_phase_stats has per-phase "
+                     "WST/FT/SLT counts and session_test_result has start_ts "
+                     "for daily and hourly. prod0 refuses connections on 80, "
+                     "443 and 5001 from the dashboard host; dev0 answers but "
+                     "is seeded with placeholder lots and has no FinalTest "
+                     "rows. Expose prod to the dashboard host, or give this "
+                     "collector DB_READ_HOST credentials.",
             "eos": "OCP/EOS carries no wafer-sort or final-test level. Readable "
                    "levels are l6, l10, slt, module.",
             "bringup": "EOS level 'bringup' holds the chip screening these dies "
@@ -369,6 +529,19 @@ def collect() -> Dict[str, Any]:
         },
     }
     reported = _reported()
+
+    # SiVal first: it is the system built for this, and its rollups are what its
+    # own dashboard shows.
+    try:
+        from_sival = sival_stations()
+    except ChipDataUnavailable as exc:
+        from_sival = {}
+        out["problems"]["sival"] = str(exc)
+    for name, summary in from_sival.items():
+        _judge(name, summary, reported)
+        out["stations"][name] = summary
+    out["daily"] = sival_daily()
+
     for name, fetch in (("wst", wafer_sort), ("ft", final_test)):
         try:
             summary = summarise(fetch())
@@ -376,7 +549,14 @@ def collect() -> Dict[str, Any]:
             out["problems"][name] = str(exc)
             continue
         _judge(name, summary, reported)
-        out["stations"][name] = summary
+        # SiVal wins where it has anything: a live rollup beats a file someone
+        # exported. The snapshot is kept beside it, because its bin Pareto is
+        # real and SiVal's endpoints do not expose one.
+        existing = out["stations"].get(name)
+        if existing and existing.get("dies"):
+            existing["snapshot"] = summary
+        else:
+            out["stations"][name] = summary
     out["blocked"] = {k: v for k, v in out["blocked"].items() if v}
     return out
 
