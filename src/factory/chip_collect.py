@@ -263,6 +263,58 @@ def sival_stations() -> Dict[str, Dict[str, Any]]:
     return out
 
 
+#: What SiVal's ``passed_dies`` actually counts, and why it is not the yield.
+#:
+#: Traced on U8G590 wafer 1: 62 dies, exactly 2 with ``wafer_sort_complete``
+#: true, exactly 2 with zero failing functional tests, and ``ws_pass`` = 2. So
+#: the rule is "a die passed if every one of its ~3940 tests passed". On U8G621
+#: no die clears that bar — every die has between 3 and 38 failures out of
+#: ~3940 — so the lot reports 0 passed over 1426 tested.
+#:
+#: Wafer sort yield is not that. It is the bin-1 rate, and binning tolerates
+#: failing tests that are not gating — redundancy, repairable lanes, and
+#: parametric tests that inform rather than reject. That is the whole of the
+#: gap the publishability guard keeps flagging: 4.84% from SiVal against 32.5%
+#: reported is not missing data, it is a different definition. strata6's
+#: die_yield_summary.csv, which does carry hard_bin, puts bin 1 at 41.1%.
+#:
+#: So the number to want from SiVal is a bin, and the bin is in the STDF it
+#: ingests. Until ``passed_dies`` is derived from the bin rather than from a
+#: clean sweep of every test, SiVal can say which lots ran and when — which it
+#: does accurately — and cannot say what they yielded.
+SIVAL_PASS_RULE = "every functional test passed (not the bin-1 rate)"
+
+
+def sival_activity() -> List[Dict[str, Any]]:
+    """Which lots were tested, how many dies, and when.
+
+    The part of SiVal that is correct today and worth having. It answers the
+    question Helen was answering by hand — "U8G621 completed last week, -623 and
+    -624 are still being tested" — from the database, with the die counts and
+    the session dates behind it.
+
+    Deliberately separate from the yield. Die counts and dates are ingested and
+    trustworthy; the pass determination is not the production one, so mixing
+    them into one figure would launder a wrong number in beside right ones.
+    """
+    lots = sival("/api/lot_trend") or []
+    out: List[Dict[str, Any]] = []
+    for row in lots:
+        tested = row.get("ws_tested") or 0
+        if not tested:
+            continue
+        out.append({
+            "lot": row.get("lot_name") or "",
+            "lotId": row.get("lot_id"),
+            "diesTested": tested,
+            # Named, not called a yield: this is SiVal's clean-sweep count, and
+            # the note says so wherever it is shown.
+            "cleanSweepDies": row.get("ws_passed") or 0,
+            "passRule": SIVAL_PASS_RULE,
+        })
+    return sorted(out, key=lambda item: -item["diesTested"])
+
+
 def sival_daily() -> Dict[str, Any]:
     """The daily series, and what is missing from it.
 
@@ -507,6 +559,15 @@ def collect() -> Dict[str, Any]:
         # Recorded so the page can say what is blocking daily/hourly rather
         # than leaving a reader to wonder why these two stations are different.
         "blocked": {
+            "sivalPassRule": "SiVal's passed_dies counts dies where every "
+                             "functional test passed — traced on U8G590: 2 of "
+                             "62 dies clean-sweep, 2 wafer_sort_complete, "
+                             "ws_pass 2. Wafer sort yield is the bin-1 rate, "
+                             "which tolerates non-gating failures, so SiVal "
+                             "reads 4.84% against 32.5% reported. That gap is "
+                             "a definition, not missing data: derive "
+                             "passed_dies from the hard bin and this becomes "
+                             "the source.",
             "sival": "SiVal is the source: lot_phase_stats has per-phase "
                      "WST/FT/SLT counts and session_test_result has start_ts "
                      "for daily and hourly. prod0 refuses connections on 80, "
@@ -541,6 +602,10 @@ def collect() -> Dict[str, Any]:
         _judge(name, summary, reported)
         out["stations"][name] = summary
     out["daily"] = sival_daily()
+    try:
+        out["activity"] = sival_activity()
+    except ChipDataUnavailable as exc:
+        out["problems"]["activity"] = str(exc)
 
     for name, fetch in (("wst", wafer_sort), ("ft", final_test)):
         try:

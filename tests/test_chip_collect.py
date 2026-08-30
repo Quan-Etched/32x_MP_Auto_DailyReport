@@ -229,3 +229,60 @@ class ProvenanceTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PassRuleTest(unittest.TestCase):
+    """Why SiVal's number is 28 points below the reported one.
+
+    Traced on U8G590 wafer 1: 62 dies, exactly 2 with wafer_sort_complete true,
+    exactly 2 with zero failing functional tests, and ws_pass = 2. So SiVal's
+    passed_dies means "every one of ~3940 tests passed". On U8G621 no die
+    clears that — each has 3 to 38 failures — so the lot reads 0 of 1426.
+
+    Wafer sort yield is the bin-1 rate, and binning tolerates non-gating
+    failures. The gap is a definition, not missing data, and this test exists so
+    nobody closes it by relabelling SiVal's count as a yield.
+    """
+
+    def setUp(self):
+        self._real = chip_collect.sival
+        chip_collect.sival = lambda path: (
+            [{"lot_id": 1, "lot_name": "U8G621", "ws_tested": 1426,
+              "ws_passed": 0},
+             {"lot_id": 2, "lot_name": "U8G590", "ws_tested": 1178,
+              "ws_passed": 48}]
+            if "lot_trend" in path else {})
+
+    def tearDown(self):
+        chip_collect.sival = self._real
+
+    def test_the_count_is_named_clean_sweep_not_yield(self):
+        got = chip_collect.sival_activity()
+        for row in got:
+            with self.subTest(lot=row["lot"]):
+                self.assertIn("cleanSweepDies", row)
+                self.assertNotIn("yield", row,
+                                 "calling this a yield is the error the whole "
+                                 "docstring is about")
+                self.assertIn("not the bin", row["passRule"])
+
+    def test_lots_and_die_counts_come_through(self):
+        """The part that is correct today: which lots ran and how big they are.
+        This is what Helen answered by hand."""
+        got = {row["lot"]: row["diesTested"] for row
+               in chip_collect.sival_activity()}
+        self.assertEqual({"U8G621": 1426, "U8G590": 1178}, got)
+
+    def test_lots_with_nothing_tested_are_left_out(self):
+        chip_collect.sival = lambda path: (
+            [{"lot_id": 9, "lot_name": "TSMC Internal", "ws_tested": 0,
+              "ws_passed": 0}] if "lot_trend" in path else {})
+        self.assertEqual([], chip_collect.sival_activity())
+
+    def test_the_gap_is_explained_in_the_blockers(self):
+        """A reader seeing 4.84% next to 32.5% should find the reason in the
+        bundle, not have to re-derive it."""
+        import inspect
+        source = inspect.getsource(chip_collect.collect)
+        self.assertIn("sivalPassRule", source)
+        self.assertIn("bin", source)
