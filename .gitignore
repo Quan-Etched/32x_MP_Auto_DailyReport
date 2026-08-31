@@ -1,0 +1,5 @@
+.env
+snapshots/
+out/
+__pycache__/
+*.pyc
