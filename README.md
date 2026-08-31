@@ -7,6 +7,12 @@ table, and renders two views: **per-station yield** (daily, by software release,
 failure Pareto, retest) and **hourly rates** (throughput, yield, cycle time).
 Refreshes hourly.
 
+This repository also holds **`src/shopfloor`** — part-SN traceability from the
+Pega shopfloor system, which answers a different question about the same line:
+not *how is yield*, but *what is inside this unit and what happened to each part
+of it*. See [`docs/sfis/README.md`](docs/sfis/README.md); `make help` lists its
+`sfis-*` targets.
+
 Python 3.9+ standard library only. No pip install, no npm, no build step.
 
 Working end to end against production EOS — see [`STATUS.md`](STATUS.md) for the
@@ -358,6 +364,15 @@ Definitions — including the ones with caveats — are in
 ## Layout
 
 ```
+src/shopfloor/        part-SN topology + test records (docs/sfis/README.md)
+  sfis.py             read-only client for pega-sfis (the TY2 receiver)
+  eos.py              the test-record half, over the same EOS API as factory/
+  graph.py            the three evidence tiers — read this one first
+  mirror.py           immutable local snapshots, so it answers during an outage
+  render.py           one YAML per top-level serial
+  yamlout.py          a YAML writer that never unquotes a serial
+  stations.py         SFIS route stations; imports factory.stations for the rest
+
 src/factory/
   config.py           paths, env, factory timezone
   eos_client.py       the 4 endpoints + retry, timeout, on-disk response cache

@@ -22,6 +22,14 @@ venv/
 # Fetched CA bundle (public certs, but machine-local — refetch with `make trust`)
 certs/
 
+# Shopfloor snapshots (raw pega-sfis + EOS responses) and the YAML rendered from
+# them. Both are regenerable -- `make sfis-mirror` then `make sfis-unit` -- and a
+# snapshot is ~1.5 MB per 4U node, so committing them would grow the repo by that
+# much every time anyone investigated a unit. The snapshot is local insurance
+# against pega-sfis being unreachable, not a shared artifact.
+snapshots/
+out/
+
 # SiVal, checked out here for reference. It is its own repository
 # (github.com/etched-ai/sival) with its own remote and history, and committing
 # it into this one would vendor 70 MB of somebody else's project and detach it

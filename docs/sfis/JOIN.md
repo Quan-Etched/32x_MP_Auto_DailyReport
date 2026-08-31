@@ -46,7 +46,7 @@ Cross-check over August 2026, EOS `slt` level against `/api/pairs`:
 | SFIS-linked boards with no August EOS test | 920 of 1153 |
 
 Those 49 are the "no ASIC SN linked in SFIS" class that has been chased by email
-one serial at a time since June. `make gaps` produces the list.
+one serial at a time since June. `make sfis-gaps` produces the list.
 
 ## Who carries process events — the rule that shapes the output
 

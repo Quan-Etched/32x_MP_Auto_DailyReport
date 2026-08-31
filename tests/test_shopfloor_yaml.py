@@ -1,36 +1,48 @@
-"""The one property that matters: a serial written out reads back identical."""
+"""The one property the YAML writer exists for: a serial survives the round trip.
 
-import sys
-from pathlib import Path
+Every serial in this product is a digit string and several carry leading zeros —
+``0905260051`` (manifold), ``0701260010`` (rack MFH). Emitted unquoted, a YAML
+reader parses those as integers and ``0905260051`` comes back as ``905260051``:
+a serial that matches nothing, silently, in the one file whose whole job is to
+record which serial was where.
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+That is why ``shopfloor.yamlout`` exists instead of PyYAML's dumper, and this is
+the test that keeps it honest.
+"""
+
+import unittest
 
 from shopfloor import yamlout
 
-LEADING_ZERO_SERIALS = ["0905260051", "0701260010", "268862070001", "28G5A00005",
-                        "JCS0R8001057", "705260033", "AH093025-57", "3546300006"]
+#: Real shapes from live genealogy: leading-zero digits, plain digits,
+#: alphanumeric vendor barcodes, and one with a dash.
+SERIALS = [
+    "0905260051", "0701260010", "268862070001", "28G5A00005",
+    "JCS0R8001057", "705260033", "AH093025-57", "3546300006",
+]
 
 
-def test_serials_round_trip_as_strings():
-    data = {"parts": {f"SLOT_{i}": {"sn": sn} for i, sn in enumerate(LEADING_ZERO_SERIALS)}}
-    text = yamlout.dumps(data)
-    for sn in LEADING_ZERO_SERIALS:
-        assert f"'{sn}'" in text or f": {sn}\n" in text, sn
-    try:
-        import yaml  # optional; the assertion below is the real test
-    except ImportError:
-        return
-    back = yaml.safe_load(text)
-    got = [v["sn"] for v in back["parts"].values()]
-    assert got == LEADING_ZERO_SERIALS, got
+class YamlScalarQuoting(unittest.TestCase):
+    def test_serials_round_trip_as_strings(self):
+        data = {"parts": {"SLOT_%d" % i: {"sn": sn} for i, sn in enumerate(SERIALS)}}
+        text = yamlout.dumps(data)
+        try:
+            import yaml
+        except ImportError:  # pragma: no cover - stdlib-only environments
+            self.skipTest("PyYAML not installed; cannot verify the round trip")
+        back = yaml.safe_load(text)
+        self.assertEqual([v["sn"] for v in back["parts"].values()], SERIALS)
 
+    def test_leading_zero_serial_is_quoted(self):
+        """The specific failure, called out on its own so a regression names itself."""
+        self.assertIn("'0905260051'", yamlout.dumps({"sn": "0905260051"}))
 
-def test_empty_and_none():
-    text = yamlout.dumps({"a": [], "b": {}, "c": None, "d": ""})
-    assert "a: []" in text and "b: {}" in text and "c: null" in text and "d: ''" in text
+    def test_empty_and_none_render_explicitly(self):
+        """`[]` and `null` are answers. A key that silently vanished is not."""
+        text = yamlout.dumps({"a": [], "b": {}, "c": None, "d": ""})
+        for expected in ("a: []", "b: {}", "c: null", "d: ''"):
+            self.assertIn(expected, text)
 
 
 if __name__ == "__main__":
-    test_serials_round_trip_as_strings()
-    test_empty_and_none()
-    print("yamlout: ok")
+    unittest.main()

@@ -73,7 +73,7 @@ def _call(path: str, *, timeout: Any = None, retries: int = 0, **params: Any) ->
         f"{config.EOS_BASE}{path}",
         params=params or None,
         token=config.EOS_API_KEY,
-        ca_bundle=config.EOS_CA_BUNDLE,
+        ca_bundle=config.eos_ca_bundle(),
         timeout=timeout,
         retries=retries,
     )
@@ -185,7 +185,7 @@ def verdict(level: str, dut: str, run_id: str) -> Dict[str, Any]:
                 "relPath": roles["suite_summary"],
             },
             token=config.EOS_API_KEY,
-            ca_bundle=config.EOS_CA_BUNDLE,
+            ca_bundle=config.eos_ca_bundle(),
         )
         if summary.ok and isinstance(summary.data, list):
             failed = [
@@ -210,7 +210,7 @@ def verdict(level: str, dut: str, run_id: str) -> Dict[str, Any]:
                 "relPath": roles["event_stream"],
             },
             token=config.EOS_API_KEY,
-            ca_bundle=config.EOS_CA_BUNDLE,
+            ca_bundle=config.eos_ca_bundle(),
             as_json=False,
         )
         if stream.ok:

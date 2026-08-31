@@ -19,62 +19,31 @@ same stage.
 
 WHERE THE MAPPING COMES FROM
 ----------------------------
-The (level, suite) -> station half is **not reimplemented here**. It lives in
-``Analysis/src/factory/stations.py``, where it is verified against a 30-day live
-window and already handles the renames — ``L10_6U_FAT`` -> ``L10_FAT`` at
-release 220, HTT running under ``rdqs_sweep_training``, MLT appearing under both
-``module`` and ``slt``. A second copy would be wrong the first time the line
-renames a suite, and nobody would notice which copy was stale.
+The (level, suite) → station half is **not reimplemented here**. It lives in
+``factory.stations``, verified against a 30-day live window, and it already
+absorbs the renames — ``L10_6U_FAT`` → ``L10_FAT`` at release 220, HTT running
+under ``rdqs_sweep_training``, MLT appearing under both ``module`` and ``slt``.
+A second copy would be wrong the first time the line renames a suite, and nobody
+would notice which copy was stale.
 
-So this module imports ``classify()`` and adds only what Analysis has no reason
-to know: the SFIS route-station half, which Analysis never sees.
+So this module imports ``classify()`` and adds only what ``factory.stations`` has
+no reason to know: the SFIS route-station half, which it never sees.
 
-If Analysis is not on the box, ``FALLBACK`` keeps the tool working with a much
-coarser map, and ``registry_source()`` says which one is in use — so a reader can
-tell a canonical station name from a best guess.
+    Until these two packages shared a repository, this import went through a
+    ``sys.path`` insert pointed at a separate checkout, backed by a coarse
+    ``FALLBACK`` table for when that checkout was missing and a
+    ``registry_source()`` accessor so a reader could tell a canonical station
+    name from a best guess. All three are gone. The import cannot half-work now,
+    so there is nothing to fall back to and nothing to report. Deleting that
+    shim was the main structural reason to merge the repositories.
 """
 
 from __future__ import annotations
 
 import re
-import sys
-from typing import Optional, Tuple
+from typing import Optional
 
-from . import config
-
-_classify = None
-_source = "fallback"
-
-try:  # Analysis's registry is the source of truth when it is reachable.
-    if str(config.ANALYSIS_SRC) not in sys.path:
-        sys.path.insert(0, str(config.ANALYSIS_SRC))
-    from factory.stations import classify as _classify  # type: ignore
-    from factory.stations import label_of as _label_of  # type: ignore
-
-    _source = f"Analysis ({config.ANALYSIS_SRC})"
-except Exception:  # ImportError, or a factory package that moved
-    _label_of = None
-
-#: Coarse (level, suite-pattern) -> label, used only when Analysis is absent.
-FALLBACK: Tuple[Tuple[str, str, str], ...] = (
-    ("slt", r"^mlt", "MLT"),
-    ("module", r"^mlt", "MLT"),
-    ("module", r"^(htt_)?rdqs_sweep_training$", "HTT"),
-    ("module", r"^baking$|^tim$", "TIM"),
-    ("slt", r"^slt", "SLT"),
-    ("slt", r"^chip_screening", "Chip Screening"),
-    ("l10", r"FAT$", "L10 FAT"),
-    ("l10", r"SFT$", "L10 SFT"),
-    ("l10", r"RIN$", "L10 RIN"),
-    ("l10", r"^L10_2U$", "L10 2U"),
-    ("l6", r"vbb", "VBB Provisioning"),
-    ("l11", r".", "L11"),
-)
-
-
-def registry_source() -> str:
-    """Which mapping is live. Written into every snapshot manifest."""
-    return _source
+from factory.stations import classify, label_of
 
 
 def from_eos(level: Optional[str], suite: Optional[str]) -> str:
@@ -82,22 +51,12 @@ def from_eos(level: Optional[str], suite: Optional[str]) -> str:
 
     Falls back to ``level/suite`` rather than to a guess: an unrecognised suite
     is a new or renamed stage, and printing the raw pair is how somebody notices
-    and adds it. Silently bucketing it as "other" is how a station disappears
-    from a yield report for a month.
+    and adds it to ``factory.stations``. Silently bucketing it as "other" is how
+    a station disappears from a yield report for a month.
     """
-    if _classify is not None:
-        key = _classify(level, suite)
-        if _label_of is not None:
-            label = _label_of(key)
-            if label:
-                return label
-        if key and key not in {"unclassified", "engineering"}:
-            return key
-    for want_level, pattern, label in FALLBACK:
-        if (level or "").lower() == want_level and re.search(
-            pattern, suite or "", re.I
-        ):
-            return label
+    key = classify(level, suite)
+    if key and key not in {"unclassified", "engineering"}:
+        return label_of(key) or key
     return f"{level or '?'}/{suite or '?'}"
 
 

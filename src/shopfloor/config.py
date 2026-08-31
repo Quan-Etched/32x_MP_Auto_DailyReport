@@ -65,7 +65,22 @@ EOS_BASE = os.environ.get(
     "EOS_BASE", "https://eos.core.etched.com/api/external/v1/test-logs"
 ).rstrip("/")
 EOS_API_KEY = os.environ.get("EOS_API_KEY", "").strip()
-EOS_CA_BUNDLE = os.environ.get("EOS_CA_BUNDLE", "").strip()
+
+
+def eos_ca_bundle() -> str:
+    """The CA bundle for EOS, delegated to ``factory.config``.
+
+    Not re-derived here. ``factory.config.ca_bundle()`` already resolves
+    ``EOS_CA_BUNDLE`` first and otherwise the file ``make trust`` writes to
+    ``certs/``, and it raises if the override points at a missing file. Sharing
+    it means one ``make trust`` fixes TLS for both tools instead of each having
+    its own idea of where the bundle lives -- which is the sort of divergence
+    that only shows up as an inscrutable TLS error on the factory host.
+    """
+    from factory import config as factory_config
+
+    path = factory_config.ca_bundle()
+    return str(path) if path else ""
 
 #: ESVM station controllers. pega2 provisions VBB, pega3 drives the module
 #: stations, pega4 L10, pega5 L11, pega6 TIM. They are the only source of the
@@ -87,14 +102,6 @@ SNAPSHOT_DIR = Path(os.environ.get("SHOPFLOOR_SNAPSHOTS", ROOT / "snapshots"))
 
 #: Rendered YAML. Derived, disposable, regenerable from any snapshot.
 OUT_DIR = Path(os.environ.get("SHOPFLOOR_OUT", ROOT / "out"))
-
-#: ``Analysis``'s station registry is imported rather than copied — it is the
-#: verified mapping from (EOS level, suite) onto the line's station names, and a
-#: second copy would drift the first time the line renames a suite. A built-in
-#: fallback in ``stations.py`` keeps this tool runnable on a box without it.
-ANALYSIS_SRC = Path(
-    os.environ.get("ANALYSIS_SRC", Path.home() / "project" / "Analysis" / "src")
-)
 
 #: Network timeouts. Short on purpose: every caller degrades to "source
 #: unavailable" rather than hanging, because a partial graph that says which

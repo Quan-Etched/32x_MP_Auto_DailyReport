@@ -48,7 +48,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
-from . import config, eos, sfis, stations
+from . import config, eos, sfis
 
 
 def new_id() -> str:
@@ -68,7 +68,6 @@ class Snapshot:
         self.manifest: Dict[str, Any] = {
             "id": root.name,
             "taken_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "station_registry": stations.registry_source(),
             "sources": {},
         }
 

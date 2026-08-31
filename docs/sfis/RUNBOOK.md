@@ -3,17 +3,17 @@
 ## Normal use
 
 ```sh
-make doctor                                # first thing, always
-make mirror SN=268947020002 VERDICTS=1     # ~40s for a 4U node
-make unit   SN=268947020002                # -> out/268947020002.yaml
+make sfis-doctor                                # first thing, always
+make sfis-mirror SN=268947020002 VERDICTS=1     # ~40s for a 4U node
+make sfis-unit   SN=268947020002                # -> out/268947020002.yaml
 ```
 
 ## When a unit fails and you need its full history
 
 ```sh
-make mirror SN=<the failed unit> VERDICTS=1
-make unit   SN=<the failed unit>
-make gaps   SN=<the failed unit>
+make sfis-mirror SN=<the failed unit> VERDICTS=1
+make sfis-unit   SN=<the failed unit>
+make sfis-gaps   SN=<the failed unit>
 ```
 
 Read the YAML top-down:
@@ -32,8 +32,8 @@ serialized and has no route history for.
 Rendering never touches the network:
 
 ```sh
-make unit SN=268947020002       # works; the file says how stale it is
-make snapshots                  # what you have to work with
+make sfis-unit SN=268947020002       # works; the file says how stale it is
+make sfis-snapshots                  # what you have to work with
 ```
 
 Check `snapshot.sfis_payloads_through` in the output — that is the last payload
@@ -55,8 +55,8 @@ not sleep):
 
 ```sh
 # not installed yet — the intended shape
-15 * * * * cd /opt/32x-sfis && make mirror-level LEVEL=6U  >> /var/log/sfis-mirror.log 2>&1
-45 * * * * cd /opt/32x-sfis && make mirror-level LEVEL=L11 >> /var/log/sfis-mirror.log 2>&1
+15 * * * * cd /opt/32x-sfis && make sfis-level LEVEL=6U  >> /var/log/sfis-mirror.log 2>&1
+45 * * * * cd /opt/32x-sfis && make sfis-level LEVEL=L11 >> /var/log/sfis-mirror.log 2>&1
 ```
 
 Snapshots are small (a 4U node is ~1.5 MB) but they are not pruned. Add a
@@ -64,7 +64,7 @@ retention rule before turning on an hourly sweep of every level.
 
 ## Credentials
 
-`make doctor` prints which credential is in use.
+`make sfis-doctor` prints which credential is in use.
 
 - **SFIS**: prefers `SFIS_TOKEN` (a read-only `APP_TOKENS` entry on the receiver
   — it cannot write). Falls back to basic auth. Ask Krish for a read token before

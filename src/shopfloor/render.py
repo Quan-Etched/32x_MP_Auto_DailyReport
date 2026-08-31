@@ -183,7 +183,6 @@ def document(
             "taken_at": manifest.get("taken_at"),
             "sfis_payloads_through": manifest.get("sfis_payloads_through"),
             "eos_window": manifest.get("eos_window"),
-            "station_registry": manifest.get("station_registry"),
         },
         "summary": {
             "parts": tally.get("parts", 0),
@@ -210,7 +209,7 @@ def document(
 
 HEADER = (
     "Local shopfloor topology + test records — generated, do not hand-edit.",
-    "One file per top-level serial. Rebuild with: make unit SN=<serial>",
+    "One file per top-level serial. Rebuild with: make sfis-unit SN=<serial>",
     "",
     "coverage:  tested          a test names this part SN directly",
     "           process_only    SFIS route/assembly events only, no test",

@@ -9,7 +9,13 @@ DAYS    ?= 2
 WINDOW  ?= 30
 STATION ?= l10_sft
 
-.PHONY: help trust demo collect build report serve test inspect levels refresh status \
+# shopfloor (SFIS traceability): SN is the top-level serial to mirror/render.
+SN         ?=
+SFIS_LEVEL ?= 6U
+SFIS_DAYS  ?= 120
+
+.PHONY: sfis-doctor sfis-mirror sfis-level sfis-unit sfis-units sfis-gaps sfis-snapshots \
+	help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
         dailyexcel requests pega-stations release-source suite-map reconcile \
         errors annotate error-catalogue retest-slide \
@@ -49,6 +55,15 @@ help:
 	@echo "make test               run the unit tests"
 	@echo "make inspect            show live API field names and how parse.py maps them"
 	@echo "make clean              remove generated data and the dashboard bundle"
+	@echo ""
+	@echo "  shopfloor traceability (src/shopfloor, docs/sfis/README.md)"
+	@echo "make sfis-doctor        can we reach pega-sfis and EOS, with what credential"
+	@echo "make sfis-mirror SN=..  snapshot one root serial (VERDICTS=1 for EOS pass/fail)"
+	@echo "make sfis-level [LEVEL=6U]  snapshot every serial at a product level"
+	@echo "make sfis-unit SN=..    render out/<SN>.yaml from the latest snapshot [offline]"
+	@echo "make sfis-units         render every serial in the latest snapshot [offline]"
+	@echo "make sfis-gaps [SN=..]  traceability escapes and unlinked test DUTs"
+	@echo "make sfis-snapshots     list the snapshots on disk"
 
 trust:
 	$(PY) -m factory.cli trust
@@ -375,8 +390,47 @@ clean:
 	rm -rf data/processed/* dashboard/data/metrics.js dashboard/data/stations.js \
 	       dashboard/data/runs.js dashboard/data/dailyexcel.js \
 	       dashboard/data/requests.js dashboard/data/pega_stations.js
+	rm -f out/*.yaml
 	find . -name '__pycache__' -type d -prune -exec rm -rf {} +
 
 # Also drops the cached HTTP responses, forcing a full refetch next collect.
 distclean: clean
 	rm -rf data/raw/*
+
+
+# --- shopfloor traceability -------------------------------------------------
+# Part-SN topology + test records from pega-sfis and EOS. Two phases on purpose:
+# `sfis-mirror` talks to both upstreams and writes an immutable snapshot;
+# `sfis-unit` and `sfis-gaps` read only that snapshot, so they still answer when
+# pega-sfis is down -- which is the whole reason the tool exists.
+# See docs/sfis/README.md for the model and docs/sfis/JOIN.md for the join.
+
+SFIS := $(PY) -m shopfloor
+
+sfis-doctor:
+	@$(SFIS) doctor
+
+# VERDICTS=1 resolves EOS pass/fail: two extra API calls per run, cached in the
+# snapshot forever because a finished run's verdict never changes.
+sfis-mirror:
+	@test -n "$(SN)" || { echo "usage: make sfis-mirror SN=<serial>"; exit 2; }
+	@$(SFIS) mirror $(SN) --days $(SFIS_DAYS) $(if $(VERDICTS),--verdicts,)
+
+sfis-level:
+	@$(SFIS) mirror --level $(SFIS_LEVEL) --days $(SFIS_DAYS) $(if $(VERDICTS),--verdicts,)
+
+sfis-unit:
+	@test -n "$(SN)" || { echo "usage: make sfis-unit SN=<serial>"; exit 2; }
+	@$(SFIS) unit $(SN)
+
+sfis-units:
+	@for sn in $$(ls snapshots/$$(cat snapshots/latest)/sfis/serial/*.json 2>/dev/null \
+	              | xargs -n1 basename | sed 's/.json//'); do \
+	    $(SFIS) unit $$sn 2>/dev/null || true; \
+	done
+
+sfis-gaps:
+	@$(SFIS) gaps $(SN)
+
+sfis-snapshots:
+	@ls -1 snapshots/ 2>/dev/null | grep -v latest || echo "(none)"

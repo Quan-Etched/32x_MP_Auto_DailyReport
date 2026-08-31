@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-09-01 — merged into factory_data_analysis
+
+Moved from `etched-ai/32x-sfis` into this repository as `src/shopfloor`, with
+history preserved (`git merge --allow-unrelated-histories` onto a branch whose
+paths were already the destination paths).
+
+Why this direction: all the history, the deployment and the published dashboard
+were on the `factory_data_analysis` side (126 commits, a `gh-pages` branch, an
+hourly job, `/var/www/32x-production`), and `tools/publish.sh` reads the remote
+at publish time — so nesting this repo the other way would have moved the
+dashboard's `gh-pages` target onto a different repo and changed its URL. The
+dependency also runs one way: `shopfloor` imports `factory`, never the reverse.
+
+What the merge deleted, which was the point:
+
+- The `sys.path` shim into a second checkout, its `FALLBACK` station table, and
+  `registry_source()`. `shopfloor.stations` now does
+  `from factory.stations import classify, label_of`. The import cannot
+  half-work, so there is nothing to fall back to and nothing to report.
+- A second CA-bundle notion. `shopfloor.config.eos_ca_bundle()` delegates to
+  `factory.config.ca_bundle()`, so one `make trust` fixes TLS for both tools.
+- A second `.env` holding a second copy of `EOS_API_KEY`.
+- A second `Makefile` and `.gitignore`.
+
+Also fixed in the move: **the shopfloor tests were invisible to the repo test
+runner.** They were plain functions, and `unittest discover` reported
+`Ran 0 tests ... OK` — green, testing nothing. Converted to `TestCase`; the
+suite now collects 773 tests including 14 shopfloor ones.
+
+Make targets are `sfis-` prefixed (`sfis-doctor`, `sfis-mirror`, `sfis-unit`,
+`sfis-level`, `sfis-units`, `sfis-gaps`, `sfis-snapshots`) — `help`, `test` and
+`clean` were the only three names that collided, and `unit`/`units` were too
+generic to keep in a repo where "unit" already means several things.
+
 ## 2026-08-31 — initial
 
 First working version. Mirrors `pega-sfis` + EOS to a local snapshot and renders
@@ -25,8 +59,7 @@ Everything below was observed, not assumed. Re-check before relying on a number.
 - **EOS levels**: `l6`, `l10`, `module`, `slt` readable; `l11` and `bringup`
   return HTTP 424 — the API key cannot read those buckets. Matches the `blocked`
   levels documented in `Analysis/src/factory/stations.py`.
-- **Station registry** imported live from `Analysis/src/factory/stations.py`, not
-  copied. `make doctor` prints which registry is in use.
+- **Station registry** imported from `factory.stations`, not copied.
 
 ### Bugs found and fixed while building
 

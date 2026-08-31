@@ -82,13 +82,20 @@ know is to read the station name and decide, and a reader should be able to see
 every such decision at once. Anything not on the list stays as Pega sent it, with
 the station name on every record.
 
-## Why the station registry is imported from `Analysis` and not copied
+## Why the station registry is imported and not copied
 
 The (EOS level, suite) → station mapping is verified against a 30-day live window
 and already absorbs three renames. A second copy is stale the first time the line
-renames a suite, and nobody would know which copy was right. `make doctor` prints
-which registry is live; `stations.FALLBACK` is coarse and exists only so this repo
-runs on a box without `Analysis`.
+renames a suite, and nobody would know which copy was right. So
+`shopfloor.stations` imports `factory.stations.classify()` and adds only the SFIS
+route-station half, which `factory` never sees.
+
+While the two lived in separate repositories this import went through a
+`sys.path` insert, a `FALLBACK` table for when the other checkout was absent, and
+a `registry_source()` accessor so a reader could tell a canonical station name
+from a best guess. Sharing a repository deleted all three: the import cannot
+half-work, so there is nothing to fall back to and nothing to report. That
+deletion was the main structural argument for merging.
 
 ## Why a hand-written YAML emitter
 

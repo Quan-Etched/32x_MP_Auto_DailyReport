@@ -53,8 +53,10 @@ def cmd_doctor(args) -> int:
         if probe.ok:
             print(f"       levels: {(probe.data or {}).get('levels')}")
 
-    from . import stations
-    print(f"stations  registry: {stations.registry_source()}")
+    from factory import stations as factory_stations
+    active = [s for s in factory_stations.registry() if s.get("state") == "active"]
+    print(f"stations  factory.stations: {len(active)} active of "
+          f"{len(factory_stations.registry())}")
     snap = mirror.latest()
     print(f"snapshot  latest: {snap.name if snap else '(none yet — run: make mirror)'}")
     return 0 if levels.ok else 1

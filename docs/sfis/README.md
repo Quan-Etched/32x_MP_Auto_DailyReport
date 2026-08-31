@@ -5,10 +5,10 @@ serial**: the full part-SN tree with every part's test history attached, and an
 explicit verdict on which parts can have one at all.
 
 ```sh
-make doctor                          # can we reach both sources, with what credential
-make mirror SN=268947020002 VERDICTS=1
-make unit   SN=268947020002          # -> out/268947020002.yaml   (needs no network)
-make gaps   SN=268947020002
+make sfis-doctor                          # can we reach both sources, with what credential
+make sfis-mirror SN=268947020002 VERDICTS=1
+make sfis-unit   SN=268947020002          # -> out/268947020002.yaml   (needs no network)
+make sfis-gaps   SN=268947020002
 ```
 
 Python 3.9+, standard library only. No pip install, no build step.
@@ -139,14 +139,14 @@ together hid exactly the cases worth finding; there is a regression test for it
 ## Two phases, deliberately separate
 
 ```
-make mirror  ──► snapshots/<UTC id>/           immutable, never rewritten
+make sfis-mirror  ──► snapshots/<UTC id>/           immutable, never rewritten
                    manifest.json               what answered, how fresh, what scope
                    sfis/serial/<sn>.json       one /api/serial per node in the tree
                    sfis/pairs.json  levels.json  recent.json
                    eos/by_dut.json  levels.json  verdicts.json
 
-make unit    ──► out/<sn>.yaml                 reads the snapshot ONLY
-make gaps    ──► findings                      reads the snapshot ONLY
+make sfis-unit    ──► out/<sn>.yaml                 reads the snapshot ONLY
+make sfis-gaps    ──► findings                      reads the snapshot ONLY
 ```
 
 The split is borrowed from the receiver itself, which separates an immutable
@@ -155,7 +155,7 @@ property. This is the same bet one layer out: a bug in `graph.py` is fixable
 after the fact against data we already have, and only a snapshot never taken is
 unrecoverable.
 
-`make mirror` fetches `/api/serial/{sn}` for **every node** in the tree, not just
+`make sfis-mirror` fetches `/api/serial/{sn}` for **every node** in the tree, not just
 the root. MPN, EPN, MAC and slot confidence are only exposed for a serial's
 direct children, so a walk without this yields a tree of bare serials. ~100 calls
 per 6U, about 30 seconds, and it is the difference between an inventory and an
@@ -196,7 +196,6 @@ sources:
 snapshot:
   taken_at: '2026-08-31T09:23:31Z'
   sfis_payloads_through: '2026-08-31T08:26:06.457284Z'
-  station_registry: Analysis (/Users/chuck/project/Analysis/src)
 ```
 
 Not decoration. The only time anyone opens one of these files is six weeks later
@@ -205,12 +204,12 @@ how current they were cannot be trusted then. Note `l11: HTTP 424` above — the
 key cannot read that bucket, so L11 test records are genuinely absent rather than
 nonexistent, and the file says which.
 
-`sfis_scope` records whether a level was swept wholesale. `make gaps` refuses the
+`sfis_scope` records whether a level was swept wholesale. `make sfis-gaps` refuses the
 checks its snapshot cannot support: "EOS tested a serial SFIS has never heard of"
 is only sound against a complete view of SFIS, and against two mirrored racks it
 would "find" that SFIS is missing every serial in the factory.
 
-## `make gaps`
+## `make sfis-gaps`
 
 ```
 Sohu boards tested by EOS but never linked in SFIS: 328 of 1040 tested
@@ -225,24 +224,28 @@ class in bulk instead of one email at a time. Two caveats before quoting the
 number: the older `JE538…`/`JE544…` date codes largely predate the linking
 integration, and the count is per the snapshot's EOS window.
 
-## Relationship to `~/project/Analysis`
+## Relationship to the rest of this repo
 
-`Analysis` is the yield and throughput dashboard over EOS. It answers *how is
-the line doing*; this repo answers *what is inside this unit and what happened to
-each part of it*. They share the EOS API and the station registry and nothing
-else.
+`src/factory` is the yield and throughput dashboard over EOS: *how is the line
+doing*. `src/shopfloor` is this tool: *what is inside this unit, and what
+happened to each part of it*. They share the EOS API, the station registry, one
+`.env`, and one `make trust`.
 
-Reused rather than reimplemented:
+That sharing is the reason they live together. Before the merge, `shopfloor`
+reached `factory.stations` through a `sys.path` insert into a separate checkout,
+with a coarse fallback table for when the checkout was missing. All of it is
+gone — the import cannot half-work now:
 
-- **`factory.stations.classify()`** — the verified (level, suite) → station map,
-  imported via `ANALYSIS_SRC`. A second copy would be stale the first time the
-  line renames a suite and nobody would know which copy was right.
-  `make doctor` prints which registry is live; a coarse fallback keeps this repo
-  runnable on a box without `Analysis`.
-- **`docs/api-usage.md`** — the EOS field-level schema, including the three
-  absences (`/runs` has no status, no station, no duration) that shape `eos.py`.
-- **`src/factory/pega.py`** — the ESVM client, for when fixture verdicts need
-  attributing to a slot.
+- **`factory.stations.classify()` / `label_of()`** — the verified (level, suite)
+  → station map. One copy, so a suite rename cannot leave a stale second one.
+- **`factory.config.ca_bundle()`** — one `make trust` fixes TLS for both tools.
+- **`EOS_API_KEY`** — one key in one `.env`, one place to rotate it.
+
+Also worth reading rather than duplicating: `docs/api-usage.md` for the EOS
+field-level schema, including the three absences (`/runs` has no status, no
+station, no duration) that shape `src/shopfloor/eos.py`; and
+`src/factory/pega.py`, the ESVM client, for when fixture verdicts need
+attributing to a slot.
 
 ## Not done yet
 
@@ -259,6 +262,7 @@ Reused rather than reimplemented:
 - **A read-only token.** This repo currently authenticates with basic auth. A
   dedicated `APP_TOKENS` entry on the receiver cannot write; ask Krish.
 - **Scheduling.** Nothing runs this on a timer yet. A snapshot is only insurance
-  if it is taken before the outage — an hourly `make mirror-level LEVEL=6U` on
-  the dashboard host is the obvious home, next to the `Analysis` refresh that
-  already runs there.
+  if it is taken before the outage. Now that both tools share a repo the obvious
+  home is `deploy/` — the same launchd/systemd units that already run
+  `make refresh` hourly on the dashboard host, with an `sfis-level` tick beside
+  it. That was awkward across two checkouts and is a small change here.
