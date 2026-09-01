@@ -58,11 +58,10 @@ MULTI = {
     # them. Pinned so a well-meaning revert to the full bundle has to be a
     # deliberate edit here -- it would put the four-minute blocking load back.
     #
-    # data/trace.js is the traceability genealogy, and unlike the others it is
-    # OPTIONAL: `make sfis-dashboard` writes it, `make build` does not, and the
-    # page renders without it. Listed because a new bundle should have to be
-    # declared -- not because its presence makes it required.
-    "customize.html": ["data/runs_pega_light.js", "data/errors.js", "data/trace.js"],
+    # data/trace.js is deliberately NOT here: trace.js fetches the genealogy
+    # itself, the first time a serial is actually being looked at. It is 1.3 MB
+    # at production scale and most visits to this page never open the tree.
+    "customize.html": ["data/runs_pega_light.js", "data/errors.js"],
     # The releases page hosts two analyses of the same releases: one built
     # from test logs, one from the source tree they were built from.
     "releases.html": ["data/release_source.js", "data/releases.js"],

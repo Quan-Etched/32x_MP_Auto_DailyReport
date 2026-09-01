@@ -27,7 +27,18 @@
 (function () {
   'use strict';
 
+  /* The bundle is fetched, not script-tagged. At production scale it is 1.3 MB
+   * for 31 units and 3,426 nodes, and most visits to this page are somebody
+   * pulling a CSV who never opens the tree at all -- so it costs nothing until
+   * a serial is actually being looked at. (It was a blocking tag briefly, and
+   * before inheritance moved client-side it was 17.2 MB of one: the page went
+   * from four minutes of blocked parsing to worse. Both are fixed, and this is
+   * the half that keeps it fixed.) */
   var T = window.__FACTORY_TRACE__ || null;
+  var BUNDLE_URL = 'data/trace.js';
+  var loadState = T ? 'ready' : 'idle';   // idle | loading | ready | failed
+  var loadError = '';
+
   var host = document.getElementById('trace');
   if (!host) return;
 
@@ -38,9 +49,10 @@
   function runLabels() { return (window.__FACTORY_RUNS__ || {}).stationLabels || {}; }
   function runsReady() { return !!(window.__FACTORY_RUNS__ || {}).runs; }
 
-  var FIELDS = (T && T.recordFields) || ['ts', 'station', 'result', 'source', 'kind', 'run', 'release', 'sk'];
-  var IX = {};
-  FIELDS.forEach(function (name, i) { IX[name] = i; });
+  var DEFAULT_FIELDS = ['ts', 'station', 'result', 'source', 'kind', 'run',
+                        'release', 'sk'];
+  /* Read through T rather than captured at load: T does not exist yet. */
+  function fields() { return (T && T.recordFields) || DEFAULT_FIELDS; }
 
   function h(tag, attrs, kids) {
     var node = document.createElement(tag);
@@ -125,11 +137,44 @@
   }
 
   function bundleRecords(rows) {
+    var names = fields();
     return (rows || []).map(function (row) {
       var rec = {};
-      FIELDS.forEach(function (name, i) { rec[name] = row[i]; });
+      names.forEach(function (name, i) { rec[name] = row[i]; });
       return rec;
     });
+  }
+
+  /* Inheritance, re-derived rather than shipped. Same rule as
+   * shopfloor.graph.build: only an ancestor's *tests* carry down (an assembly
+   * scan on the parent says nothing about the child), and only those that ran
+   * after this part was linked into it -- otherwise a swapped-in part collects
+   * the history of the one it replaced.
+   *
+   * Better than the server's version in one way: an ancestor's controller runs
+   * are joined here too, and those are never in the bundle. */
+  function inheritedRecords(sn) {
+    var start = node(sn);
+    if (!start) return [];
+    var since = start.l || '';
+    var out = [], seen = {}, cur = start.p;
+    while (cur && !seen[cur]) {
+      seen[cur] = 1;
+      var ancestor = node(cur);
+      if (!ancestor) break;
+      var rows = bundleRecords(ancestor.r).concat(controllerRecords(cur));
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        if (r.kind !== 'test') continue;
+        if (since && (r.ts || '') < since) continue;
+        out.push({ ts: r.ts, station: r.station, result: r.result,
+                   source: r.source, kind: r.kind, run: r.run, release: r.release,
+                   sk: r.sk, on: cur, via: 'installed_in' });
+      }
+      cur = ancestor.p;
+    }
+    out.sort(function (a, b) { return (a.ts || '').localeCompare(b.ts || ''); });
+    return out;
   }
 
   function allRecords(sn) {
@@ -324,13 +369,14 @@
     }
     card.appendChild(recordTable(records, sn));
 
-    var inherited = bundleRecords(n.h);
+    var inherited = inheritedRecords(sn);
     if (inherited.length) {
       var det = h('details', { class: 'trace-details' }, [
         h('summary', { text: 'Inherited from what it was installed in (' + inherited.length + ')' }),
         h('p', { class: 'trace-dim', text:
           'No test names this part. These ran on a parent while this part was ' +
-          'fitted to it, bounded by when it was linked and unlinked.' }),
+          'fitted to it — an ancestor\u2019s tests, from when this part was ' +
+          'linked in onwards.' }),
         recordTable(inherited, sn)
       ]);
       card.appendChild(det);
@@ -379,12 +425,53 @@
     return found;
   }
 
-  function tick() {
-    if (!T) {
+  /* Fetch the bundle the first time a serial is actually being shown. */
+  function ensureBundle(then) {
+    if (loadState === 'ready') { then(); return; }
+    if (loadState === 'loading') return;
+    loadState = 'loading';
+    paintLoading();
+    fetch(BUNDLE_URL, { cache: 'force-cache' }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.text();
+    }).then(function (text) {
+      var open = text.indexOf('{');
+      T = JSON.parse(text.slice(open).replace(/;\s*$/, ''));
+      window.__FACTORY_TRACE__ = T;
+      loadState = 'ready';
+      then();
+    }).catch(function (err) {
+      /* A 404 is the ordinary case on a copy published before anyone ran
+       * `make sfis-dashboard`, and it is not an error worth shouting about --
+       * the rest of the page is unaffected. Anything else is worth saying. */
+      loadState = 'failed';
+      loadError = String((err && err.message) || err);
       host.innerHTML = '';
-      return;
-    }
-    render(current());
+      if (loadError.indexOf('404') < 0) {
+        host.appendChild(h('p', { class: 'trace-empty', text:
+          'Traceability data could not be loaded: ' + loadError }));
+      }
+    });
+  }
+
+  function paintLoading() {
+    host.innerHTML = '';
+    host.appendChild(h('section', { class: 'card full trace-card' }, [
+      h('div', { class: 'card-head' }, [
+        h('div', {}, [
+          h('h2', { text: 'Traceability' }),
+          h('p', { class: 'sub', text: 'Loading the genealogy…' })
+        ])
+      ]),
+      h('div', { class: 'bd-bar bd-bar-idle' }, [h('div', { class: 'bd-fill' })])
+    ]));
+  }
+
+  function tick() {
+    var sn = current();
+    if (!sn) { if (loadState !== 'loading') host.innerHTML = ''; return; }
+    if (loadState === 'failed') return;
+    ensureBundle(function () { render(sn); });
   }
 
   window.addEventListener('hashchange', tick);

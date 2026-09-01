@@ -18,6 +18,13 @@ drift on what ``c`` means.
 
 WHAT IS DELIBERATELY *NOT* IN HERE
 ----------------------------------
+**Inherited records.** They are derived: an ancestor's test attributed to every
+part that was installed when it ran. Shipping them cost 15.93 MB of a 17.22 MB
+bundle -- 92%, for facts already in the bundle once each. ``dashboard/trace.js``
+re-derives them by walking the parent chain, which needs only ``p``, ``l`` and
+``r``. See :func:`shopfloor.graph.build` for the rule both sides apply; the YAML
+still carries them expanded, because a file has no page to compute anything.
+
 **Controller runs.** ``customize.html`` already loads the full run bundle for its
 range and serial views, so the page has every controller run in memory keyed by
 ``dutSerial``. Copying them in here would add megabytes to say a second time what
@@ -54,7 +61,6 @@ NODE_KEYS = {
     "g": "1 when traceability_gap — serialized by Pega, no route history",
     "k": "child serials",
     "r": "records: [ts, station, result, source, kind, runId, release, stationKey]",
-    "h": "inherited records, same shape, plus the ancestor serial in place of runId",
 }
 
 #: Record tuple positions, so the page indexes by name rather than by number.
@@ -191,8 +197,15 @@ def build(
                 node["l"] = part.linked_at
             if part.traceability_gap:
                 node["g"] = 1
-            if part.inherited:
-                node["h"] = [_record_tuple(r) for r in part.inherited]
+            # Inherited records are NOT shipped. They are derived -- an ancestor's
+            # test, repeated onto every part that was installed at the time -- and
+            # at production scale that repetition was 15.93 MB of a 17.22 MB
+            # bundle, 92% of it, for facts already present once each under the
+            # ancestors' own "r". The page walks the parent chain and applies the
+            # same window rule, from `p`, `l` and `r`, which it already has.
+            #
+            # It also comes out better there: the page can inherit an ancestor's
+            # *controller* runs, which this bundle deliberately does not carry.
             # A serial can legitimately appear under two parents in different
             # units. Last writer wins for the node body, but every unit it
             # appears in is recorded so the page can say so instead of showing

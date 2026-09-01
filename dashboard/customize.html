@@ -277,7 +277,9 @@
      for it. The tree needs none of that to draw itself, so it goes first and
      folds the controller runs in at DOMContentLoaded. Both files are optional:
      `make sfis-dashboard` writes them, `make build` does not. -->
-<script src="data/trace.js"></script>
+<!-- trace.js fetches data/trace.js itself, the first time a serial is actually
+     being looked at. It is 1.3 MB at production scale and most visits here never
+     open the tree, so it is not a script tag. -->
 <script src="trace.js"></script>
 <!-- The controls-only bundle (~16 KB). The heavy half — runs and
      testNames, 8.6 MB — is fetched by bigdata.js when something
