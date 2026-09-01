@@ -17,8 +17,9 @@ SN         ?=
 # to 6U,L11 and 158 of 191 units were silently absent.
 SFIS_LEVEL ?= 6U,4U,2U,L11
 SFIS_DAYS  ?= 120
+DAYS_RECONCILE ?= 7
 
-.PHONY: sfis-doctor sfis-mirror sfis-level sfis-unit sfis-units sfis-gaps sfis-snapshots \
+.PHONY: sfis-reconcile sfis-doctor sfis-mirror sfis-level sfis-unit sfis-units sfis-gaps sfis-snapshots \
 	sfis-dashboard \
 	help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
@@ -68,6 +69,7 @@ help:
 	@echo "make sfis-unit SN=..    render out/<SN>.yaml from the latest snapshot [offline]"
 	@echo "make sfis-units         render every serial in the latest snapshot [offline]"
 	@echo "make sfis-dashboard     compile the snapshot into the customize.html tree"
+	@echo "make sfis-reconcile     EOS runs vs the shopfloor, per level, last 7 days"
 	@echo "make sfis-gaps [SN=..]  traceability escapes and unlinked test DUTs"
 	@echo "make sfis-snapshots     list the snapshots on disk"
 
@@ -446,6 +448,11 @@ sfis-units:
 # page loses its download button.
 sfis-dashboard:
 	@$(SFIS) trace $(if $(NOYAML),--no-yaml,)
+
+# The close-loop check: take EOS's serials and look for each on the shopfloor.
+# Live on both sides, because the question is whether the join is holding NOW.
+sfis-reconcile:
+	@$(SFIS) reconcile --days $(DAYS_RECONCILE) $(if $(LEVELS),--levels $(LEVELS),) $(if $(CSV),--csv $(CSV),)
 
 sfis-gaps:
 	@$(SFIS) gaps $(SN)

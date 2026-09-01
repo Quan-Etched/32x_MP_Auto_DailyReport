@@ -4,6 +4,7 @@
     mirror  SN...       snapshot the upstreams for these roots (or a whole level)
     unit    SN          render one YAML from a snapshot          [offline]
     trace               compile the snapshot into the dashboard bundle [offline]
+    reconcile           EOS runs vs the shopfloor, per level, over N days
     gaps                the findings across a snapshot           [offline]
 
 ``unit`` and ``gaps`` read only the snapshot directory. That separation is the
@@ -19,7 +20,8 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from . import build_trace, config, eos, graph as graph_mod, mirror, render, sfis
+from . import (build_trace, config, eos, graph as graph_mod, mirror,
+               reconcile as reconcile_mod, render, sfis)
 
 
 def _resolve_roots(args) -> List[str]:
@@ -244,6 +246,101 @@ def cmd_trace(args) -> int:
     return 0
 
 
+def cmd_reconcile(args) -> int:
+    """Every EOS DUT in the window, checked against the receiver."""
+    if not eos.available():
+        print("EOS_API_KEY not set — nothing to reconcile", file=sys.stderr)
+        return 2
+    levels = [p.strip() for p in (args.levels or "").split(",") if p.strip()] or None
+    print(f"Reconciling EOS against pega-sfis over {args.days} day(s)…",
+          file=sys.stderr)
+    report = reconcile_mod.run(days=args.days, levels=levels)
+
+    since, until = report["window"]
+    print(f"\nEOS -> SFIS reconciliation   {since[:10]} .. {until[:10]}"
+          f"   ({args.days} days)\n")
+    header = (f"{'level':10} {'runs':>6} {'DUTs':>6} {'in SFIS':>8} "
+              f"{'ABSENT':>7} {'non-prod':>9} {'err':>4}")
+    print(header)
+    print("-" * len(header))
+    for level, stats in report["levels"].items():
+        if not stats.get("available"):
+            print(f"{level:10} {'—':>6} {'—':>6} {'—':>8} {'—':>7} {'—':>9} {'—':>4}"
+                  f"   unavailable: {stats.get('error','')[:44]}")
+            continue
+        print(f"{level:10} {stats['runs']:>6} {stats['duts']:>6} "
+              f"{stats['in_sfis']:>8} {stats['absent']:>7} "
+              f"{stats['non_production']:>9} {stats['lookup_failed']:>4}")
+
+    print()
+    print("Freshness — the last run EOS holds at each level, over a wider window:")
+    for level, stats in report["levels"].items():
+        if not stats.get("available"):
+            continue
+        last = stats.get("last_seen")
+        print(f"  {level:10} last={last or 'never':24} "
+              f"({stats.get('runs_wide', 0)} runs in the wider window)")
+
+    ctl = report.get("controllers") or {}
+    if ctl.get("available"):
+        print()
+        print(f"The line's own record over the same {report['days']} day(s) "
+              f"(ESVM controllers):")
+        rows = sorted(ctl["stations"].items(), key=lambda kv: -kv[1])
+        if not rows:
+            print("  no controller runs either — the line was not running these stations")
+        for station, count in rows[:12]:
+            print(f"  {station:22} {count:>5} suite run(s)")
+        print("  A station with controller runs and no EOS runs is EOS not")
+        print("  receiving, not the line being idle. That distinction is the "
+              "whole point of this section.")
+    elif ctl:
+        print(f"\ncontrollers unavailable: {ctl.get('error','')}")
+
+    absent = sorted(
+        ((sn, r) for sn, r in report["duts"].items()
+         if r.get("verdict") == "absent_from_sfis"),
+        key=lambda kv: kv[1].get("first") or "")
+    print(f"\nTested by EOS, absent from the shopfloor: {len(absent)}")
+    if absent:
+        print("  (a board tested and never linked — nothing downstream can say "
+              "what it went into)")
+    for sn, record in absent[: args.limit]:
+        where = ",".join(f"{k}×{v}" for k, v in record["levels"].items())
+        print(f"  {sn:26} {record['runs']:>3} run(s)  first {(record['first'] or '')[:19]}  {where}")
+    if len(absent) > args.limit:
+        print(f"  … {len(absent) - args.limit} more")
+
+    skipped = [sn for sn, r in report["duts"].items()
+               if r.get("verdict") == "non_production"]
+    if skipped:
+        print(f"\nNon-production DUTs excluded: {len(skipped)}"
+              f"  e.g. {', '.join(sorted(skipped)[:6])}")
+    failed = [sn for sn, r in report["duts"].items()
+              if r.get("verdict") == "lookup_failed"]
+    if failed:
+        print(f"\nSFIS lookup failed for {len(failed)} serial(s) — NOT counted as "
+              f"absent: {', '.join(sorted(failed)[:5])}")
+
+    if args.csv:
+        import csv
+
+        with open(args.csv, "w", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["serial", "verdict", "eos_runs", "levels",
+                             "first_run", "sfis_process", "sfis_as_parent",
+                             "sfis_as_child"])
+            for sn, record in sorted(report["duts"].items()):
+                writer.writerow([
+                    sn, record.get("verdict"), record.get("runs"),
+                    ";".join(f"{k}={v}" for k, v in record["levels"].items()),
+                    record.get("first"), record.get("process", ""),
+                    record.get("as_parent", ""), record.get("as_child", ""),
+                ])
+        print(f"\nCSV: {args.csv}")
+    return 0
+
+
 def cmd_gaps(args) -> int:
     """Findings that need a person, and only the ones this snapshot can support."""
     import re
@@ -368,6 +465,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                        help="omit the per-unit YAML text (smaller bundle, no "
                             "download button on the page)")
     trace.set_defaults(func=cmd_trace)
+
+    rec = sub.add_parser(
+        "reconcile", help="EOS runs vs the shopfloor, per level, over N days")
+    rec.add_argument("--days", type=int, default=7)
+    rec.add_argument("--levels", default="",
+                     help="comma-separated EOS levels (default: all)")
+    rec.add_argument("--limit", type=int, default=25)
+    rec.add_argument("--csv", default="", help="write the full table here")
+    rec.set_defaults(func=cmd_reconcile)
 
     gaps = sub.add_parser("gaps", help="findings across a snapshot [offline]")
     gaps.add_argument("serial", nargs="*")
