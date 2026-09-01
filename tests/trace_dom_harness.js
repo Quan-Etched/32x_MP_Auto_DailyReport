@@ -35,6 +35,7 @@ var document = {
   readyState: 'complete',
   getElementById: function (id) { return id === 'trace' ? TRACE_HOST : null; },
   createElement: function (tag) { return new El(tag); },
+  createTextNode: function (text) { var n = new El('#text'); n.textContent = text; return n; },
   addEventListener: function (name, fn) { listeners[name] = fn; },
   body: new El('body')
 };
@@ -49,4 +50,15 @@ var setTimeout = function () {};
 function assert(cond, label) {
   LOG.push((cond ? 'ok   ' : 'FAIL ') + label);
   if (!cond) LOG.failed = true;
+}
+
+/* jsc has no event loop: microtasks only run once the top-level script ends, so
+ * a synchronous test can never observe a promise resolving. `after(n, fn)`
+ * therefore chains n turns of the queue and runs fn on the far side, which is
+ * enough for a multi-step chain (fetch -> read -> decode -> parse -> adopt) to
+ * have finished. Assertions that follow an async call go inside it. */
+function after(turns, fn) {
+  var p = Promise.resolve();
+  for (var i = 0; i < turns; i++) p = p.then(function () {});
+  return p.then(fn);
 }

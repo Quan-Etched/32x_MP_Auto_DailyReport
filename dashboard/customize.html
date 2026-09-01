@@ -89,7 +89,10 @@
     </section>
 
     <!-- The gate. Sections 1 to 3 are the question; everything below is the
-         answer, and it is not computed until asked for. -->
+         answer, and it is not computed until asked for — which is also when the
+         8.6 MB half of the bundle is fetched. #bigdata carries the progress bar,
+         the estimate and the raw-data download. -->
+    <div id="bigdata"></div>
     <div class="run-bar" id="run"></div>
 
     <div id="output" hidden>
@@ -276,7 +279,11 @@
      `make sfis-dashboard` writes them, `make build` does not. -->
 <script src="data/trace.js"></script>
 <script src="trace.js"></script>
-<script src="data/runs_pega.js"></script>
+<!-- The controls-only bundle (~16 KB). The heavy half — runs and
+     testNames, 8.6 MB — is fetched by bigdata.js when something
+     actually needs it, with a progress bar and an estimate. -->
+<script src="data/runs_pega_light.js"></script>
+<script src="bigdata.js"></script>
 <script src="data/errors.js"></script>
 <script src="charts.js"></script>
 <script src="tablecsv.js"></script>

@@ -26,6 +26,10 @@
   'use strict';
 
   var DATA = window.__FACTORY_RUNS__ || window.__FACTORY_RUNS_PEGA__ || {};
+  /* bigdata.js is optional: without it every call is a straight passthrough and
+     the page behaves exactly as it did when the whole bundle was a script tag. */
+  var BIGDATA = window.FactoryBigData || { ensure: function (fn) { fn(); },
+                                           attach: function () {} };
   var RUNS = DATA.runs || [];
   var NAMES = DATA.testNames || [];
   var TSTATUS = DATA.testStatuses || [];
@@ -601,15 +605,21 @@
       if (view.ran || view.running || !ready) return;
       view.running = true;
       renderRun();
-      /* Yielding once so the frozen state and "Running…" actually paint before
-         the work starts — on a wide range this is a second of arithmetic on the
-         main thread, and without the yield the reader sees nothing happen. */
-      window.setTimeout(function () {
-        view.running = false;
-        view.ran = true;
-        writeHash();
-        render();
-      }, 0);
+      /* The runs themselves arrive on demand — the page loads a 16 KB
+         controls-only bundle so it can draw at all, and the 8.6 MB half is
+         fetched here, behind the gate, with a progress bar. Already loaded, or
+         no split at all, and this calls straight through. */
+      BIGDATA.ensure(function () {
+        /* Yielding once so the frozen state and "Running…" actually paint before
+           the work starts — on a wide range this is a second of arithmetic on the
+           main thread, and without the yield the reader sees nothing happen. */
+        window.setTimeout(function () {
+          view.running = false;
+          view.ran = true;
+          writeHash();
+          render();
+        }, 0);
+      });
     });
     host.appendChild(button);
 

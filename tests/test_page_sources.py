@@ -60,7 +60,11 @@ MULTI = {
     # what a page loads and a new bundle should have to be declared — but it is
     # not part of the controllers-vs-OCP pairing this file exists to protect, so
     # do not read its presence here as making it required.
-    "customize.html": ["data/runs_pega.js", "data/errors.js", "data/trace.js"],
+    # runs_pega_light.js, not runs_pega.js: the page ships ~16 KB of controls
+    # and bigdata.js fetches the 8.6 MB of runs behind the button that needs
+    # them. Pinned so a well-meaning revert to the full bundle has to be a
+    # deliberate edit here -- it would put the four-minute blocking load back.
+    "customize.html": ["data/runs_pega_light.js", "data/errors.js", "data/trace.js"],
     # The releases page hosts two analyses of the same releases: one built
     # from test logs, one from the source tree they were built from.
     "releases.html": ["data/release_source.js", "data/releases.js"],
@@ -86,8 +90,10 @@ DOM_SCRIPTS = {
     "rack2.html": ["rack2.js"],
     "week.html": ["week.js"],
     # Two drawings on one page: flow.js draws the summary, flowchart.js draws
-    # the end-to-end chart from flowe2e.js's data, flowswitch.js picks.
-    "flow.html": ["flow.js", "flowchart.js", "flowswitch.js", "flowcsv.js"],
+    # the end-to-end chart from flowe2e.js's data, flowswitch.js picks which,
+    # and flowwindow.js picks the window both of them count.
+    "flow.html": ["flow.js", "flowchart.js", "flowswitch.js", "flowcsv.js",
+                  "flowwindow.js"],
     "doe.html": ["doe.js"],
     "releases.html": ["releasesrc.js", "suitemap.js"],
 }
@@ -881,3 +887,41 @@ JSON.stringify(document.getElementById('nav').kids.map(function (a) {
         self.assertIn("section=errors", customize,
                       "customize.js must recognise the deep link")
         self.assertIn("deepLink", customize)
+
+
+class FlowHashOrderTest(unittest.TestCase):
+    """flowwindow.js defines the hash helper, so it has to load first.
+
+    Two controls on flow.html write to the address — which drawing, and which
+    window — and each used to write it by assignment, so whichever moved last
+    erased the other's choice. They go through `FlowHash` now, which
+    flowwindow.js defines. Loaded the other way round, `window.FlowHash` is
+    undefined when flowswitch.js is evaluated; it falls back to assigning the
+    whole hash, and the bug is back with nothing to show for it — the page
+    still works, it just quietly forgets the window whenever the drawing is
+    switched.
+    """
+
+    def order(self):
+        text = (DASHBOARD / "flow.html").read_text(encoding="utf-8")
+        return re.findall(r'<script src="([a-z0-9_]+\.js)"', text)
+
+    def test_flowwindow_loads_before_every_script_that_uses_flowhash(self):
+        loaded = self.order()
+        self.assertIn("flowwindow.js", loaded)
+        first = loaded.index("flowwindow.js")
+        for script in sorted(loaded):
+            source = (DASHBOARD / script).read_text(encoding="utf-8")
+            # The definition itself does not count as a use.
+            if script == "flowwindow.js" or "FlowHash" not in source:
+                continue
+            with self.subTest(script=script):
+                self.assertGreater(
+                    loaded.index(script), first,
+                    "{} reads FlowHash but loads before flowwindow.js defines "
+                    "it".format(script))
+
+    def test_the_page_hosts_the_control(self):
+        """The mount point flowwindow.js looks for. Without it the control
+        renders nowhere and the week is the only window there is again."""
+        self.assertIn("flow-window", element_ids("flow.html"))

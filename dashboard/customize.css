@@ -461,3 +461,37 @@
 .trace-warn { color: var(--status-warning); font-size: 13px; margin: 4px 0 0; }
 .trace-details { margin-top: 14px; }
 .trace-details summary { cursor: pointer; font-size: 14px; }
+
+/* ---- On-demand run bundle (bigdata.js) ---------------------------------
+   The page ships ~16 KB of controls and fetches the 8.6 MB of runs when a
+   button needs them. Four minutes of silence on the VPN is worse than four
+   minutes with a number on it, so this is a real bar with a real estimate. */
+
+.bd { margin: 0 0 12px; }
+
+.bd-bar {
+  height: 6px; border-radius: 3px; overflow: hidden;
+  background: var(--border);
+}
+.bd-fill {
+  height: 100%; background: var(--accent, var(--success-text));
+  transition: width .2s linear;
+}
+/* No Content-Length to divide by — the bar stripes instead of lying about a
+   percentage it cannot know. */
+.bd-bar-idle .bd-fill {
+  background: repeating-linear-gradient(90deg,
+    var(--border) 0 10px, var(--muted) 10px 20px);
+  animation: bd-slide 1s linear infinite;
+}
+@keyframes bd-slide { to { background-position: 20px 0; } }
+
+.bd-note { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+.bd-bad  { color: var(--status-critical); }
+.bd-actions { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.bd-download { font-size: 13px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bd-fill { transition: none; }
+  .bd-bar-idle .bd-fill { animation: none; }
+}

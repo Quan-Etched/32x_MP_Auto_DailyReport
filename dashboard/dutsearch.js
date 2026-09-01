@@ -23,6 +23,9 @@
   'use strict';
 
   var DATA = window.__FACTORY_RUNS__ || window.__FACTORY_RUNS_PEGA__ || {};
+  /* See customize.js: the runs arrive on demand, and this is the other button
+     that needs them. Optional, and a passthrough when absent. */
+  var BIGDATA = window.FactoryBigData || { ensure: function (fn) { fn(); } };
   var RUNS = DATA.runs || [];
   var LABELS = DATA.stationLabels || {};
   var LINKS = DATA.links || {};
@@ -211,8 +214,13 @@
     }, [h('span', { text: view.ran ? 'Search complete' : 'SEARCH' })]);
     button.addEventListener('click', function () {
       if (view.ran || !ready) return;
-      view.ran = true;
-      render();
+      /* The runs arrive on demand now (see the module note in bigdata.js), so
+         this is where the 8.6 MB half is fetched — behind the button that needs
+         it, not in front of the whole page. */
+      BIGDATA.ensure(function () {
+        view.ran = true;
+        render();
+      });
     });
     host.appendChild(button);
 
