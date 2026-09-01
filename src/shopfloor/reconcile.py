@@ -44,6 +44,11 @@ from . import eos, sfis
 
 #: Serial shapes that are not product. Same list the gap report uses.
 NON_PRODUCTION = (
+    # A literal "SN" arrived as a dutSerial on three l6 runs -- a station with an
+    # unfilled placeholder, not a board. Listed explicitly because the honest way
+    # to know is to look at it, and a rule broad enough to catch it by shape
+    # would start eating real vendor barcodes.
+    r"(?i)^sn$",
     r"^\d{1,8}$",
     r"(?i)^zztest",
     r"(?i)rename_test",
