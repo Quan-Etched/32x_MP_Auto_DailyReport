@@ -12,7 +12,18 @@ var LOG = [];
 
 function El(tag) {
   this.tagName = tag; this.children = []; this.attrs = {};
-  this.textContent = ''; this.className = ''; this.innerHTML = '';
+  this.textContent = ''; this.className = '';
+  /* A real `innerHTML = ''` empties the element. A plain property does not, and
+   * a stub that keeps its children after a clear would let a stale-render bug
+   * pass -- which it did once, on the "no serial selected" case. */
+  var self = this;
+  Object.defineProperty(this, 'innerHTML', {
+    get: function () { return self._html || ''; },
+    set: function (value) {
+      self._html = value;
+      if (!value) { self.children.length = 0; self.textContent = ''; }
+    }
+  });
 }
 El.prototype.appendChild = function (kid) { this.children.push(kid); return kid; };
 El.prototype.setAttribute = function (k, v) { this.attrs[k] = v; };
@@ -30,10 +41,13 @@ El.prototype.hrefs = function () {
 };
 
 var TRACE_HOST = new El('div');
+/* Extra elements a test wants the module to find, e.g. the #dut-input textarea
+ * that dutsearch owns and trace.js reads a serial out of. */
+var ELEMENTS = { trace: TRACE_HOST };
 var listeners = {};
 var document = {
   readyState: 'complete',
-  getElementById: function (id) { return id === 'trace' ? TRACE_HOST : null; },
+  getElementById: function (id) { return ELEMENTS[id] || null; },
   createElement: function (tag) { return new El(tag); },
   createTextNode: function (text) { var n = new El('#text'); n.textContent = text; return n; },
   addEventListener: function (name, fn) { listeners[name] = fn; },

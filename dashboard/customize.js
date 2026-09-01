@@ -688,7 +688,12 @@
 
   function init() {
     if (!byId('stations') || !byId('preview-body')) return;
-    if (!RUNS.length) {
+    /* An empty RUNS is the NORMAL state now: the page loads a controls-only
+       bundle and fetches the runs behind the RUN button. Only complain when
+       there is genuinely no bundle at all — `needed()` is true exactly when a
+       heavy half exists and has not been fetched yet, and returning early on
+       that would leave the page with no controls to press. */
+    if (!RUNS.length && !BIGDATA.needed()) {
       var notice = byId('notice');
       notice.hidden = false;
       notice.textContent =

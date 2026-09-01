@@ -97,5 +97,31 @@ window.location.hash = 'mode=dut&dut=' + pv1;
 listeners.hashchange();
 assert(TRACE_HOST.text().indexOf(pv1) >= 0, 'picks up #dut= with no #trace=');
 
+/* --- and the case that actually happens: the serial is only in the box ----
+ * dutsearch READS `dut=` from the hash but never writes it, so typing a serial
+ * and pressing SEARCH leaves the address bar at `#mode=dut`. Reading the hash
+ * alone meant the card silently never appeared for the normal way of using the
+ * page -- which is exactly how it was reported. */
+var box = new El('textarea');
+box.value = UNIT + '\n';
+ELEMENTS['dut-input'] = box;
+window.location.hash = 'mode=dut';
+listeners.hashchange();
+var boxText = TRACE_HOST.text();
+assert(boxText.indexOf(UNIT) >= 0,
+       'reads the serial out of #dut-input when the hash has none');
+assert(boxText.indexOf('Parts under it') >= 0, 'and renders its tree');
+
+/* An explicit #trace= must still win over whatever is in the box. */
+window.location.hash = 'mode=dut&trace=' + pv1;
+listeners.hashchange();
+assert(TRACE_HOST.text().indexOf(pv1) >= 0, 'an explicit #trace= wins over the box');
+
+/* Nothing anywhere: no card, and no crash. */
+box.value = '';
+window.location.hash = 'mode=dut';
+listeners.hashchange();
+assert(TRACE_HOST.text().trim() === '', 'no serial anywhere renders nothing');
+
 print(LOG.join('\n'));
 print(LOG.failed ? 'trace.js: FAILURES' : 'trace.js: ok (' + LOG.length + ' assertions)');

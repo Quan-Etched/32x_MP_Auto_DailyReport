@@ -410,19 +410,32 @@
     window.location.hash = parts.join('&');
   }
 
+  /* Which serial to show, in order of how deliberate it is.
+   *
+   * The serial box was the missing one, and it is the one people actually use:
+   * dutsearch.js READS `dut=` out of the hash but never writes it, so typing a
+   * serial and pressing SEARCH leaves the address bar at `#mode=dut` with the
+   * serial only in the textarea. Reading the hash alone meant the card silently
+   * never appeared for the normal way of using the page. */
   function current() {
     var hash = window.location.hash.replace(/^#/, '');
-    var found = '';
+    var fromHash = '', fromDut = '';
     hash.split('&').forEach(function (part) {
       var bits = part.split('=');
-      if (bits[0] === 'trace') found = decodeURIComponent(bits[1] || '');
-      /* Falls back to the serial dutsearch is already showing, so searching a
-       * serial in the box above fills this in without a second action. */
-      if (!found && bits[0] === 'dut') {
-        found = decodeURIComponent(bits[1] || '').split(/[\s,]+/)[0] || '';
+      if (bits[0] === 'trace') fromHash = decodeURIComponent(bits[1] || '');
+      if (bits[0] === 'dut') {
+        fromDut = decodeURIComponent(bits[1] || '').split(/[\s,]+/)[0] || '';
       }
     });
-    return found;
+    if (fromHash) return fromHash;
+    if (fromDut) return fromDut;
+
+    var box = document.getElementById('dut-input');
+    if (box && box.value) {
+      var first = box.value.split(/[\s,\t\n]+/).filter(function (s) { return s; })[0];
+      if (first) return first;
+    }
+    return '';
   }
 
   /* Fetch the bundle the first time a serial is actually being shown. */
@@ -475,12 +488,34 @@
   }
 
   window.addEventListener('hashchange', tick);
+
+  /* The serial box is not in the address bar, so nothing else tells us it
+   * changed. `change` fires on blur, and the SEARCH button lives in #dut-run —
+   * both are the moment somebody has committed to a serial, which is when it is
+   * worth fetching a 1.3 MB bundle. Not on `input`: that would fetch it while
+   * they are still typing the first digit. */
+  function watchSerialBox() {
+    var box = document.getElementById('dut-input');
+    if (box && !box.__traceWatched) {
+      box.__traceWatched = true;
+      box.addEventListener('change', tick);
+    }
+    var runHost = document.getElementById('dut-run');
+    if (runHost && !runHost.__traceWatched) {
+      runHost.__traceWatched = true;
+      /* Delegated, because dutsearch re-creates the button on every render. */
+      runHost.addEventListener('click', function () {
+        window.setTimeout(tick, 0);
+      });
+    }
+  }
   /* Twice on purpose: now, from the trace bundle alone, so the tree is on screen
    * in seconds; and again at DOMContentLoaded, which is after every blocking
    * script -- including the run bundle -- has executed, to fold in the
    * controller rows. */
-  tick();
+  function start() { watchSerialBox(); tick(); }
+  start();
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', tick);
+    document.addEventListener('DOMContentLoaded', start);
   }
 })();
