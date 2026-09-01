@@ -19,6 +19,21 @@ Object.keys(TRACE.nodes).forEach(function (sn) {
   if (n.t === 'BO' && n.n && n.n.indexOf('INTERPOSER') === 0 && !sohu) sohu = sn;
 });
 
+/* --- renders before the run bundle has arrived -------------------------- */
+/* customize.html loads this module BEFORE data/runs_pega.js (9.5 MB, blocking,
+ * minutes on the VPN), so the first render must stand on the trace bundle
+ * alone -- and must say the controller rows are still coming rather than let
+ * their absence read as "there are none". */
+window.__FACTORY_RUNS__ = {};
+load(ROOT + '/dashboard/trace.js');
+var firstUnit = TRACE.units[0].sn;
+window.location.hash = 'trace=' + firstUnit;
+listeners.hashchange();
+var early = TRACE_HOST.text();
+assert(early.indexOf('Traceability') >= 0, 'renders with no run bundle loaded');
+assert(early.indexOf('Still loading the controller run bundle') >= 0,
+       'says the controller rows are still coming');
+
 /* Controller runs, as customize.html has them in memory. Injected against the
  * node actually under test rather than a hardcoded serial -- pinning a serial
  * here made the assertion pass or fail on bundle key order, which is not what
@@ -31,8 +46,6 @@ window.__FACTORY_RUNS__ = {
            i: 'mlt_validation_2026.243.0-git1e4d1b5f_run_9d9abf93#slot5',
            v: '2026.243.0' }]
 };
-
-load(ROOT + '/dashboard/trace.js');
 
 /* --- a unit renders its path and its parts ------------------------------- */
 window.location.hash = 'mode=dut&trace=' + UNIT;

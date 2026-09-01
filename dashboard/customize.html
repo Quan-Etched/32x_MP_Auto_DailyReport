@@ -268,6 +268,14 @@
 
 </div>
 
+<!-- Traceability, deliberately BEFORE the run bundle. data/runs_pega.js is
+     ~9.5 MB and blocks the parser until it arrives -- minutes on the VPN -- and
+     everything below it, including the mode switch and the station lists, waits
+     for it. The tree needs none of that to draw itself, so it goes first and
+     folds the controller runs in at DOMContentLoaded. Both files are optional:
+     `make sfis-dashboard` writes them, `make build` does not. -->
+<script src="data/trace.js"></script>
+<script src="trace.js"></script>
 <script src="data/runs_pega.js"></script>
 <script src="data/errors.js"></script>
 <script src="charts.js"></script>
@@ -284,9 +292,5 @@
 <script src="nav.js"></script>
 <script src="theme.js"></script>
 <script src="update.js"></script>
-  <!-- Optional: absent until `make sfis-dashboard` has run. Loaded after the
-       runs bundle because trace.js joins controller runs out of it. -->
-  <script src="data/trace.js"></script>
-  <script src="trace.js"></script>
 </body>
 </html>

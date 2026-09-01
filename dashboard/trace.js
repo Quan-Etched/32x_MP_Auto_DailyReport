@@ -31,9 +31,12 @@
   var host = document.getElementById('trace');
   if (!host) return;
 
-  var RUNS = (window.__FACTORY_RUNS__ || {});
-  var RUN_ROWS = RUNS.runs || [];
-  var RUN_LABELS = RUNS.stationLabels || {};
+  /* Read lazily, never cached at load: this module runs BEFORE the 9.5 MB run
+   * bundle so the tree paints in seconds instead of minutes, and the controller
+   * rows appear on the re-render once that bundle has finished arriving. */
+  function runRows() { return (window.__FACTORY_RUNS__ || {}).runs || []; }
+  function runLabels() { return (window.__FACTORY_RUNS__ || {}).stationLabels || {}; }
+  function runsReady() { return !!(window.__FACTORY_RUNS__ || {}).runs; }
 
   var FIELDS = (T && T.recordFields) || ['ts', 'station', 'result', 'source', 'kind', 'run', 'release', 'sk'];
   var IX = {};
@@ -103,12 +106,13 @@
 
   function controllerRecords(sn) {
     var out = [];
-    for (var i = 0; i < RUN_ROWS.length; i++) {
-      var r = RUN_ROWS[i];
+    var rows = runRows(), labels = runLabels();
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
       if (String(r.d) !== String(sn)) continue;
       out.push({
         ts: r.t ? new Date(r.t * 1000).toISOString().replace('.000Z', 'Z') : '',
-        station: RUN_LABELS[r.k] || r.k || '?',
+        station: labels[r.k] || r.k || '?',
         result: r.s || 'unknown',
         source: 'controller',
         kind: 'test',
@@ -209,19 +213,15 @@
     ]);
   }
 
+  /* A plain link to the file the builder wrote, not a Blob of text carried in
+   * the bundle. The text is identical -- both come from render.to_text -- but
+   * this way it costs nothing until somebody clicks. */
   function download(unit) {
-    var text = (T.yaml || {})[unit];
-    if (!text) return null;
-    var button = h('button', { type: 'button', class: 'view-toggle',
-                               text: 'Download ' + unit + '.yaml' });
-    button.addEventListener('click', function () {
-      var blob = new Blob([text], { type: 'text/yaml' });
-      var url = URL.createObjectURL(blob);
-      var a = h('a', { href: url, download: unit + '.yaml' });
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
-    });
-    return button;
+    var units = T.yamlUnits || [];
+    if (!T.yamlPath || units.indexOf(unit) < 0) return null;
+    return h('a', { class: 'view-toggle', download: unit + '.yaml',
+                    href: T.yamlPath.replace('{sn}', encodeURIComponent(unit)),
+                    text: 'Download ' + unit + '.yaml' });
   }
 
   function render(sn) {
@@ -312,7 +312,16 @@
     ]));
 
     var records = allRecords(sn);
-    card.appendChild(h('h3', { class: 'trace-h3', text: 'Test records (' + records.length + ')' }));
+    card.appendChild(h('h3', { class: 'trace-h3',
+      text: 'Test records (' + records.length + ')' }));
+    if (!runsReady()) {
+      /* Said plainly rather than left to look like "there are none". The run
+       * bundle is 9.5 MB and on the VPN it takes minutes; this card does not
+       * wait for it, so for those minutes the controller rows really are absent. */
+      card.appendChild(h('p', { class: 'trace-warn', text:
+        'Still loading the controller run bundle — controller records and their ' +
+        'raw-data links will appear when it arrives.' }));
+    }
     card.appendChild(recordTable(records, sn));
 
     var inherited = bundleRecords(n.h);
@@ -379,9 +388,12 @@
   }
 
   window.addEventListener('hashchange', tick);
+  /* Twice on purpose: now, from the trace bundle alone, so the tree is on screen
+   * in seconds; and again at DOMContentLoaded, which is after every blocking
+   * script -- including the run bundle -- has executed, to fold in the
+   * controller rows. */
+  tick();
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', tick);
-  } else {
-    tick();
   }
 })();
