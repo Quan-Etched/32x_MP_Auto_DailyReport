@@ -23,14 +23,28 @@ from . import build_trace, config, eos, graph as graph_mod, mirror, render, sfis
 
 
 def _resolve_roots(args) -> List[str]:
+    """Serials to mirror, from explicit arguments and/or whole product levels.
+
+    ``--level`` accepts a comma-separated list because each mirror run writes one
+    snapshot, and rendering reads one snapshot: sweeping 6U and then L11 as two
+    runs leaves the second snapshot holding only racks, and every 6U page quietly
+    reports "not in the traceability snapshot". One run, one snapshot, everything
+    the dashboard should be able to answer for.
+    """
     roots = list(args.serial or [])
-    if args.level:
-        response = sfis.units(args.level)
+    for level in _levels(args):
+        response = sfis.units(level)
         if not response.ok:
-            print(f"! /api/units?level={args.level}: {response.error}", file=sys.stderr)
-        else:
-            roots.extend((response.data or {}).get("serials") or [])
+            print(f"! /api/units?level={level}: {response.error}", file=sys.stderr)
+            continue
+        found = (response.data or {}).get("serials") or []
+        print(f"  {level}: {len(found)} serial(s)")
+        roots.extend(found)
     return list(dict.fromkeys(roots))
+
+
+def _levels(args) -> List[str]:
+    return [part.strip() for part in (args.level or "").split(",") if part.strip()]
 
 
 def cmd_doctor(args) -> int:
@@ -69,9 +83,7 @@ def cmd_mirror(args) -> int:
         print("nothing to mirror: pass a serial or --level L11", file=sys.stderr)
         return 2
     print(f"mirroring {len(roots)} root serial(s)…")
-    snap = mirror.take(
-        roots, days=args.days, levels=[args.level] if args.level else []
-    )
+    snap = mirror.take(roots, days=args.days, levels=_levels(args))
     if args.verdicts:
         # Only the DUTs present in the mirrored genealogy — resolving every run
         # in the window would be thousands of calls for records nobody asked for.
@@ -325,7 +337,9 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     take = sub.add_parser("mirror", help="snapshot the upstreams")
     take.add_argument("serial", nargs="*")
-    take.add_argument("--level", default="", help="mirror every serial at a level")
+    take.add_argument("--level", default="",
+                      help="mirror every serial at a product level; "
+                           "comma-separated for several (e.g. 6U,L11)")
     take.add_argument("--days", type=int, default=None)
     take.add_argument("--verdicts", action="store_true",
                       help="resolve EOS pass/fail (2 extra calls per run, cached)")

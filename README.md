@@ -316,6 +316,98 @@ so serial + date is what to hand someone who needs to open it by hand.
 pega4 cannot be linked at all — its suite-run IDs are minted locally and appear
 nowhere in the EOS payload.
 
+## Traceability: what is inside a unit
+
+`src/factory` answers *how is the line doing*. `src/shopfloor` answers *what is
+inside this unit and what happened to each part of it* — the part-SN genealogy
+from the Pega shopfloor system, with every test record attached.
+
+Two commands, and the split matters: the first talks to `pega-sfis` and EOS and
+writes an immutable local snapshot; the second reads **only** that snapshot. So
+the answer still comes out when the shopfloor system is unreachable, which is
+when somebody is most likely to be asking.
+
+```sh
+make sfis-doctor                            # can we reach both, with what credential
+make sfis-mirror SN=268947020002 VERDICTS=1 # snapshot one unit and everything under it
+make sfis-unit   SN=268947020002            # -> out/268947020002.yaml      [offline]
+make sfis-dashboard                         # -> the tree on customize.html [offline]
+make sfis-gaps   SN=268947020002            # escapes, and EOS DUTs SFIS never linked
+```
+
+`make sfis-level LEVEL=6U` mirrors every serial at a product level instead of one
+unit — slower, and what a scheduled refresh would run.
+
+### On the page
+
+`customize.html#trace=<serial>`, or search the serial in its serial-search mode.
+You get the parent chain up to the rack, the parts beneath it, and every record
+for whichever node you are on:
+
+```
+268947020002 › GPUM_3 268862090001 › DUB_0 268862110000021
+DUB · PACER-PV1-NPI/IBC · EPN 1006434-J · linked 2026-08-25 04:26
+  tested   a test names this serial directly
+  SFIS ↗  Sheet ↗  XLSX ↗  Controller history ↗  SPLM ↗
+
+Test records (14)
+  when (UTC)         station     result  source      kind         raw data
+  2026-08-24 03:21   SMT AOI1    pass    sfis        fabrication  —
+  2026-08-25 05:26   TIM         error   controller  test         raw ↗
+  2026-08-25 07:07   TIM         pass    controller  test         raw ↗
+```
+
+Every hop in the path is clickable, and the serial lives in the URL hash, so a
+view is a link you can paste into a thread. The button takes the YAML.
+
+`raw ↗` is the controller's own page for that run
+(`/suite_run/<id>?slot_number=<n>`) and it is the **only** per-run URL that
+exists — OCP Logs has no per-run route and EOS has no UI at all. Records from
+those sources carry by-serial searches instead, which is what you would do by
+hand anyway. `docs/sfis/JOIN.md` has the table and the evidence.
+
+### Reading `coverage`
+
+The field to read first, because an empty record list means two very different
+things:
+
+| | |
+|---|---|
+| `tested` | a test record's own DUT serial **is** this part |
+| `process_only` | route and assembly events only — installed, not tested |
+| `inherited_only` | nothing tests it by serial; a parent was tested while it was fitted |
+| `none_expected` | a vendor part no station tests by serial — **not** a gap |
+| `not_observed` | the snapshot never fetched it; unknown, not empty. Re-mirror |
+
+`traceability_gap: true` is separate: Pega serialized the part and has no route
+history for it. That one is an escape worth sending on, and
+`make sfis-gaps` collects them.
+
+Every rack-level part — RMS, ToR, PDU, manifold — is `none_expected`, because
+Pega routes what it serialized and those are vendor barcodes. That is a fact
+about the line, not missing data, which is why it is a stated verdict rather
+than an empty list.
+
+### On the dashboard host
+
+`make sfis-dashboard` is deliberately **not** part of `make build`: the hourly
+refresh must not start failing because `pega-sfis` is unreachable, and
+`customize.html` renders without the bundle. The traceability refresh is its own
+pair of steps, and nothing schedules them yet:
+
+```sh
+make sfis-level LEVEL=6U && make sfis-dashboard && make publish
+```
+
+The host needs `SFIS_USER` / `SFIS_PASSWORD` in its `.env` (a read-only
+`APP_TOKENS` entry on the receiver would be better — it cannot write; ask Krish).
+It reaches `pega-sfis` over Tailscale, so a box without the tailnet cannot mirror.
+
+Full detail: [`docs/sfis/README.md`](docs/sfis/README.md) for the model,
+[`docs/sfis/JOIN.md`](docs/sfis/JOIN.md) for how the three systems join,
+[`docs/sfis/RUNBOOK.md`](docs/sfis/RUNBOOK.md) for the failure-investigation
+walkthrough.
+
 ## Hourly refresh
 
 ```sh
