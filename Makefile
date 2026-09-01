@@ -11,7 +11,11 @@ STATION ?= l10_sft
 
 # shopfloor (SFIS traceability): SN is the top-level serial to mirror/render.
 SN         ?=
-SFIS_LEVEL ?= 6U,L11
+# Every product level, because a partial sweep is indistinguishable from a
+# missing unit once it reaches the page: a 4U that was never mirrored reads as
+# "not in the traceability snapshot", which is what happened when this defaulted
+# to 6U,L11 and 158 of 191 units were silently absent.
+SFIS_LEVEL ?= 6U,4U,2U,L11
 SFIS_DAYS  ?= 120
 
 .PHONY: sfis-doctor sfis-mirror sfis-level sfis-unit sfis-units sfis-gaps sfis-snapshots \
@@ -60,7 +64,7 @@ help:
 	@echo "  shopfloor traceability (src/shopfloor, docs/sfis/README.md)"
 	@echo "make sfis-doctor        can we reach pega-sfis and EOS, with what credential"
 	@echo "make sfis-mirror SN=..  snapshot one root serial (VERDICTS=1 for EOS pass/fail)"
-	@echo "make sfis-level [LEVEL=6U,L11]  snapshot every serial at those levels"
+	@echo "make sfis-level          snapshot every unit at every level (the default)"
 	@echo "make sfis-unit SN=..    render out/<SN>.yaml from the latest snapshot [offline]"
 	@echo "make sfis-units         render every serial in the latest snapshot [offline]"
 	@echo "make sfis-dashboard     compile the snapshot into the customize.html tree"

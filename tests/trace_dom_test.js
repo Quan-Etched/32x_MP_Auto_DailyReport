@@ -9,6 +9,17 @@ load(ROOT + '/tests/trace_dom_harness.js');
 /* The bundle the page would have loaded, shaped by build_trace.py. */
 var raw = readFile(BUNDLE);
 eval(raw.replace(/^[^{]*window\.__FACTORY_TRACE__\s*=\s*/, 'var TRACE = ').replace(/;\s*$/, ''));
+
+/* The bundle on disk is the INDEX: nodes live in trace/<unit>.json and the page
+ * fetches the one unit it is showing. jsc has no fetch, so the loaded state is
+ * assembled here -- index plus that unit's nodes merged in, which is exactly
+ * what the page holds once ensureUnit resolves. */
+TRACE.nodes = TRACE.nodes || {};
+(TRACE.units || []).forEach(function (u) {
+  var dir = BUNDLE.replace(/\/[^\/]+$/, '') + '/trace/' + u.sn + '.json';
+  var payload = JSON.parse(readFile(dir));
+  Object.keys(payload.nodes).forEach(function (sn) { TRACE.nodes[sn] = payload.nodes[sn]; });
+});
 window.__FACTORY_TRACE__ = TRACE;
 
 var UNIT = TRACE.units[0].sn;

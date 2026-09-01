@@ -1,5 +1,24 @@
 """Compile a snapshot into the browser bundle the traceability tree renders from.
 
+WHY NOT A LIVE LOOKUP FROM THE PAGE
+-----------------------------------
+The obvious answer to "is this serial in the snapshot" is for the page to ask
+``pega-sfis`` directly. It cannot, and the reasons are worth writing down so
+nobody re-tries it:
+
+* **No CORS.** The receiver sends no ``Access-Control-Allow-*`` header at all --
+  checked with an ``Origin: https://32x-production.i.etched.com`` request, which
+  came back 200 with none. A browser on the dashboard origin will refuse the
+  response.
+* **A self-signed certificate.** The Tailnet host's cert is not in any trust
+  store. A person can click through that for a page they navigated to; a
+  subresource ``fetch`` from another origin cannot.
+* **Credentials.** A read token in a published static file is a read token given
+  to everyone who can load the page.
+
+So completeness has to come from mirroring everything, not from a fallback --
+which is what makes the per-unit split below matter.
+
 WHY A BUNDLE AND NOT A FETCH PER SERIAL
 ---------------------------------------
 The dashboard is a static directory — nginx or Pages, no server of its own — and
@@ -263,7 +282,22 @@ def build(
 
 
 def write(bundle: Dict[str, Any], path: Path) -> Path:
-    """Write the bundle, and the per-unit YAML beside it as separate files.
+    """Write the index, the per-unit node files, and the per-unit YAML.
+
+    THE SPLIT, AND WHY IT HAD TO HAPPEN
+    Everything was one file. At 31 units and 3,426 nodes that was 1.3 MB, which
+    was tolerable; a complete sweep is 191 units across 6U/4U/2U/L11 and would
+    have been six times that, for a page that renders exactly one unit at a
+    time. So:
+
+        trace.js              the index: serial -> unit, plus templates
+        trace/<unit>.json     that unit's nodes, fetched when it is opened
+        trace/<unit>.yaml     the same unit as YAML, fetched when downloaded
+
+    The index is what has to stay small, because it is the thing every reader
+    pays for. It carries one mapping per serial and nothing else -- no names, no
+    records -- so a serial can be resolved to a file without loading any of them.
+    
 
     The YAML does NOT travel inside the bundle. It was, and at production scale
     that was 1.8 MB of text nobody reads unless they click Download -- on a page
@@ -276,14 +310,32 @@ def write(bundle: Dict[str, Any], path: Path) -> Path:
     `make sfis-unit` writes cannot disagree.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
+    trace_dir = path.parent / "trace"
+
+    # --- per-unit node files ------------------------------------------------
+    nodes = bundle.pop("nodes", {}) or {}
+    by_unit: Dict[str, Dict[str, Any]] = {}
+    index: Dict[str, str] = {}
+    for sn, node in nodes.items():
+        unit = node.get("u") or sn
+        by_unit.setdefault(unit, {})[sn] = node
+        index[sn] = unit
+    if by_unit:
+        trace_dir.mkdir(parents=True, exist_ok=True)
+        for unit, unit_nodes in by_unit.items():
+            (trace_dir / f"{unit}.json").write_text(
+                json.dumps({"unit": unit, "nodes": unit_nodes},
+                           separators=(",", ":"), sort_keys=True)
+            )
+        bundle["index"] = index
+        bundle["unitPath"] = f"{trace_dir.name}/{{sn}}.json"
 
     texts = bundle.pop("yaml", {}) or {}
-    yaml_dir = path.parent / "trace"
     if texts:
-        yaml_dir.mkdir(parents=True, exist_ok=True)
+        trace_dir.mkdir(parents=True, exist_ok=True)
         for unit, text in texts.items():
-            (yaml_dir / f"{unit}.yaml").write_text(text)
-        bundle["yamlPath"] = f"{yaml_dir.name}/{{sn}}.yaml"
+            (trace_dir / f"{unit}.yaml").write_text(text)
+        bundle["yamlPath"] = f"{trace_dir.name}/{{sn}}.yaml"
         bundle["yamlUnits"] = sorted(texts)
 
     body = json.dumps(bundle, separators=(",", ":"), sort_keys=True)

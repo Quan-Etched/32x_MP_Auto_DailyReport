@@ -109,7 +109,20 @@ class TraceJs(unittest.TestCase):
             bundle = build_trace.build(snap, with_yaml=True)
             self.assertIn(UNIT, bundle["nodes"], "the unit is a root of the graph")
             self.assertIn(SOHU, bundle["nodes"], "the interposer is a node")
+            node_count = len(bundle["nodes"])
             out = build_trace.write(bundle, tmp / "trace.js")
+
+            # The index must resolve every serial to a file, or a serial that
+            # was mirrored still reads as "not in the snapshot" -- which is the
+            # failure this split has to not reintroduce.
+            self.assertEqual(len(bundle["index"]), node_count)
+            self.assertEqual(bundle["index"][SOHU], UNIT,
+                             "a part deep in the tree resolves to its unit")
+            unit_file = tmp / "trace" / f"{UNIT}.json"
+            self.assertTrue(unit_file.is_file(), "the unit's nodes were written")
+            self.assertIn(SOHU, json.loads(unit_file.read_text())["nodes"])
+            # The index is the thing every reader pays for; the nodes are not.
+            self.assertLess(out.stat().st_size, unit_file.stat().st_size * 8)
 
             driver = tmp / "driver.js"
             driver.write_text(

@@ -102,6 +102,39 @@
 
   function node(sn) { return (T && T.nodes && T.nodes[sn]) || null; }
 
+  /* Which per-unit file holds a serial. The index carries one mapping per
+   * serial and nothing else, so resolving this costs no records. */
+  function unitOf(sn) {
+    if (!T) return '';
+    if (T.nodes && T.nodes[sn]) return T.nodes[sn].u || sn;
+    return (T.index && T.index[sn]) || '';
+  }
+
+  /* Fetch one unit's nodes and merge them in. Only ever one unit's worth: the
+   * page renders a single unit at a time, and a complete sweep is 191 of them.
+   * Already-loaded units are skipped, so walking a tree costs one fetch. */
+  var unitsLoaded = {};
+  function ensureUnit(unit, then, fail) {
+    if (!unit || unitsLoaded[unit] || (T.nodes && !T.index)) { then(); return; }
+    if (T.nodes && T.nodes[unit] && (T.nodes[unit].k || []).length) { then(); return; }
+    if (!T.unitPath) { then(); return; }
+    fetch(T.unitPath.replace('{sn}', encodeURIComponent(unit)),
+          { cache: 'force-cache' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (payload) {
+        T.nodes = T.nodes || {};
+        Object.keys(payload.nodes || {}).forEach(function (sn) {
+          T.nodes[sn] = payload.nodes[sn];
+        });
+        unitsLoaded[unit] = true;
+        then();
+      })
+      .catch(function (err) { fail(String((err && err.message) || err)); });
+  }
+
   /* Up from a serial to the unit it belongs to. Guarded against a cycle: the
    * genealogy is a tree by construction but this reads a generated file, and a
    * page that hangs is worse than one that shows a short path. */
@@ -484,7 +517,16 @@
     var sn = current();
     if (!sn) { if (loadState !== 'loading') host.innerHTML = ''; return; }
     if (loadState === 'failed') return;
-    ensureBundle(function () { render(sn); });
+    ensureBundle(function () {
+      var unit = unitOf(sn);
+      if (!unit) { render(sn); return; }   // not in the index: render says so
+      paintLoading();
+      ensureUnit(unit, function () { render(sn); }, function (why) {
+        host.innerHTML = '';
+        host.appendChild(h('p', { class: 'trace-empty', text:
+          'Could not load the genealogy for ' + unit + ': ' + why }));
+      });
+    });
   }
 
   window.addEventListener('hashchange', tick);
