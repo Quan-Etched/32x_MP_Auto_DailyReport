@@ -78,19 +78,29 @@ def controller_for(station_key: Optional[str]) -> str:
     return ""
 
 
-def for_serial(sn: str) -> Dict[str, str]:
+def for_serial(sn: str, extras: Optional[Dict[str, Any]] = None) -> Dict[str, str]:
     """Every by-serial link for one part. All of them, or none — a partial set
-    reads as "this part has no SPLM record" rather than "we did not look"."""
+    reads as "this part has no SPLM record" rather than "we did not look".
+
+    ``extras`` is that serial's row from the receiver's own per-serial index, and
+    the one thing in it worth a link is ``spldb_url``: a session id rather than a
+    search, which is the difference between landing on the record and landing on
+    a results page.
+    """
     if not sn:
         return {}
     safe = quote(str(sn), safe="")
-    return {
+    out = {
         "sfis": f"{SFIS_UI}/lookup?sn={safe}",
         "sfis_sheet": f"{SFIS_UI}/sheets/{safe}",
         "sfis_xlsx": f"{SFIS_UI}/api/serial/{safe}/export.xlsx",
         "controller_history": f"http://pega3:{CONTROLLER_PORT}/history/data-analysis?uut_sn={safe}",
         "splm": f"{SPLM_UI}/tests/runs?q={safe}",
     }
+    session = (extras or {}).get("spldb_url")
+    if session:
+        out["spldb_session"] = session
+    return out
 
 
 def suite_run(run_id: str, station_key: str = "", host: str = "") -> str:

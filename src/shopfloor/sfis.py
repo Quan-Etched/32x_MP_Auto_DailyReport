@@ -113,6 +113,30 @@ def recent(limit: int = 5, sn_limit: int = 0) -> Response:
     return call("/api/recent", limit=limit, sn_limit=sn_limit)
 
 
+def mcu(sn: str) -> Response:
+    """The MCU serial mapped to a VBB 'N' serial, or null.
+
+    The VBB is the one level whose real identity is not the serial Pega scans:
+    the board carries an ``N…`` serial and the MCU on it has its own, and only
+    this mapping joins them. It arrives via ``POST /api/serial/{n}/mcu`` from the
+    provisioning station, so it exists nowhere in the payload journal -- which is
+    also why a receiver rebuild has to carry ``mcu_serials`` across explicitly.
+    """
+    return call(f"/api/serial/{_segment(sn)}/mcu", retries=1)
+
+
+def recent_serials(limit: int = 200, sn_limit: int = 5000) -> Response:
+    """``/api/recent``'s per-serial index.
+
+    Not the payload list -- the ``recent_sns`` half, which carries per serial its
+    ``first_seen``, ``last_received``, ``payload_count``, which ``sources`` it was
+    seen through (process / parent / component) and a ``spldb_url`` naming its CLF
+    session. The spldb link is a real deep link to that serial's session, which
+    is better than the search URL this repo builds by hand.
+    """
+    return call("/api/recent", retries=1, limit=limit, sn_limit=sn_limit)
+
+
 def identifiers(sn: str) -> Response:
     """RMS / TOR / MSW / PDU / NIC records under a top-level serial, with MACs.
 
@@ -122,7 +146,7 @@ def identifiers(sn: str) -> Response:
     for roots that parent an ``RMS*`` slot, which is the receiver's own
     structural test for "this is an L11 rack".
     """
-    return call(f"/api/serial/{_segment(sn)}/identifiers")
+    return call(f"/api/serial/{_segment(sn)}/identifiers", retries=1)
 
 
 # --- shapes -----------------------------------------------------------------

@@ -60,6 +60,12 @@ def _record(entry: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+#: Per-serial provenance for the document being rendered. Module-level because
+#: `_part` is called recursively and threading it through every frame for one
+#: optional link would be worse than a value set once per document.
+_INDEX: Dict[str, Any] = {}
+
+
 def _part(part: graph_mod.Part) -> Dict[str, Any]:
     body: Dict[str, Any] = {"sn": part.sn}
     if part.component_type:
@@ -83,7 +89,7 @@ def _part(part: graph_mod.Part) -> Dict[str, Any]:
     # By-serial links for every part, always the full set. A partial set reads
     # as "this part has no SPLM record" rather than "we did not look" -- these
     # are search URLs, so they resolve whether or not the system holds anything.
-    body["links"] = links_mod.for_serial(part.sn)
+    body["links"] = links_mod.for_serial(part.sn, _INDEX.get(part.sn))
     body["coverage"] = part.coverage
     if part.traceability_gap:
         body["traceability_gap"] = True
@@ -171,7 +177,10 @@ def document(
     manifest: Dict[str, Any],
     product_level: str = "",
     serials: Optional[Dict[str, Any]] = None,
+    serial_index: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
+    global _INDEX
+    _INDEX = serial_index or {}
     parts: List[graph_mod.Part] = built["parts"]
     roots = _nest(parts)
 
@@ -206,7 +215,7 @@ def document(
         },
         "self": {
             "sn": built["root"],
-            "links": links_mod.for_serial(built["root"]),
+            "links": links_mod.for_serial(built["root"], _INDEX.get(built["root"])),
             "test_records": [_record(r) for r in built["root_direct"]],
         },
         "parts": {slot: _part(part) for slot, part in roots.items()},

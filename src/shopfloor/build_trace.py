@@ -244,7 +244,8 @@ def build(
         })
         if with_yaml:
             document = render.document(
-                built, manifest=snapshot.manifest, serials=serials
+                built, manifest=snapshot.manifest, serials=serials,
+                serial_index=snapshot.serial_index(),
             )
             yaml_texts[root] = render.to_text(document)
 

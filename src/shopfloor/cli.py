@@ -83,7 +83,8 @@ def cmd_mirror(args) -> int:
         print("nothing to mirror: pass a serial or --level L11", file=sys.stderr)
         return 2
     print(f"mirroring {len(roots)} root serial(s)…")
-    snap = mirror.take(roots, days=args.days, levels=_levels(args))
+    wide = True if args.wide else (False if args.narrow else None)
+    snap = mirror.take(roots, days=args.days, levels=_levels(args), wide=wide)
     if args.verdicts:
         # Only the DUTs present in the mirrored genealogy — resolving every run
         # in the window would be thousands of calls for records nobody asked for.
@@ -174,6 +175,7 @@ def cmd_unit(args) -> int:
         manifest=snap.manifest,
         product_level=_product_level(snap, args.serial[0]),
         serials=serials,
+        serial_index=snap.serial_index(),
     )
     text = render.to_text(document)
     for line in document["warnings"]:
@@ -341,6 +343,12 @@ def main(argv: Optional[List[str]] = None) -> int:
                       help="mirror every serial at a product level; "
                            "comma-separated for several (e.g. 6U,L11)")
     take.add_argument("--days", type=int, default=None)
+    take.add_argument("--wide", action="store_true",
+                      help="also seed from /api/pairs and /api/recent, so loose "
+                           "modules and PV1s that belong to no product level are "
+                           "covered. Default for a level sweep.")
+    take.add_argument("--narrow", action="store_true",
+                      help="named serials only — fast, for chasing one gap")
     take.add_argument("--verdicts", action="store_true",
                       help="resolve EOS pass/fail (2 extra calls per run, cached)")
     take.add_argument("--verdict-limit", type=int, default=400)
