@@ -53,7 +53,14 @@ MULTI = {
     # Section 4 is a different question from sections 1-3 — failures joined to
     # the error-code catalogue, not runs — and its own bundle, so the run
     # bundle does not grow a second schema inside it.
-    "customize.html": ["data/runs_pega.js", "data/errors.js"],
+    #
+    # data/trace.js is the traceability genealogy, and unlike the other two it
+    # is OPTIONAL: `make sfis-dashboard` writes it, `make build` does not, and
+    # the page renders without it. Listed because this test is a declaration of
+    # what a page loads and a new bundle should have to be declared — but it is
+    # not part of the controllers-vs-OCP pairing this file exists to protect, so
+    # do not read its presence here as making it required.
+    "customize.html": ["data/runs_pega.js", "data/errors.js", "data/trace.js"],
     # The releases page hosts two analyses of the same releases: one built
     # from test logs, one from the source tree they were built from.
     "releases.html": ["data/release_source.js", "data/releases.js"],

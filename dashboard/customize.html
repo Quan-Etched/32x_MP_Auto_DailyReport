@@ -240,6 +240,13 @@
       </div>
     </div><!-- /mode-dut -->
 
+
+    <!-- Traceability. Rendered by trace.js from dashboard/data/trace.js, which is
+         built by `make sfis-dashboard` and is optional: on a copy published
+         before anyone ran a mirror the container simply stays empty, and the two
+         views above are untouched. -->
+    <div id="trace"></div>
+
   </main>
 
   <footer class="notes">
@@ -277,5 +284,9 @@
 <script src="nav.js"></script>
 <script src="theme.js"></script>
 <script src="update.js"></script>
+  <!-- Optional: absent until `make sfis-dashboard` has run. Loaded after the
+       runs bundle because trace.js joins controller runs out of it. -->
+  <script src="data/trace.js"></script>
+  <script src="trace.js"></script>
 </body>
 </html>

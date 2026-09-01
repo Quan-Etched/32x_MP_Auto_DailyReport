@@ -8,6 +8,16 @@ make sfis-mirror SN=268947020002 VERDICTS=1     # ~40s for a 4U node
 make sfis-unit   SN=268947020002                # -> out/268947020002.yaml
 ```
 
+## The browsable version
+
+```sh
+make sfis-level LEVEL=6U && make sfis-dashboard   # then: make serve
+```
+
+Open `customize.html#trace=<serial>`. Walk up with the path, down with the parts
+table, and take the YAML from the button. `make sfis-dashboard` is deliberately
+not part of `make build`, so a `pega-sfis` outage cannot break the hourly refresh.
+
 ## When a unit fails and you need its full history
 
 ```sh
@@ -84,6 +94,8 @@ retention rule before turning on an hourly sweep of every level.
 | `traceability_gap: true` | Pega serialized it and has no route history. Real finding, send it on |
 | `result: unknown` on an EOS record | the verdict was not resolved. Re-mirror with `VERDICTS=1` |
 | `not_observed` | the mirror failed to fetch that serial. Its own records are unknown; re-mirror. Never reported as a gap |
+| no `raw ↗` on a record | only controller runs have a per-run URL. EOS has no UI and OCP has no per-run route — use the by-serial links |
+| the page shows no Traceability card | `dashboard/data/trace.js` was never built. Run `make sfis-dashboard` |
 | `fixture_scope: true` | one run, eight chips. Not a per-part verdict |
 
 ## Known limits

@@ -15,6 +15,7 @@ SFIS_LEVEL ?= 6U
 SFIS_DAYS  ?= 120
 
 .PHONY: sfis-doctor sfis-mirror sfis-level sfis-unit sfis-units sfis-gaps sfis-snapshots \
+	sfis-dashboard \
 	help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
         dailyexcel requests pega-stations release-source suite-map reconcile \
@@ -62,6 +63,7 @@ help:
 	@echo "make sfis-level [LEVEL=6U]  snapshot every serial at a product level"
 	@echo "make sfis-unit SN=..    render out/<SN>.yaml from the latest snapshot [offline]"
 	@echo "make sfis-units         render every serial in the latest snapshot [offline]"
+	@echo "make sfis-dashboard     compile the snapshot into the customize.html tree"
 	@echo "make sfis-gaps [SN=..]  traceability escapes and unlinked test DUTs"
 	@echo "make sfis-snapshots     list the snapshots on disk"
 
@@ -428,6 +430,18 @@ sfis-units:
 	              | xargs -n1 basename | sed 's/.json//'); do \
 	    $(SFIS) unit $$sn 2>/dev/null || true; \
 	done
+
+# dashboard/data/trace.js, which customize.html loads if it is there. NOT part of
+# `make build`: the hourly refresh must not start failing because pega-sfis is
+# unreachable, and the page is written to render without this file. The
+# traceability refresh is its own pair of steps:
+#
+#     make sfis-level LEVEL=6U && make sfis-dashboard
+#
+# NOYAML=1 drops the per-unit YAML text from the bundle -- smaller file, but the
+# page loses its download button.
+sfis-dashboard:
+	@$(SFIS) trace $(if $(NOYAML),--no-yaml,)
 
 sfis-gaps:
 	@$(SFIS) gaps $(SN)

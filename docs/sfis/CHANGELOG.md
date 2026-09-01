@@ -1,5 +1,41 @@
 # Changelog
 
+## 2026-09-01 — the traceability tree on customize.html
+
+Search a serial and see what it is plugged into, what is plugged into it, and
+every record for each — in the page, not only in a YAML file.
+
+- `src/shopfloor/links.py` — every deep link, and a written record of the three
+  that do not exist (no per-run OCP URL, no EOS permalink, no pega4 link derived
+  from an EOS run). Each template probed before shipping.
+- `src/shopfloor/build_trace.py` → `dashboard/data/trace.js`, plus the per-unit
+  YAML text so the page's download button and `out/<SN>.yaml` cannot disagree.
+- `dashboard/trace.js` + CSS, wired into `customize.html` as one container and
+  two script tags. No edits to `dutsearch.js`.
+- **Controller runs now reach the graph** (`graph.build(controller_by_dut=…)`).
+  These are the only per-unit verdicts — pega3 returns eight
+  `{dut_sn, slot_number, status}` rows for one module run, so a chip that failed
+  inside a passing fixture is visible here and nowhere else — and the only
+  records that can carry a per-run link. Read off the run bundle `make build`
+  already wrote, so rendering stays offline.
+- **`make sfis-dashboard` is not part of `make build`.** The hourly refresh must
+  not start failing because `pega-sfis` is unreachable, and the page renders
+  without the bundle.
+
+Observed while building, and worth knowing: MLT is filed under the Etched serial
+for 820 runs in the collected table and under the interposer barcode for 403. A
+module's history is genuinely split across two serials — the PV1 and the board
+beneath it — and the genealogy edge is the only thing that joins them. The tree
+puts them next to each other rather than merging them, because which key a
+system used is itself a fact worth seeing.
+
+`tests/test_trace_js.py` builds a bundle from a synthetic snapshot with the real
+builder and runs the real `dashboard/trace.js` over it under JavaScriptCore with
+a DOM stub, then reads the rendered text back — 16 assertions, end to end from
+Python graph to rendered page. It caught the `#slot` → `slot_number` conversion
+being untested. Skipped where `jsc` is absent, which is every Linux box; that
+gap is stated rather than hidden.
+
 ## 2026-09-01 — merged into factory_data_analysis
 
 Moved from `etched-ai/32x-sfis` into this repository as `src/shopfloor`, with

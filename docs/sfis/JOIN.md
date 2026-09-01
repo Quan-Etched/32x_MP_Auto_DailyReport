@@ -110,6 +110,38 @@ the line adds a station.
 * **Never fetch `resource_config`.** Cleartext DUT SSH and BMC credentials, and
   no station identity — nothing to gain, a secret to leak. `eos.NEVER_FETCH`.
 
+## Links: what exists, and what does not
+
+Probed 2026-09-01. A `303` to `/login` counts as alive — these are links for a
+person with a browser session, not for a script.
+
+| link | key | built from |
+|---|---|---|
+| `pega-sfis/lookup?sn=` | serial | the route the line pastes in Slack |
+| `pega-sfis/sheets/` · `…/export.xlsx` | serial | receiver routes |
+| `pega3:3000/history/data-analysis?uut_sn=` | serial | template the receiver publishes on `/api/pairs` |
+| `splm.i.etched.com/tests/runs?q=` | serial | same |
+| `pega3:3000/suite_run/<id>?slot_number=<n>` | **run** | `factory.pega.run_url()` — the only per-run URL there is |
+
+The last one is available only for **controller** runs, because the controller
+mints the id and it appears in its own run list. Which controller comes from
+`factory.stations` (`pega2` VBB, `pega3` module, `pega4` L10, `pega5` L11,
+`pega6` TIM). `pega_collect` encodes unit *n* of a fixture run as
+`<run_id>#slot<n>`; that suffix is ours, so it is split back off and re-attached
+as the `slot_number` query the controller understands.
+
+**Do not add these — they do not exist:**
+
+- A per-run OCP Logs URL. Confirmed by observation: the RUNS tab holds its filter
+  and selection in memory and the address bar never changes. `factory.links` has
+  the full account; read it before spending an afternoon on it.
+- An EOS run permalink. EOS is an API, not a UI.
+- A pega4 suite-run link derived from an EOS run. pega4 mints ids that appear
+  nowhere in the EOS payload.
+
+Those records carry the by-serial searches instead, which is what a person would
+have to do by hand anyway.
+
 ## Requirement this serves
 
 `SOH32 Genealogy Data Capturing Requirement` (Doc 1188783 Rev A, Thien Nguyen,

@@ -43,7 +43,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-from factory.stations import classify, label_of
+from factory.stations import classify, label_of  # noqa: F401  (re-exported)
 
 
 def from_eos(level: Optional[str], suite: Optional[str]) -> str:

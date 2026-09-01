@@ -3,6 +3,7 @@
     doctor              can we reach each source, and with what credential
     mirror  SN...       snapshot the upstreams for these roots (or a whole level)
     unit    SN          render one YAML from a snapshot          [offline]
+    trace               compile the snapshot into the dashboard bundle [offline]
     gaps                the findings across a snapshot           [offline]
 
 ``unit`` and ``gaps`` read only the snapshot directory. That separation is the
@@ -18,7 +19,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from . import config, eos, graph as graph_mod, mirror, render, sfis
+from . import build_trace, config, eos, graph as graph_mod, mirror, render, sfis
 
 
 def _resolve_roots(args) -> List[str]:
@@ -87,6 +88,23 @@ def cmd_mirror(args) -> int:
     return 0
 
 
+def _controller_runs(dashboard_data=None):
+    """Controller runs off the last-built dashboard bundle, or nothing.
+
+    They are the only per-unit verdicts and the only records that can carry a
+    per-run link, so the YAML is materially better with them — but a fresh ESVM
+    sweep is minutes of network, and rendering must stay offline. Reading what
+    `make build` already wrote gets both.
+    """
+    from factory import config as factory_config
+
+    root = dashboard_data or factory_config.DASHBOARD_DATA_DIR
+    try:
+        return build_trace.controller_runs_by_dut(root)
+    except Exception:  # a malformed bundle must not cost us the render
+        return {}
+
+
 def _build(snap: mirror.Snapshot, sn: str):
     serials = snap.serials()
     by_dut = snap.eos_by_dut()
@@ -101,7 +119,10 @@ def _build(snap: mirror.Snapshot, sn: str):
                     run["result"] = found.get("result", "unknown")
                     if found.get("failed_tests"):
                         run["failed_tests"] = found["failed_tests"]
-    return graph_mod.build(sn, serials=serials, eos_by_dut=by_dut)
+    return graph_mod.build(
+        sn, serials=serials, eos_by_dut=by_dut,
+        controller_by_dut=_controller_runs(),
+    )
 
 
 def _product_level(snap: mirror.Snapshot, sn: str) -> str:
@@ -183,6 +204,30 @@ def _is_non_production(sn: str) -> bool:
     import re
 
     return any(re.search(pattern, sn or "") for pattern in NON_PRODUCTION)
+
+
+def cmd_trace(args) -> int:
+    """Compile a snapshot into dashboard/data/trace.js for customize.html."""
+    from factory import config as factory_config
+
+    root = Path(args.snapshot) if args.snapshot else mirror.latest()
+    if not root:
+        print("no snapshot yet — run: make sfis-mirror SN=<serial>", file=sys.stderr)
+        return 2
+    snap = mirror.Snapshot.load(root)
+    bundle = build_trace.build(
+        snap,
+        controller_by_dut=_controller_runs(),
+        with_yaml=not args.no_yaml,
+    )
+    out = Path(args.out) if args.out else factory_config.DASHBOARD_DATA_DIR / "trace.js"
+    written = build_trace.write(bundle, out)
+    size = written.stat().st_size / 1024
+    print(f"{written}  {len(bundle['units'])} unit(s)  {len(bundle['nodes'])} nodes"
+          f"  {size:.0f} KB")
+    for line in bundle["warnings"]:
+        print(f"  ! {line}", file=sys.stderr)
+    return 0
 
 
 def cmd_gaps(args) -> int:
@@ -292,6 +337,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     unit.add_argument("--snapshot", default="")
     unit.add_argument("--stdout", action="store_true")
     unit.set_defaults(func=cmd_unit)
+
+    trace = sub.add_parser(
+        "trace", help="compile a snapshot into the dashboard bundle [offline]")
+    trace.add_argument("--snapshot", default="")
+    trace.add_argument("--out", default="")
+    trace.add_argument("--no-yaml", action="store_true",
+                       help="omit the per-unit YAML text (smaller bundle, no "
+                            "download button on the page)")
+    trace.set_defaults(func=cmd_trace)
 
     gaps = sub.add_parser("gaps", help="findings across a snapshot [offline]")
     gaps.add_argument("serial", nargs="*")

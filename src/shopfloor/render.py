@@ -31,6 +31,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from . import graph as graph_mod
+from . import links as links_mod
 from . import yamlout
 
 #: Keys whose list values are one record per line.
@@ -47,9 +48,15 @@ def _record(entry: Dict[str, Any]) -> Dict[str, Any]:
         "source": entry.get("source"),
     }
     for key in ("kind", "suite", "release", "run_id", "level", "route", "section",
-                "line", "on", "via", "fixture_scope", "failed_tests"):
+                "line", "slot_number", "on", "via", "fixture_scope", "failed_tests"):
         if entry.get(key) not in (None, "", [], False):
             out[key] = entry[key]
+    # The raw-data link, inline on the record rather than in a table somewhere
+    # else. A verdict without a way to reach what produced it is where a failure
+    # investigation stalls, and this is the one per-run URL that exists.
+    run_url = links_mod.for_record(entry).get("run")
+    if run_url:
+        out["raw"] = run_url
     return out
 
 
@@ -73,6 +80,10 @@ def _part(part: graph_mod.Part) -> Dict[str, Any]:
     if part.macs:
         body["macs"] = part.macs
 
+    # By-serial links for every part, always the full set. A partial set reads
+    # as "this part has no SPLM record" rather than "we did not look" -- these
+    # are search URLs, so they resolve whether or not the system holds anything.
+    body["links"] = links_mod.for_serial(part.sn)
     body["coverage"] = part.coverage
     if part.traceability_gap:
         body["traceability_gap"] = True
@@ -195,6 +206,7 @@ def document(
         },
         "self": {
             "sn": built["root"],
+            "links": links_mod.for_serial(built["root"]),
             "test_records": [_record(r) for r in built["root_direct"]],
         },
         "parts": {slot: _part(part) for slot, part in roots.items()},
@@ -222,6 +234,12 @@ HEADER = (
     "",
     "traceability_gap: true  Pega serialized this part but has no route history",
     "                        for it — an escape, independent of coverage above.",
+    "",
+    "links:      by-serial searches that always resolve (SFIS UI, controller",
+    "            history, SPLM). `raw:` on a record is the controller's own page",
+    "            for that run — the only per-run URL that exists. EOS has no UI",
+    "            and OCP Logs has no per-run route, so those records carry the",
+    "            by-serial links instead.",
 )
 
 

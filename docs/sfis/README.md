@@ -9,6 +9,7 @@ make sfis-doctor                          # can we reach both sources, with what
 make sfis-mirror SN=268947020002 VERDICTS=1
 make sfis-unit   SN=268947020002          # -> out/268947020002.yaml   (needs no network)
 make sfis-gaps   SN=268947020002
+make sfis-dashboard                  # -> the tree on customize.html
 ```
 
 Python 3.9+, standard library only. No pip install, no build step.
@@ -99,6 +100,53 @@ Serials are always quoted. Several are digit strings with leading zeros
 serial matching nothing, silently, in the one file whose job is to record which
 serial was where. [`yamlout.py`](src/shopfloor/yamlout.py) exists for that
 reason and is tested for it.
+
+## The page
+
+`customize.html`, in its serial-search mode, now answers "and what *is* this
+serial" underneath the runs it already listed. Search a serial, or open
+`customize.html#trace=<serial>` directly.
+
+```
+Traceability                                    [Download 268947020002.yaml]
+
+268947020002 › GPUM_3 268862090001 › DUB_0 268862110000005
+DUB · PACER-PV1-NPI/IBC · EPN 1006434-J · linked 2026-08-26 01:26
+  process_only  route and assembly events only — installed, not tested
+  SFIS ↗  Sheet ↗  XLSX ↗  Controller history ↗  SPLM ↗
+
+Test records (15)
+  when (UTC)         station            result  source      kind         raw data
+  2026-08-24 03:21   SMT AOI1           pass    sfis        fabrication  —
+  2026-08-25 05:26   TIM                error   controller  test         raw ↗
+  2026-08-25 07:07   TIM                pass    controller  test         raw ↗
+
+Parts under it (1)
+  slot   serial                    type  name                        coverage    records
+  BO_0   JE60702845202602090204    BO    INTERPOSER BOARD SOHU CHIP  tested (1)  →
+```
+
+Every hop in the path is clickable, so walking up to the rack is one click rather
+than a new search, and the serial lives in the URL hash — the same contract
+`runs.html` makes, so a view is a link you can paste into a thread.
+
+Three things worth knowing about it:
+
+- **It renders from the snapshot, not from a live query**, like every other page
+  here. So it answers during an outage, and it prints how stale it is at the
+  bottom.
+- **It joins controller runs client-side.** The bundle ships no controller runs —
+  `customize.html` already has every one of them loaded for its other two views.
+  So the page unions them in by serial, which is also the only way records get a
+  per-run `raw ↗` link.
+- **It is optional.** `dashboard/data/trace.js` is built by `make sfis-dashboard`,
+  not by `make build`, because the hourly refresh must not start failing when
+  `pega-sfis` is unreachable. On a published copy built before anyone ran a
+  mirror the section simply is not there, and the two views above it are
+  untouched.
+
+A serial that was never mirrored says so, and still offers the search links —
+those are template-derived, so they resolve whether or not we hold anything.
 
 ## The three tiers, and why a part gets the tier it gets
 

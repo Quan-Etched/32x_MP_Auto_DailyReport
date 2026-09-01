@@ -10,8 +10,8 @@ tree of empty lists looks identical to a broken collector.
 THE THREE TIERS
 ---------------
 ``direct``
-    A record whose own DUT / unit serial **is** this part SN. Two ways this
-    happens, and both are real:
+    A record whose own DUT / unit serial **is** this part SN. Three ways this
+    happens, and all are real:
 
     * SFIS ``process_events`` where ``unit_sn == part_sn``. Only Etched-numbered
       sub-assemblies get these — Pega routes what it serialized.
@@ -19,6 +19,20 @@ THE THREE TIERS
       interposer barcode (``JE607…``), so the deepest interesting part in the
       product has first-class MLT/SLT records. Verified live: 233 of 282 August
       SLT DUTs are SFIS components.
+    * An **ESVM controller** run naming this serial in its ``participating``
+      list. These are the best records available and the only ones that are
+      per-unit rather than per-fixture: pega3 returns eight ``{dut_sn,
+      slot_number, status}`` rows for one module run, so a chip that failed
+      inside a passing fixture is visible here and nowhere else. They also carry
+      the one working per-run deep link (``/suite_run/<id>?slot_number=<n>``).
+
+    A part can hold records from more than one of these, keyed differently by
+    each system. Observed in the collected run table: MLT is filed under the
+    Etched serial for 820 runs and under the interposer barcode for 403, so a
+    module's history is genuinely split across two serials — the PV1 and the
+    board beneath it — and the genealogy edge is the only thing that joins them.
+    The tree puts them next to each other; nothing here tries to merge them into
+    one serial, because which key a system used is itself a fact worth seeing.
 
 ``inherited``
     No record names this part, but a test ran on an **ancestor** while this part
@@ -149,6 +163,32 @@ def _sfis_records(payload: Dict[str, Any]) -> List[Dict[str, Any]]:
     return out
 
 
+def _controller_records(runs: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """ESVM controller runs, already one-per-unit.
+
+    No ``fixture_scope``: the controller resolved the fixture into units before
+    we saw it, so this verdict really is this part's.
+    """
+    out = []
+    for run in runs or ():
+        station_key = str(run.get("stationKey") or "")
+        record = {
+            "ts": _ts(run.get("startedAt") or run.get("start_time")),
+            "station": stations.label_of(station_key) or station_key or "?",
+            "station_key": station_key,
+            "kind": "test",
+            "result": stations.result(run.get("status")),
+            "source": "controller",
+            "suite": run.get("suite"),
+            "run_id": run.get("runId"),
+            "dut_sn": run.get("dutSerial"),
+        }
+        if run.get("slot") is not None:
+            record["slot_number"] = run.get("slot")
+        out.append(record)
+    return out
+
+
 def _eos_records(runs: Iterable[Dict[str, Any]], *, own_dut: bool) -> List[Dict[str, Any]]:
     out = []
     for run in runs or ():
@@ -181,6 +221,7 @@ def build(
     *,
     serials: Dict[str, Dict[str, Any]],
     eos_by_dut: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+    controller_by_dut: Optional[Dict[str, List[Dict[str, Any]]]] = None,
 ) -> Dict[str, Any]:
     """Assemble the graph for one top-level serial.
 
@@ -190,12 +231,17 @@ def build(
     diffable across days and reproducible after the upstream is gone.
     """
     eos_by_dut = eos_by_dut or {}
+    controller_by_dut = controller_by_dut or {}
     root_payload = serials.get(root_sn) or {}
 
-    root_direct = _sort(
-        _sfis_records(root_payload)
-        + _eos_records(eos_by_dut.get(root_sn) or [], own_dut=True)
-    )
+    def direct_for(sn: str, payload: Dict[str, Any]) -> List[Dict[str, Any]]:
+        return _sort(
+            _sfis_records(payload)
+            + _eos_records(eos_by_dut.get(sn) or [], own_dut=True)
+            + _controller_records(controller_by_dut.get(sn) or [])
+        )
+
+    root_direct = direct_for(root_sn, root_payload)
 
     parts: List[Part] = []
 
@@ -225,10 +271,7 @@ def build(
                 linked_at=_ts(child.get("valid_from") or meta.get("valid_from")),
                 last_seen_at=_ts(meta.get("last_seen_at")),
                 macs=_split_macs(meta.get("macaddress")),
-                direct=_sort(
-                    _sfis_records(own)
-                    + _eos_records(eos_by_dut.get(sn) or [], own_dut=True)
-                ),
+                direct=direct_for(sn, own),
             )
             parts.append(part)
             walk(child, sn, depth + 1, here)

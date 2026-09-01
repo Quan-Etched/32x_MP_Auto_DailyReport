@@ -142,6 +142,14 @@ OCP Logs before concluding a station has no data. Format follows the existing da
 **`dashboard/hourly.html` — hourly rates.** Throughput, yield, cycle time and
 failure Pareto bucketed by hour.
 
+**`dashboard/customize.html` — also the traceability tree.** In its serial-search
+mode it answers what a serial *is*, not just what ran on it: the parent chain up
+to the rack, the parts beneath it, and every record for each — SFIS route events,
+EOS runs, and the controller runs the page already has loaded, the last of which
+carry a link to the controller's own page for that run. Built by
+`make sfis-dashboard`; the section is absent, and the page unaffected, when it
+has not been run. See [`docs/sfis/README.md`](docs/sfis/README.md).
+
 **`dashboard/runs.html` — the raw run table.** Every number on the station page
 is a count of runs, and every one of them links here, to the rows behind it.
 Underlined figures are the ones you can drill into; charts drill from the bar.

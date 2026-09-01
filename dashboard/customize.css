@@ -419,3 +419,45 @@
 }
 .dut-cases { font-size: 11px; max-width: 30ch; color: var(--text-secondary); }
 .dut-link { color: var(--accent-solid); font-weight: 600; }
+
+/* ---- Traceability (trace.js) -------------------------------------------
+   The genealogy view under the serial search. Deliberately reuses .card,
+   .card-head, .cz-table and .table-wrap so it reads as part of the page rather
+   than as a bolted-on panel; only what has no existing class is defined here. */
+
+.trace-card { margin-top: 16px; }
+
+/* The path is the thing people screenshot, so it gets to be the biggest line. */
+.trace-path {
+  margin: 4px 0 10px; font-size: 15px; line-height: 1.9;
+  word-break: break-all;
+}
+.trace-slot { color: var(--muted); font-size: 13px; }
+.trace-sep  { color: var(--muted); }
+.trace-pick { cursor: pointer; }
+
+.trace-facts { margin: 0 0 6px; color: var(--muted); font-size: 13px; }
+.trace-coverage { margin: 0 0 10px; font-size: 13px; }
+
+/* Coverage is a verdict, not a status, so it is a neutral chip everywhere
+   except the two values that mean somebody should look. */
+.trace-cov {
+  display: inline-block; padding: 1px 7px; border-radius: 10px;
+  border: 1px solid var(--border); font-size: 12px; letter-spacing: .01em;
+}
+.trace-cov-tested        { color: var(--success-text); border-color: var(--success-text); }
+.trace-cov-not_observed  { color: var(--status-warning); border-color: var(--status-warning); }
+.trace-gap {
+  display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 10px;
+  background: var(--status-critical); color: #fff; font-size: 12px;
+}
+
+.trace-links { margin: 0 0 12px; display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; }
+.trace-h3 { margin: 18px 0 8px; font-size: 14px; }
+.trace-empty, .trace-note, .trace-foot { color: var(--muted); font-size: 13px; }
+.trace-note { margin: 0 0 10px; }
+.trace-foot { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 8px; }
+.trace-dim  { color: var(--muted); }
+.trace-warn { color: var(--status-warning); font-size: 13px; margin: 4px 0 0; }
+.trace-details { margin-top: 14px; }
+.trace-details summary { cursor: pointer; font-size: 14px; }
