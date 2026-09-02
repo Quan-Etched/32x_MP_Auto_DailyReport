@@ -58,6 +58,23 @@ log = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = "http://pega3:3000"
 
+#: The earliest day worth asking the controllers for.
+#:
+#: A floor date, not a day count, because the data has a fixed *start* — the
+#: line's first runs — while "the last N days" walks away from it. That is not
+#: hypothetical: the collector asked for 90 days, chosen when 90 days back was
+#: 2026-05-27 and the earliest run on any controller was 05-21, so it covered
+#: everything. By 09-02 the same 90 days began on 06-04 and had quietly dropped
+#: a fortnight of pega3's history. Nothing said so; the window simply got
+#: shorter every day.
+#:
+#: Probed 2026-09-02: pega3 answers from 2026-05-21, pega5 from 05-23, pega4
+#: from 06-12. 05-01 is set before all three so the walk finds the true start
+#: instead of a constant deciding it. The empty fortnight at the near end costs
+#: one listing per host per day, once — a finished day's list cannot change, so
+#: every one is served from disk afterwards.
+CONTROLLER_FROM = os.environ.get("FACTORY_PEGA_FROM", "2026-05-01")
+
 #: Short: this is a nice-to-have on a page that must build without it.
 TIMEOUT = 8.0
 
@@ -139,9 +156,29 @@ def _cache_path(path: str, host: Optional[str] = None) -> Path:
     return CACHE_DIR / (hashlib.sha1(key.encode("utf-8")).hexdigest() + ".json")
 
 
-def _read_cache(path: str, host: Optional[str] = None) -> Optional[Any]:
+def _partial_path(path: str, host: Optional[str] = None) -> Path:
+    """Marker beside an entry whose answer was not final when it was written.
+
+    A separate file rather than a field in the payload, so the 4,000 entries
+    already on disk keep their shape and an entry with no marker means exactly
+    what it used to: a complete answer.
+    """
+    return _cache_path(path, host).with_suffix(".partial")
+
+
+def _read_cache(path: str, host: Optional[str] = None,
+                complete_only: bool = False) -> Optional[Any]:
+    """The cached answer, or None.
+
+    ``complete_only`` rejects an entry that was written while its answer could
+    still change — see :func:`_write_cache`. Callers falling back after a
+    failed fetch leave it off: a provisional copy beats nothing, and that path
+    already records the fallback so the page can say so.
+    """
     cached = _cache_path(path, host)
     if not cached.exists():
+        return None
+    if complete_only and _partial_path(path, host).exists():
         return None
     try:
         return json.loads(cached.read_text(encoding="utf-8"))
@@ -150,9 +187,35 @@ def _read_cache(path: str, host: Optional[str] = None) -> Optional[Any]:
         return None
 
 
-def _write_cache(path: str, payload: Any, host: Optional[str] = None) -> None:
+def _write_cache(path: str, payload: Any, host: Optional[str] = None,
+                 complete: bool = True) -> None:
+    """Store an answer, recording whether it was final when it was fetched.
+
+    WHY THE MARKER EXISTS. A day's run list grows while the day runs, and the
+    listing calls say so — that is what ``stale_ok`` means. But the entry they
+    wrote was indistinguishable from one fetched after the day ended, and the
+    day-listing reader trusts any past day's entry without going to the
+    network. So a listing fetched at 17:34 on a Tuesday was served as Tuesday's
+    complete record for ever after, and every rebuild since agreed with it.
+
+    Measured on 2026-09-02, before this: 09-01 was cached at 17:34 on 09-01 and
+    held 16 of the day's 32 pega4 runs, 4 of pega3's 33 and 8 of pega5's 14.
+    08-21 held 0 of 69. The daily tracker's 09-01 tab showed 23 units where the
+    controllers had 41, and 08-24 showed 6 where they had 65 — for days that
+    looked settled and had been for a week. Nothing anywhere said so.
+
+    A finished run's *detail* is genuinely immutable, so it is still written
+    complete and none of those entries change.
+    """
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     _cache_path(path, host).write_text(json.dumps(payload), encoding="utf-8")
+    marker = _partial_path(path, host)
+    if complete:
+        # A later complete fetch settles an entry that was provisional.
+        if marker.exists():
+            marker.unlink()
+    else:
+        marker.write_text("", encoding="utf-8")
 
 
 def _get(path: str, cache: bool = False, stale_ok: bool = False,
@@ -172,7 +235,9 @@ def _get(path: str, cache: bool = False, stale_ok: bool = False,
     the cache rather than before it.
     """
     if cache and not stale_ok:
-        hit = _read_cache(path, host)
+        # complete_only: this caller wants a final answer, so an entry written
+        # while its answer could still change is a miss, not a hit.
+        hit = _read_cache(path, host, complete_only=True)
         if hit is not None:
             return hit
 
@@ -219,7 +284,9 @@ def _get(path: str, cache: bool = False, stale_ok: bool = False,
         # Only a finished run is safe to keep: one still running would freeze
         # mid-flight and never update.
         if stale_ok or str(payload.get("status", "")).lower() not in ("running", "", "none"):
-            _write_cache(path, payload, host)
+            # `stale_ok` is the caller saying this answer can still change, so
+            # it is exactly the condition that makes the entry provisional.
+            _write_cache(path, payload, host, complete=not stale_ok)
     return payload
 
 
@@ -271,6 +338,21 @@ def day_suite_runs(day: str, host: Optional[str] = None) -> List[Dict[str, Any]]
         if not batch or (total is not None and len(collected) >= total):
             break
     return collected
+
+
+def day_range(first: str, last: str) -> List[str]:
+    """Every calendar day from ``first`` to ``last``, inclusive.
+
+    Empty when ``last`` precedes ``first``, so a caller with an inverted span
+    walks nothing rather than looping backwards for ever.
+    """
+    start = datetime.strptime(first, "%Y-%m-%d").date()
+    end = datetime.strptime(last, "%Y-%m-%d").date()
+    out: List[str] = []
+    while start <= end:
+        out.append(start.strftime("%Y-%m-%d"))
+        start += timedelta(days=1)
+    return out
 
 
 def _next_day(day: str) -> str:

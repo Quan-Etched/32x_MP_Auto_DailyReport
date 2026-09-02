@@ -609,8 +609,12 @@ span.jira-key { color: var(--text-secondary); }
    column in both count modes, and this column holds what varies — the
    attempts that unit already made at this station. Blank on a first visit. */
 .sheet-table th.col-history { min-width: 150px; }
-.sheet-table td.history { white-space: nowrap; vertical-align: middle; }
-.rt-line { display: block; }
+/* Wraps rather than runs off. The strip carries every attempt now, first to
+   last, and a rack retried nineteen times in a month is a real row — pinned
+   to a width the chips flow onto a second line instead of pushing the
+   verdict columns off the screen. */
+.sheet-table td.history { vertical-align: middle; max-width: 260px; }
+.rt-line { display: block; line-height: 1.7; }
 .rt-line + .rt-line { margin-top: 2px; }
 .rt-station { font-size: 10px; color: var(--text-muted); margin-right: 4px;
               letter-spacing: 0.03em; }

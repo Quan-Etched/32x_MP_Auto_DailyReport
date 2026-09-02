@@ -29,7 +29,8 @@
   /* bigdata.js is optional: without it every call is a straight passthrough and
      the page behaves exactly as it did when the whole bundle was a script tag. */
   var BIGDATA = window.FactoryBigData || { ensure: function (fn) { fn(); },
-                                           attach: function () {} };
+                                           attach: function () {},
+                                           needed: function () { return false; } };
   var RUNS = DATA.runs || [];
   var NAMES = DATA.testNames || [];
   var TSTATUS = DATA.testStatuses || [];
@@ -124,7 +125,7 @@
   }
   function byId(id) { return document.getElementById(id); }
   function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
-  function labelOf(key) { return LABELS[key] || key; }
+  function labelOf(key) { return LABELS[key] || STATION_NAMES[key] || key; }
 
   /* ------------------------------------------------------------------ days */
 
@@ -134,14 +135,45 @@
     return new Date(run.t * 1000).toISOString().slice(0, 10);
   }
 
-  var DAYS = (function () {
-    var seen = {};
-    RUNS.forEach(function (run) {
-      var day = utcDay(run);
-      if (day) seen[day] = (seen[day] || 0) + 1;
-    });
-    return Object.keys(seen).sort();
-  })();
+  /* The days the bundle covers — recomputed, never captured.
+   *
+   * RUNS is filled *in place* when the heavy half arrives, so a list built
+   * once at load stays empty for the life of the page: the quick range
+   * buttons would never appear and the caption would go on saying "No runs in
+   * the bundle" with the runs sitting in memory. Cached against RUNS.length so
+   * the ordinary case is still one pass.
+   *
+   * Before the runs arrive there is a span but no per-day detail, so the
+   * bundle's own collected window is used. That gives the pickers real bounds
+   * to clamp to without inventing a distribution the page has not been handed
+   * — and `withRuns` says which of the two the caption is describing. */
+  var DAYS_CACHE = null;
+  var DAYS_FOR = -1;
+
+  function days() {
+    if (DAYS_CACHE && DAYS_FOR === RUNS.length) return DAYS_CACHE;
+    var out = [];
+    if (RUNS.length) {
+      var seen = {};
+      RUNS.forEach(function (run) {
+        var day = utcDay(run);
+        if (day) seen[day] = true;
+      });
+      out = Object.keys(seen).sort();
+      out.withRuns = true;
+    } else {
+      var span = DATA.window || {};
+      if (span.from && span.to) {
+        for (var day = span.from; day <= span.to; day = shift(day, 1)) {
+          out.push(day);
+        }
+      }
+      out.withRuns = false;
+    }
+    DAYS_CACHE = out;
+    DAYS_FOR = RUNS.length;
+    return out;
+  }
 
   function shift(day, days) {
     var at = new Date(day + 'T00:00:00Z');
@@ -161,12 +193,68 @@
     return counts;
   }
 
+  /* The stations the line runs, in flow order — the last resort when the
+     bundle cannot say.
+   *
+   * A duplicate of factory/stations.py's registry, and deliberately so. The
+   * picker gates the whole page: with an empty list there is nothing to tick,
+   * the RUN button stays disabled, and the runs that would have filled the
+   * list never load. Every other control on the page degrades to "no data";
+   * this one degrades to "no page". So it carries its own copy rather than
+   * trusting a bundle that may be old, half-written, or 404 — which is exactly
+   * how it was found empty twice.
+   *
+   * Pinned by test_page_sources against the registry, so the two cannot drift
+   * apart without the suite saying so.
+   *
+   * Labels are not duplicated: stationLabels is small and always present when
+   * the bundle is, and labelOf() already falls back to the key itself. */
+  var STATIONS = ['wst', 'ft', 'vbb_provision', 'tim', 'mlt', 'htt',
+                  'chip_screening', 'slt', 'l10_fat', 'l10_sft', 'l10_rin',
+                  'l10_2u', 'l11_provision', 'l11_test'];
+
+  /* Readable names for the fallback list, used only when stationLabels is not
+     there either — "vbb_provision" in a checkbox is a key leaking into the UI. */
+  var STATION_NAMES = {
+    wst: 'WST', ft: 'FT', vbb_provision: 'VBB Provisioning', tim: 'TIM',
+    mlt: 'MLT', htt: 'HTT', chip_screening: 'Chip Screening', slt: 'SLT',
+    l10_fat: 'L10 FAT', l10_sft: 'L10 SFT', l10_rin: 'L10 RIN',
+    l10_2u: 'L10 2U', l11_provision: 'L11 Provision', l11_test: 'L11 Test'
+  };
+
+  /* Every station the bundle names, in the line's own order.
+   *
+   * From the registry order the bundle ships, not from scanning RUNS. The page
+   * loads a controls-only bundle whose `runs` is empty until the RUN button
+   * fetches the heavy half — and that button is disabled until a station is
+   * ticked. Reading the list off RUNS therefore left section 2 blank with no
+   * way to fill it: nothing to tick, so nothing to press, so the runs never
+   * came, so the list stayed blank. stationOrder and stationLabels ride in the
+   * light half for exactly this reason.
+   *
+   * Anything RUNS turns out to carry that the registry does not name is
+   * appended once the heavy half is in, so a station the controllers have
+   * before the registry does still gets a box. `__all__` is a pseudo-key for
+   * the label lookup, never a station. */
   function allStations() {
+    var keys = [];
     var seen = {};
-    RUNS.forEach(function (run) { if (run.k) seen[run.k] = true; });
-    return Object.keys(seen).sort(function (a, b) {
-      return labelOf(a).localeCompare(labelOf(b));
+    /* The bundle's order when it has one, the built-in list when it does not.
+       Never neither: an empty section 2 is an unusable page. */
+    var order = (DATA.stationOrder || []).length ? DATA.stationOrder : STATIONS;
+    order.forEach(function (key) {
+      if (!key || key === '__all__' || seen[key]) return;
+      seen[key] = true;
+      keys.push(key);
     });
+    var extra = [];
+    RUNS.forEach(function (run) {
+      if (!run.k || run.k === '__all__' || seen[run.k]) return;
+      seen[run.k] = true;
+      extra.push(run.k);
+    });
+    extra.sort(function (a, b) { return labelOf(a).localeCompare(labelOf(b)); });
+    return keys.concat(extra);
   }
 
   /* Every run inside the days and stations chosen, before any result-type
@@ -278,6 +366,7 @@
   function renderQuick() {
     var host = byId('quick');
     host.innerHTML = '';
+    var DAYS = days();
     if (!DAYS.length) return;
     var last = DAYS[DAYS.length - 1];
     [['Last 7 days', shift(last, -6)], ['Last 30 days', shift(last, -29)],
@@ -296,16 +385,24 @@
 
   function renderPickers() {
     var from = byId('from'), to = byId('to');
+    var DAYS = days();
     if (DAYS.length) {
       from.setAttribute('min', DAYS[0]); from.setAttribute('max', DAYS[DAYS.length - 1]);
       to.setAttribute('min', DAYS[0]); to.setAttribute('max', DAYS[DAYS.length - 1]);
     }
     from.value = view.from;
     to.value = view.to;
-    byId('range-sub').textContent = DAYS.length
-      ? 'The controllers hold ' + DAYS[0] + ' to ' + DAYS[DAYS.length - 1] +
-        ' (' + plural(DAYS.length, 'day') + ' with runs). Day resolution, UTC.'
-      : 'No runs in the bundle.';
+    byId('range-sub').textContent = !DAYS.length
+      ? 'No runs in the bundle.'
+      : DAYS.withRuns
+        ? 'The controllers hold ' + DAYS[0] + ' to ' + DAYS[DAYS.length - 1] +
+          ' (' + plural(DAYS.length, 'day') + ' with runs). Day resolution, UTC.'
+        /* Pre-load the page has the span and not the per-day detail, and
+           "N days with runs" would be a count of calendar days dressed up as
+           a count of working ones. */
+        : 'The controllers hold ' + DAYS[0] + ' to ' + DAYS[DAYS.length - 1] +
+          '. Which of those days have runs is counted when the runs arrive. ' +
+          'Day resolution, UTC.';
   }
 
   function renderStations() {
@@ -313,12 +410,18 @@
     host.innerHTML = '';
     var counts = stationCounts();
     var keys = allStations();
+    /* No runs yet is not the same fact as no runs in these days. Before the
+       heavy half arrives every count is zero, and dimming the whole list and
+       calling it empty would be the page lying about a number it has not
+       been given. */
+    var pending = !!(BIGDATA.needed && BIGDATA.needed());
     keys.forEach(function (key) {
       var count = counts[key] || 0;
       var id = 'st-' + key;
       var box = h('label', {
-        class: 'check' + (count ? '' : ' empty'),
-        title: count ? '' : 'no runs in the chosen days'
+        class: 'check' + (pending || count ? '' : ' empty'),
+        title: pending ? 'counted when the runs arrive — press RUN'
+               : count ? '' : 'no runs in the chosen days'
       });
       var input = h('input', { type: 'checkbox', id: id });
       if (view.stations[key]) input.setAttribute('checked', 'checked');
@@ -502,6 +605,7 @@
     var from = /from=(\d{4}-\d{2}-\d{2})/.exec(hash);
     var to = /to=(\d{4}-\d{2}-\d{2})/.exec(hash);
     var stations = /stations=([a-z0-9_,]+)/.exec(hash);
+    var DAYS = days();
     var last = DAYS.length ? DAYS[DAYS.length - 1] : null;
 
     view.from = (from && from[1]) || (last ? shift(last, -6) : null);
@@ -713,7 +817,13 @@
                                            : String(DATA.source || '?')) +
       (DATA.collectedAt
         ? ', read ' + String(DATA.collectedAt).replace('T', ' ') : '') +
-      '. ' + plural(RUNS.length, 'unit run') + ' in the bundle.';
+      /* The count the bundle declares, not the length of an array that is
+         empty until the RUN button fetches it — "0 unit runs in the bundle"
+         under a page offering to export them is the footer contradicting the
+         controls. */
+      '. ' + plural(RUNS.length ||
+                    ((DATA.full || {}).counts || {}).runs || 0,
+                    'unit run') + ' in the bundle.';
 
     ['from', 'to'].forEach(function (which) {
       byId(which).addEventListener('change', function (event) {

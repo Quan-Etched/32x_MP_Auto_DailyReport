@@ -270,6 +270,118 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class ControlsWithoutRunsTest(unittest.TestCase):
+    """The customize page draws its controls before the runs exist.
+
+    Since the two-step load the page ships ~16 KB of controls and fetches the
+    8.6 MB of runs behind the RUN button. Two controls were still derived by
+    scanning ``DATA.runs``, which that split leaves empty:
+
+    * the station list, and the RUN button is disabled until a station is
+      ticked — so section 2 rendered blank with no way to fill it. Nothing to
+      tick, so nothing to press, so the runs never arrived, so the list stayed
+      blank. The page could not be used at all.
+    * the day list, captured once at load. bigdata.js fills ``runs`` *in
+      place*, so a captured list stays empty for the life of the page even
+      after the runs are in.
+
+    Both now read the catalogue the light bundle carries for exactly this
+    purpose — ``stationOrder``, ``stationLabels``, ``window`` — and the day
+    list is recomputed rather than captured.
+    """
+
+    def script(self):
+        return (DASHBOARD / "customize.js").read_text(encoding="utf-8")
+
+    def test_the_built_in_station_list_matches_the_registry(self):
+        """customize.js carries its own copy of the station list, because an
+        empty section 2 is not a degraded page but an unusable one: nothing to
+        tick, so the RUN button stays disabled, so the runs that would fill the
+        list never load.
+
+        A duplicate needs a guard. This is it — the copy and
+        factory.stations.registry() must stay the same list, in the same order.
+        """
+        from factory import stations
+
+        text = self.script()
+        block = text.split("var STATIONS = [", 1)[1].split("]", 1)[0]
+        got = re.findall(r"'([a-z0-9_]+)'", block)
+        self.assertEqual(got, [s["key"] for s in stations.registry()])
+
+    def test_the_built_in_labels_match_the_registry_too(self):
+        """Only used when stationLabels is missing as well, but a key leaking
+        into a checkbox ("vbb_provision") is the kind of thing that ships."""
+        from factory import stations
+
+        text = self.script()
+        block = text.split("var STATION_NAMES = {", 1)[1].split("};", 1)[0]
+        got = dict(re.findall(r"(\w+): '([^']+)'", block))
+        self.assertEqual(got, {s["key"]: s["label"] for s in stations.registry()})
+
+    def test_the_station_list_survives_a_bundle_that_names_none(self):
+        """The bundle's order wins when it has one; the built-in list is the
+        fallback, not a merge — otherwise a controller that genuinely stopped
+        running a station would keep a dead box on the page."""
+        text = self.script()
+        self.assertIn(
+            "var order = (DATA.stationOrder || []).length ? DATA.stationOrder : STATIONS;",
+            text)
+
+    def test_the_station_list_comes_from_the_registry_not_the_runs(self):
+        """The order is the bundle's catalogue or the built-in copy of it —
+        either way a catalogue, never a scan of `runs`, which the controls-only
+        bundle leaves empty."""
+        text = self.script()
+        self.assertIn("DATA.stationOrder", text)
+        self.assertIn("var order =", text)
+        self.assertNotIn(
+            "    var seen = {};\n"
+            "    RUNS.forEach(function (run) { if (run.k) seen[run.k] = true; });",
+            text)
+
+    def test_all_is_never_offered_as_a_station(self):
+        """``__all__`` is a key in stationLabels for the label lookup. Ticking
+        it would be a box for a station that does not exist."""
+        text = self.script()
+        self.assertIn("key === '__all__'", text)
+
+    def test_the_day_list_is_recomputed_not_captured(self):
+        text = self.script()
+        self.assertIn("function days() {", text)
+        self.assertIn("DAYS_FOR === RUNS.length", text)
+        self.assertNotIn("var DAYS = (function () {", text)
+
+    def test_the_day_list_falls_back_to_the_bundles_window(self):
+        text = self.script()
+        self.assertIn("var span = DATA.window || {};", text)
+
+    def test_an_uncounted_station_is_not_called_empty(self):
+        """Before the runs arrive every count is zero. Dimming the whole list
+        and titling it "no runs in the chosen days" is the page asserting
+        something about a number it has not been given."""
+        text = self.script()
+        self.assertIn("BIGDATA.needed && BIGDATA.needed()", text)
+        self.assertIn("counted when the runs arrive", text)
+        self.assertNotIn("class: 'check' + (count ? '' : ' empty'),", text)
+
+    def test_the_footer_counts_what_the_bundle_declares(self):
+        """"0 unit runs in the bundle" under a page offering to export them is
+        the footer contradicting the controls."""
+        text = self.script()
+        self.assertIn("((DATA.full || {}).counts || {}).runs", text)
+
+    def test_the_bigdata_stub_answers_every_call_the_page_makes(self):
+        """The stub stands in when bigdata.js is absent. It was missing
+        `needed`, which init() calls unconditionally — a TypeError on load for
+        any page that dropped the script."""
+        text = self.script()
+        stub = text.split("var BIGDATA = window.FactoryBigData ||", 1)[1]
+        stub = stub.split("};", 1)[0]
+        for call in ("ensure", "attach", "needed"):
+            self.assertIn(call + ":", stub)
+
+
 class RetestColumnTest(unittest.TestCase):
     """The Test History column and its F/P traces.
 

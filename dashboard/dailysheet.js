@@ -1231,7 +1231,7 @@
             h('span', { class: 'col-name', text: 'Test History' })
           ]),
           h('span', { class: 'col-build',
-                      text: 'earlier attempts at this station' })
+                      text: 'every attempt at this station' })
         ]));
       }
     });
@@ -1363,23 +1363,28 @@
         ? 'Counting new input only.' : 'Counting every unit.' }),
       document.createTextNode(countMode === 'new'
         ? ' The table is units with no earlier attempt at any station in the ' +
-          'previous ' + lookback + ' days — completely new material, so every ' +
-          'Test History cell in it is empty. ' + hidden + ' unit' +
+          'previous ' + lookback + ' days — completely new material, so a ' +
+          'Test History cell in it holds at most the day’s own retries. ' +
+          hidden + ' unit' +
           (hidden === 1 ? '' : 's') + ' with a history ' +
           (hidden === 1 ? 'is' : 'are') + ' left out, because a unit that ' +
           'failed last week and is re-run today says whether a fix worked — ' +
           'not how today’s build went. The tiles still judge each column on ' +
           'its own and carry both yields, so a tile can count a unit this ' +
           'table leaves out. Press Count all to see them, each with its ' +
-          'earlier attempts as F1 P2 — F failed, P passed, numbered from the ' +
+          'attempts as F1 P2 — F failed, P passed, numbered from the ' +
           'unit’s first visit, each one a link to that run.'
         : ' Every row is in the table and in the figures, new material and ' +
           're-runs together. That is the day’s whole workload, and it is not ' +
           'a build yield: ' + returning + ' of these units had already been ' +
           'through this station within ' + lookback + ' days, and the Test ' +
-          'History column beside each serial links every earlier attempt — ' +
-          'F1 is the first attempt and it failed, P2 the second and it ' +
-          'passed. Press Count new for the fresh material on its own.')
+          'History column beside each serial links every attempt it has made ' +
+          'there — F1 is the first attempt and it failed, P2 the second and ' +
+          'it passed. The strip runs to the end of the day the row is about, ' +
+          'so its last mark is the verdict in the row beside it: a unit that ' +
+          'failed nine times and passed on the tenth reads F1 … F9 P10, not ' +
+          'nine failures next to the word Passed. Press Count new for the ' +
+          'fresh material on its own.')
     ]));
   }
 
@@ -1423,13 +1428,20 @@
    *
    * F1 is the first attempt and it failed; P2 is the second and it passed.
    * The letter is the verdict and the number is which attempt, counted from
-   * the unit's first — so F7 means the seventh, not the seventh of the ones
-   * that fit on the row. Each opens that run on the controller, which is what
-   * makes "this unit has been here four times" checkable rather than a claim.
+   * the unit's first — so F7 means the seventh. Each opens that run on the
+   * controller, which is what makes "this unit has been here four times"
+   * checkable rather than a claim.
    *
-   * Empty for a unit on its first visit. The cell is a blank, not a dash: a
-   * dash would read as a missing value, and "no earlier attempt" is the
-   * ordinary case, not a gap.
+   * The strip runs to the end of the row's own day, today's attempts
+   * included, so the last chip and the verdict column agree. It used to stop
+   * at the day before, and the row for 268645440002 on 09-01 read
+   * "F2 … F9  08-31" beside a verdict of Passed — nine failures and no pass
+   * in the part of the row people actually look at, for a unit that had
+   * passed FAT that afternoon.
+   *
+   * Empty for a unit on its first visit that passed first time. The cell is a
+   * blank, not a dash: a dash would read as a missing value, and "nothing to
+   * show" is the ordinary case, not a gap.
    */
   function historyCell(cell) {
     var td = h('td', { class: 'history' });
@@ -1451,12 +1463,17 @@
         chip.appendChild(document.createTextNode(mark));
         line.appendChild(chip);
       });
-      /* The date of the last of them, in the open. The chips carry it in a
-       * tooltip, and "when was this unit last here" is the question the
-       * column is most often read for — too common to make anyone hover. */
-      var last = history[station][history[station].length - 1];
-      if (last && last.day) {
-        line.appendChild(h('span', { class: 'rt-when', text: last.day }));
+      /* When the unit was last here *before today*, in the open — the chips
+       * carry their own dates in a tooltip, and this is the question the
+       * column is most often read for, too common to make anyone hover.
+       *
+       * Taken from cell.seen rather than from the last chip, because the last
+       * chip is now today's attempt and the row's own Date column already
+       * says today. A unit whose only attempts are today's retries has no
+       * earlier visit, and gets no date. */
+      var when = (cell.seen || {})[station];
+      if (when) {
+        line.appendChild(h('span', { class: 'rt-when', text: when }));
       }
       td.appendChild(line);
     });

@@ -9,12 +9,13 @@ test-case names separated by a newline.
 
 import io
 import json
+import inspect
 import unittest
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from factory import build_dailyexcel, xlsx
+from factory import build_dailyexcel, pega, xlsx
 
 # Column positions by name. The tab gained a per-unit version column after each
 # Results column and lost the always-empty ASIC SN, and hand-numbered indices
@@ -573,10 +574,30 @@ class DerivedTabTest(NoPega, unittest.TestCase):
         self.assertTrue(derivable("2026-08-05", "2026-08-11", "2026-08-14"))
 
     def test_nothing_before_the_floor_is_derived(self):
-        """Before it there is bring-up, not a line to report on."""
+        """The floor is now the day the controllers' own history starts.
+
+        It was 2026-08-01, the line's first production day, on the grounds that
+        earlier days are bring-up. Widened on 2026-09-02 to everything the
+        controllers hold: the June and July tabs are bring-up and their yields
+        are not line performance, but a chassis first tested in June needs them
+        for its Test History strip to start at its real first attempt.
+
+        There is still a floor, and it is still enforced — a day before the
+        data begins is not a day the tracker invents a tab for."""
+        floor = build_dailyexcel.DAILY_FROM
+        self.assertEqual(floor, pega.CONTROLLER_FROM)
+        before = (datetime.strptime(floor, "%Y-%m-%d")
+                  - timedelta(days=1)).strftime("%Y-%m-%d")
         self.assertFalse(
-            build_dailyexcel._derivable("2026-07-31", "2026-08-11", "2026-08-14"))
-        self.assertFalse(build_dailyexcel._derivable("2026-07-31", "", ""))
+            build_dailyexcel._derivable(before, "2026-08-11", "2026-08-14"))
+        self.assertFalse(build_dailyexcel._derivable(before, "", ""))
+
+    def test_the_floor_reaches_the_start_of_the_controllers_history(self):
+        """Probed 2026-09-02: pega3 answers from 05-21, pega5 05-23, pega4
+        06-12. The floor sits before all three, so the walk finds the true
+        start instead of a constant deciding it."""
+        self.assertLessEqual(build_dailyexcel.DAILY_FROM, "2026-05-21")
+        self.assertTrue(build_dailyexcel._derivable("2026-06-15", "", ""))
 
     def test_an_empty_workbook_puts_no_day_out_of_range(self):
         self.assertTrue(build_dailyexcel._derivable("2026-08-05", "", ""))
@@ -920,6 +941,106 @@ class PegaCacheTest(unittest.TestCase):
         self.assertFalse(self.pega._cache_path(path).exists())
 
 
+class ProvisionalCacheTest(unittest.TestCase):
+    """A day cached while it was still running must not settle as final.
+
+    The bug this exists for. A day's run list grows while the day runs, so the
+    listing calls pass ``stale_ok``; but the entry they wrote looked exactly
+    like one fetched after the day ended, and the day-listing reader trusts any
+    *past* day's entry without going to the network. So a listing fetched at
+    17:34 on a Tuesday became Tuesday's permanent record, and every rebuild
+    afterwards agreed with it.
+
+    Measured on 2026-09-02: 09-01 had been cached at 17:34 on 09-01 with 16 of
+    the day's 32 pega4 runs, 4 of pega3's 33, 8 of pega5's 14; 08-21 held 0 of
+    69. The daily tracker's 09-01 tab showed 23 units against the controllers'
+    41, and 08-24 showed 6 against 65 — days that had looked settled for a
+    week, with nothing on the page saying otherwise.
+    """
+
+    def setUp(self):
+        import tempfile
+        from pathlib import Path
+        from factory import pega
+        self.pega = pega
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.addCleanup(setattr, pega, "CACHE_DIR", pega.CACHE_DIR)
+        self.addCleanup(setattr, pega, "_UNREACHABLE", set())
+        pega.CACHE_DIR = Path(tmp.name)
+        pega._UNREACHABLE = set()
+
+    PATH = "/api/history/data-analysis/suite-runs?start=2026-09-01"
+
+    def test_a_provisional_entry_is_not_served_as_a_final_answer(self):
+        self.pega._write_cache(self.PATH, {"total": 16}, complete=False)
+        self.assertIsNone(
+            self.pega._read_cache(self.PATH, complete_only=True),
+            "a listing written while its day was still running is not that "
+            "day's record")
+
+    def test_a_complete_entry_is(self):
+        self.pega._write_cache(self.PATH, {"total": 32}, complete=True)
+        self.assertEqual(
+            self.pega._read_cache(self.PATH, complete_only=True)["total"], 32)
+
+    def test_an_entry_written_before_the_marker_existed_still_counts(self):
+        """4,000 entries predate this. No marker means what it always meant."""
+        self.pega._cache_path(self.PATH).write_text('{"total": 7}',
+                                                    encoding="utf-8")
+        self.assertEqual(
+            self.pega._read_cache(self.PATH, complete_only=True)["total"], 7)
+
+    def test_a_complete_fetch_settles_a_provisional_entry(self):
+        self.pega._write_cache(self.PATH, {"total": 16}, complete=False)
+        self.pega._write_cache(self.PATH, {"total": 32}, complete=True)
+        self.assertFalse(self.pega._partial_path(self.PATH).exists())
+        self.assertEqual(
+            self.pega._read_cache(self.PATH, complete_only=True)["total"], 32)
+
+    def test_a_provisional_entry_is_still_the_fallback_when_there_is_no_network(self):
+        """Rejecting it for being provisional is about preferring a fresh
+        answer, not about refusing to show one. The host with no route has
+        nothing else, and that path already reports the fallback."""
+        self.pega._write_cache(self.PATH, {"total": 16}, complete=False)
+        self.assertEqual(self.pega._read_cache(self.PATH)["total"], 16)
+        self.pega._UNREACHABLE = {self.pega._default_host_name()}
+        self.assertEqual(
+            self.pega._get(self.PATH, cache=True, stale_ok=True)["total"], 16)
+        self.assertTrue(self.pega.fell_back(self.pega._default_host_name()))
+
+    def test_stale_ok_is_what_makes_a_write_provisional(self):
+        """The two are the same fact: `stale_ok` is the caller saying this
+        answer can still change."""
+        import os
+        previous = os.environ.get("FACTORY_PEGA_URL")
+        os.environ["FACTORY_PEGA_URL"] = "http://192.0.2.1:9"
+        self.addCleanup(lambda: os.environ.__setitem__("FACTORY_PEGA_URL", previous)
+                        if previous is not None
+                        else os.environ.pop("FACTORY_PEGA_URL", None))
+        source = inspect.getsource(self.pega._get)
+        self.assertIn("complete=not stale_ok", source)
+        self.assertIn("complete_only=True", source)
+
+    def test_todays_listing_is_written_provisional_and_a_past_day_is_not(self):
+        """End to end through day_suite_runs, which is where the rule lives."""
+        from datetime import datetime, timezone
+        calls = []
+
+        def fake_get(path, cache=False, stale_ok=False, host=None):
+            calls.append((path, stale_ok))
+            return {"suite_runs": [], "total": 0}
+
+        self.addCleanup(setattr, self.pega, "_get", self.pega._get)
+        self.pega._get = fake_get
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        self.pega.day_suite_runs(today, host="pega4")
+        self.assertTrue(calls[0][1], "today's list can still grow")
+        calls.clear()
+        self.pega.day_suite_runs("2020-01-01", host="pega4")
+        self.assertFalse(calls[0][1], "a finished day's list cannot")
+
+
 class EnrichmentTest(unittest.TestCase):
     """Filling the sheet's lossy failure column from pega3.
 
@@ -1261,11 +1382,17 @@ class NewInputCountTest(unittest.TestCase):
 
 
 class RetestHistoryTest(unittest.TestCase):
-    """The attempts behind a returning serial.
+    """The attempts behind a serial, first to last.
 
     "F1 P2" on a row is only worth printing if each mark opens the run it
     names. The numbering is the unit's own attempt count, so F7 means the
-    seventh visit — not the seventh of the ones that fit in the cell.
+    seventh visit.
+
+    The strip runs to the end of the row's own day. The case that forced it:
+    268645440002 on the 09-01 L10 tab, reading "F2 … F9  08-31" beside a
+    verdict of Passed — nine failures and no pass anywhere in the strip, for a
+    unit that had passed FAT that afternoon on its tenth try. The verdict
+    column was right; the strip next to it was the part being read.
     """
 
     def attempts(self, statuses, day="2026-08-12"):
@@ -1273,28 +1400,58 @@ class RetestHistoryTest(unittest.TestCase):
                  "suite": "mlt_2026.220.0-gitabc"}
                 for i, s in enumerate(statuses)]
 
+    def marks(self, history):
+        return ["".join(("P" if a["status"] == "pass" else "F", str(a["n"])))
+                for a in history]
+
     def test_attempts_are_numbered_from_the_units_first(self):
-        trimmed = build_dailyexcel._trim_history(self.attempts(["fail", "pass"]))
-        self.assertEqual([(a["n"], a["status"]) for a in trimmed],
+        built = build_dailyexcel._numbered_history(
+            self.attempts(["fail", "pass"]))
+        self.assertEqual([(a["n"], a["status"]) for a in built],
                          [(1, "fail"), (2, "pass")])
 
-    def test_numbering_survives_the_trim(self):
-        """A unit re-run twenty times must not have its ninth attempt
-        relabelled as its first."""
-        many = self.attempts(["fail"] * 20)
-        trimmed = build_dailyexcel._trim_history(many)
-        self.assertEqual(len(trimmed), build_dailyexcel.HISTORY_LIMIT)
-        self.assertEqual(trimmed[-1]["n"], 20)
-        self.assertEqual(trimmed[0]["n"],
-                         20 - build_dailyexcel.HISTORY_LIMIT + 1)
+    def test_the_days_own_attempts_end_the_strip(self):
+        """The row's verdict and the last mark have to be the same event."""
+        built = build_dailyexcel._numbered_history(
+            self.attempts(["fail"] * 9, day="2026-08-31"),
+            self.attempts(["fail", "pass"], day="2026-09-01"))
+        self.assertEqual(self.marks(built)[-3:], ["F9", "F10", "P11"])
+        self.assertEqual(built[-1]["day"], "2026-09-01")
+
+    def test_nothing_is_trimmed_so_the_numbering_starts_where_it_says(self):
+        """A twenty-attempt unit keeps its F1. Capping the strip at the last
+        eight is what opened that 09-01 row at F2, and a numbering the reader
+        cannot see start is not checkable."""
+        built = build_dailyexcel._numbered_history(self.attempts(["fail"] * 20))
+        self.assertEqual(len(built), 20)
+        self.assertEqual(built[0]["n"], 1)
+        self.assertEqual(built[-1]["n"], 20)
 
     def test_every_attempt_keeps_its_own_link(self):
-        trimmed = build_dailyexcel._trim_history(self.attempts(["fail", "pass"]))
-        self.assertEqual(len({a["url"] for a in trimmed}), 2)
+        built = build_dailyexcel._numbered_history(
+            self.attempts(["fail", "pass"]))
+        self.assertEqual(len({a["url"] for a in built}), 2)
 
     def test_a_short_history_is_not_padded(self):
-        self.assertEqual(len(build_dailyexcel._trim_history(
+        self.assertEqual(len(build_dailyexcel._numbered_history(
             self.attempts(["pass"]))), 1)
+
+    def test_the_days_attempts_come_out_in_time_order(self):
+        """The controllers do not return a day's listing in time order, so the
+        strip cannot just take them as they arrived."""
+        unit = {"mlt" + build_dailyexcel.ATTEMPTS_KEY: [
+            {"day": "2026-09-01", "status": "pass", "url": "b", "suite": "s",
+             "started": "2026-09-01T15:26:41"},
+            {"day": "2026-09-01", "status": "fail", "url": "a", "suite": "s",
+             "started": "2026-09-01T13:21:29"},
+        ]}
+        today = build_dailyexcel._day_attempts(unit, "mlt")
+        self.assertEqual([a["status"] for a in today], ["fail", "pass"])
+        self.assertNotIn("started", today[0],
+                         "the sort key is not part of the published row")
+
+    def test_a_station_with_no_attempts_today_is_empty(self):
+        self.assertEqual(build_dailyexcel._day_attempts({}, "mlt"), [])
 
 
 class SheetOmissionTest(unittest.TestCase):
@@ -1332,7 +1489,7 @@ class SheetOmissionTest(unittest.TestCase):
 
         original = bd._seen_before
         try:
-            bd._seen_before = lambda day, lookback=10: {
+            bd._seen_before = lambda day, lookback=10, index=None: {
                 "mlt": {"C": [{"day": "2026-08-11", "status": "fail",
                                "url": "http://pega3:3000/x", "suite": "mlt"}]},
                 "htt": {}}
@@ -1360,7 +1517,7 @@ class SheetOmissionTest(unittest.TestCase):
 
         original = bd._seen_before
         try:
-            bd._seen_before = lambda day, lookback=10: {"mlt": {}, "htt": {}}
+            bd._seen_before = lambda day, lookback=10, index=None: {"mlt": {}, "htt": {}}
             out = bd._add_sheet_versions(tab, {"A": {"mlt": {"status": "pass"}}})
         finally:
             bd._seen_before = original
@@ -1401,8 +1558,9 @@ class L10OnTheDailyTrackerTest(unittest.TestCase):
 
         called = {}
 
-        def fake_day(day):
+        def fake_day(day, history_index=None):
             called["day"] = day
+            called["index"] = history_index
             return {"day": day, "rows": [[{}]], "columns": [], "counts": {}}
 
         original = build_l10._day
@@ -1413,6 +1571,28 @@ class L10OnTheDailyTrackerTest(unittest.TestCase):
             build_l10._day = original
         self.assertEqual(called["day"], "2026-08-18")
         self.assertEqual(out["day"], "2026-08-18")
+
+    def test_the_shared_span_is_handed_on_and_not_re_read(self):
+        """_l10_for passes the caller's span straight through. It is wrapped in
+        a bare `except Exception` so an unreachable controller cannot fail the
+        module build — which also means a signature mismatch here is silent,
+        and this is what would catch it."""
+        from factory import build_l10
+
+        seen = {}
+
+        def fake_day(day, history_index=None):
+            seen["index"] = history_index
+            return {"day": day, "rows": [[{}]], "columns": [], "counts": {}}
+
+        span = {"fat": {"268645440002": []}}
+        original = build_l10._day
+        try:
+            build_l10._day = fake_day
+            build_dailyexcel._l10_for("2026-08-18", span)
+        finally:
+            build_l10._day = original
+        self.assertIs(seen["index"], span)
 
     def test_a_day_pega4_cannot_answer_for_is_no_table(self):
         """An unreachable controller must not fail the module tracker's
