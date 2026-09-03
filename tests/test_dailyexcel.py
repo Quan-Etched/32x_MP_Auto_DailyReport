@@ -592,12 +592,25 @@ class DerivedTabTest(NoPega, unittest.TestCase):
             build_dailyexcel._derivable(before, "2026-08-11", "2026-08-14"))
         self.assertFalse(build_dailyexcel._derivable(before, "", ""))
 
-    def test_the_floor_reaches_the_start_of_the_controllers_history(self):
-        """Probed 2026-09-02: pega3 answers from 05-21, pega5 05-23, pega4
-        06-12. The floor sits before all three, so the walk finds the true
-        start instead of a constant deciding it."""
-        self.assertLessEqual(build_dailyexcel.DAILY_FROM, "2026-05-21")
-        self.assertTrue(build_dailyexcel._derivable("2026-06-15", "", ""))
+    def test_the_floor_is_the_reporting_horizon_and_not_a_rolling_window(self):
+        """A fixed date, and the one the line reviews from.
+
+        Reaching all the way back to the controllers' first runs (05-01) was
+        tried and withdrawn on 2026-09-03: the floor sets how many day-listings
+        every build walks per host *and* NEW_INPUT_LOOKBACK with it, and four
+        months of it made the tracker 73 tabs and the page slow enough to be
+        reported as broken. 08-01 is the horizon the ramp is actually reviewed
+        over; May to July is bring-up.
+
+        Still a date and not "the last N days", which is the part that must not
+        regress — a window defined by its age walks away from a history defined
+        by its start, and that is how a fortnight of pega3 went missing before.
+        """
+        self.assertEqual(build_dailyexcel.DAILY_FROM, "2026-08-01")
+        self.assertRegex(pega.CONTROLLER_FROM, r"^\d{4}-\d{2}-\d{2}$")
+        self.assertTrue(build_dailyexcel._derivable("2026-08-15", "", ""))
+        # And it is one env var away for a one-off look further back.
+        self.assertIn("FACTORY_PEGA_FROM", inspect.getsource(pega))
 
     def test_an_empty_workbook_puts_no_day_out_of_range(self):
         self.assertTrue(build_dailyexcel._derivable("2026-08-05", "", ""))
@@ -929,8 +942,12 @@ class PegaCacheTest(unittest.TestCase):
         self.addCleanup(lambda: os.environ.__setitem__("FACTORY_PEGA_URL", previous)
                         if previous is not None
                         else os.environ.pop("FACTORY_PEGA_URL", None))
+        # Restore what was there, not a literal: this pinned TIMEOUT back to
+        # 8.0 regardless, so raising the real default to 30 quietly reset it
+        # for every test that ran after this one — and the failure surfaced
+        # somewhere else entirely.
+        self.addCleanup(setattr, self.pega, "TIMEOUT", self.pega.TIMEOUT)
         self.pega.TIMEOUT = 0.35
-        self.addCleanup(setattr, self.pega, "TIMEOUT", 8.0)
         got = self.pega._get(path, cache=True, stale_ok=True)
         self.assertEqual(got["total"], 1)
 

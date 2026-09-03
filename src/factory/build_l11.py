@@ -158,7 +158,7 @@ def stage_index(first: str, last: str
         first, last)
 
 
-def _seen_before(day: str, lookback: int = build_dailyexcel.NEW_INPUT_LOOKBACK
+def _seen_before(day: str, lookback: Optional[int] = None
                  ) -> Dict[str, Dict[str, List[Dict[str, str]]]]:
     """Every attempt each L11 stage made on a rack before ``day``.
 
@@ -167,6 +167,12 @@ def _seen_before(day: str, lookback: int = build_dailyexcel.NEW_INPUT_LOOKBACK
     L11 has run two racks all month, so almost every row is a returning one and
     a count-all yield is mostly the same rack being retried.
     """
+    # Late-bound rather than a default argument: the reach is derived from
+    # pega.CONTROLLER_FROM, and a default freezes it at import, so moving the
+    # floor left this function reaching a distance nothing else used.
+    if lookback is None:
+        lookback = build_dailyexcel.NEW_INPUT_LOOKBACK
+
     start = datetime.strptime(day, "%Y-%m-%d").date()
     first = max(pega.CONTROLLER_FROM,
                 (start - timedelta(days=lookback)).strftime("%Y-%m-%d"))

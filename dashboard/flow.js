@@ -160,22 +160,30 @@
     return text.slice(0, 16) + (String(iso).indexOf('Z') > -1 ? ' UTC' : '');
   }
 
-  /* Week to date, not the trailing seven days.
+  /* Week to date by default, and the reader can widen it.
    *
    * This chart is the one the line stands in front of and reads as "how are we
    * doing". A rolling window answers that with half of this week and half of
    * last, so a number quoted on Thursday covers days that were already quoted
    * on Monday under a different heading. The week the line is standing in is
-   * the week it should show, accumulating from Monday.
+   * the week it should show, accumulating from Monday — which is why it is the
+   * default and not merely one of two equals.
+   *
+   * On a Monday morning that week is a handful of units, so flowwindow.js puts
+   * the trailing seven days one click away and labels both with their run
+   * counts. Which one is showing is read from there rather than decided here,
+   * so the two drawings on this page cannot end up on different windows.
    *
    * Falls back to the seven-day set if an older bundle has no week views, so
    * the page renders rather than emptying while a build catches up. */
   function views() {
-    return STATIONS.viewsWeek || STATIONS.views || {};
+    return (window.FlowWindow && window.FlowWindow.views()) ||
+           STATIONS.viewsWeek || STATIONS.views || {};
   }
 
   function windowOf() {
-    return STATIONS.windowWeek || STATIONS.window || {};
+    return (window.FlowWindow && window.FlowWindow.window()) ||
+           STATIONS.windowWeek || STATIONS.window || {};
   }
 
   function summary(key) {
@@ -413,12 +421,11 @@
     }
   }
 
-  function init() {
-    el.canvas = byId('canvas');
-    el.wires = byId('wires');
-    el.lanes = byId('lanes');
-    el.legend = byId('legend');
-
+  /* Everything the window governs, in one place so the control can ask for it
+   * again. renderBuild and the footer stamp are deliberately outside it: they
+   * describe the bundle rather than the window, and renderBuild appends, so a
+   * second call would print the release twice. */
+  function draw() {
     var win = windowOf();
     /* Both ends as times, not dates.
      *
@@ -447,8 +454,19 @@
     renderLanes();
     renderCombined();
     renderLegend();
-    renderBuild();
     drawWires();
+  }
+
+  function init() {
+    el.canvas = byId('canvas');
+    el.wires = byId('wires');
+    el.lanes = byId('lanes');
+    el.legend = byId('legend');
+
+    renderBuild();
+    draw();
+    /* Redrawn, not reloaded: the window is a way of reading the same bundle. */
+    if (window.FlowWindow) window.FlowWindow.onChange(draw);
 
     byId('footer-meta').textContent = 'Yields built ' +
       String(STATIONS.generatedAt || '').replace('T', ' ').replace('+00:00', ' UTC');

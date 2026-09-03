@@ -46,6 +46,7 @@ import json
 import logging
 import os
 import re
+import socket
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
@@ -69,14 +70,45 @@ DEFAULT_BASE_URL = "http://pega3:3000"
 #: shorter every day.
 #:
 #: Probed 2026-09-02: pega3 answers from 2026-05-21, pega5 from 05-23, pega4
-#: from 06-12. 05-01 is set before all three so the walk finds the true start
-#: instead of a constant deciding it. The empty fortnight at the near end costs
-#: one listing per host per day, once — a finished day's list cannot change, so
-#: every one is served from disk afterwards.
-CONTROLLER_FROM = os.environ.get("FACTORY_PEGA_FROM", "2026-05-01")
+#: from 06-12. Reaching all the way back to those first runs is what 05-01 did,
+#: and it was too expensive to keep: the floor sets the number of day-listings
+#: every build walks, per host, and it sets NEW_INPUT_LOOKBACK with it, so a
+#: date four months back made the daily tracker 73 tabs and the page slow
+#: enough to be reported as broken.
+#:
+#: 08-01 is the line's own reporting horizon — the ramp people actually review
+#: — and it is what was asked for on 2026-09-03 after the wider window landed.
+#: May, June and July are bring-up rather than line performance, so the history
+#: being dropped here is history nobody was reading. Set FACTORY_PEGA_FROM to
+#: reach further back for a one-off investigation; nothing else needs changing.
+CONTROLLER_FROM = os.environ.get("FACTORY_PEGA_FROM", "2026-08-01")
 
-#: Short: this is a nice-to-have on a page that must build without it.
-TIMEOUT = 8.0
+#: How long to wait on one controller call.
+#:
+#: Eight seconds was measured from a laptop sitting in the same city as the
+#: controllers, where every call answers in well under one. The dashboard host
+#: is in us-west-2 and the pega boxes are in Hong Kong, with no direct path
+#: between them: Tailscale relays the traffic through a DERP node, and the
+#: *connect* alone measured 5.1s, 7.3s and 12.5s on 2026-09-02, with one pega5
+#: call taking over 45s. Once connected the transfer is quick — it is the
+#: hole-punch that is slow.
+#:
+#: At 8s that path reads as a dead host, and because the first failure used to
+#: write the host off for the whole build (see _UNREACHABLE), one slow connect
+#: at the start of a tick meant pega3, pega4 and pega5 were all served from
+#: cache for every day of the run. That is exactly how the published weekly
+#: tracker froze at W32 while the box collected happily every hour: the cache
+#: it fell back to had last been warm on 08-09, and nothing in the log said the
+#: numbers were three weeks old.
+TIMEOUT = float(os.environ.get("FACTORY_PEGA_TIMEOUT", "30"))
+
+#: Consecutive timeouts before a host is written off for the rest of the build.
+#:
+#: A timeout is not proof of a dead host — see TIMEOUT — so one of them must
+#: not be allowed to decide. A host with genuinely no route reaches this count
+#: in three calls and stops costing anything after that, which is the whole
+#: point of the write-off; a merely slow one answers and the count resets.
+TIMEOUT_STRIKES = int(os.environ.get("FACTORY_PEGA_STRIKES", "3"))
 
 #: The list endpoint pages, and caps per_page well below what it is asked for.
 PAGE_SIZE = 50
@@ -87,12 +119,38 @@ class PegaUnavailable(RuntimeError):
     """pega3 could not be reached. Never fatal — the caller degrades."""
 
 
-#: Hosts whose first call failed, so a box with no route pays one timeout per
-#: build rather than one per day rebuilt. Per host, not global: pega4 being
-#: unreachable says nothing about pega3, and a shared flag would silently stop
-#: reading a controller that was answering perfectly well. Reset per process, so
-#: a restored route is picked up on the next tick without touching config.
+#: Hosts written off for the rest of this build, so a box with no route pays a
+#: few timeouts per build rather than one per day rebuilt. Per host, not
+#: global: pega4 being unreachable says nothing about pega3, and a shared flag
+#: would silently stop reading a controller that was answering perfectly well.
+#: Reset per process, so a restored route is picked up on the next tick without
+#: touching config.
 _UNREACHABLE: set = set()
+
+#: Consecutive timeouts seen per host, against TIMEOUT_STRIKES. A timeout is
+#: the one failure that routinely lies — see TIMEOUT — so it takes several in a
+#: row to condemn a host, and any answer at all clears the count.
+_TIMEOUTS: Dict[str, int] = {}
+
+
+def _is_timeout(exc: BaseException) -> bool:
+    """Was this a timeout rather than a refusal or a bad name?
+
+    urllib wraps the socket error, so the timeout can arrive as
+    ``socket.timeout`` (an alias of ``TimeoutError`` since 3.10), as a
+    ``URLError`` carrying one, or — for a read that stalls after connecting —
+    as a bare ``TimeoutError``. The text check catches the URLError form,
+    whose ``reason`` is sometimes only a string.
+    """
+    seen = exc
+    for _ in range(3):                     # reason chains are shallow
+        if isinstance(seen, (socket.timeout, TimeoutError)):
+            return True
+        reason = getattr(seen, "reason", None)
+        if reason is None:
+            break
+        seen = reason
+    return "timed out" in str(exc).lower()
 
 
 def base_url(host: Optional[str] = None) -> str:
@@ -112,6 +170,47 @@ def base_url(host: Optional[str] = None) -> str:
 def enabled() -> bool:
     """False turns the whole integration off without removing the code."""
     return os.environ.get("FACTORY_PEGA", "1").strip().lower() not in ("0", "false", "no")
+
+
+def offline(host: Optional[str] = None) -> bool:
+    """Should this controller be served from the on-disk cache, never fetched?
+
+    Per host, because the box's problem is per host. It reaches pega2 in 0.7s
+    and pega6 in 2s — those are on the corporate side of the network and answer
+    normally — while pega3, pega4 and pega5 are DERP-relayed and effectively
+    unreachable. Switching the whole integration to the cache took the two
+    working hosts down with the three broken ones and cost 696 unit runs, which
+    is how this stopped being a boolean.
+
+        FACTORY_PEGA_OFFLINE=pega3,pega4,pega5   # what the box runs
+        FACTORY_PEGA_OFFLINE=1                   # every host, for a laptop
+                                                 # off the VPN
+
+    For a host that HAS the data but cannot fetch it. The dashboard box is
+    exactly that: measured 2026-09-03, one 50-run listing took 180s to deliver
+    8,452 of 26,400 bytes — 46 bytes/second — because its Tailscale path to the
+    pega hosts is relayed through a DERP node in Hong Kong instead of going
+    direct. The same request from a laptop on the same tailnet takes 0.09s.
+
+    So the cache is warmed on a laptop and rsynced across, which is the
+    transport docs/deploy.md has always described for a host with no route, and
+    this flag stops the box spending five to eight minutes per build proving
+    again that it has none. Every page still says its controller data came from
+    a cached copy, because `fell_back` is set exactly as it would be after a
+    failed fetch — the reader is not told anything different from the truth.
+
+    Turn it off the moment the path is fixed: `enabled()` is the switch for
+    dropping the integration, this one is for keeping it on borrowed data.
+    """
+    setting = os.environ.get("FACTORY_PEGA_OFFLINE", "0").strip().lower()
+    if not setting or setting in ("0", "false", "no"):
+        return False
+    if setting in ("1", "true", "yes"):
+        return True
+    named = [part.strip() for part in setting.split(",") if part.strip()]
+    # An unnamed call is the default host, the same resolution _get uses, so
+    # naming pega3 covers the calls that reach it without saying so.
+    return (host or _default_host_name()).lower() in named
 
 
 #: Finished suite runs never change, and a day costs ~100 detail calls, so they
@@ -239,6 +338,12 @@ def _get(path: str, cache: bool = False, stale_ok: bool = False,
         # while its answer could still change is a miss, not a hit.
         hit = _read_cache(path, host, complete_only=True)
         if hit is not None:
+            # Normally a hit here is the design working and says nothing about
+            # freshness. Offline it is the only thing that can happen, and the
+            # page should say its controller data is a cached copy — nothing is
+            # being refreshed, today included.
+            if offline(host):
+                _FELL_BACK.add(host or _default_host_name())
             return hit
 
     # One machine, one identity. `host=None` and `host="pega3"` build the same
@@ -258,6 +363,18 @@ def _get(path: str, cache: bool = False, stale_ok: bool = False,
                 return hit
         raise PegaUnavailable("{} was unreachable earlier in this run".format(who))
 
+    # Read at call time, not at import: a test flips it, and so does an
+    # operator who has just had the network path repaired.
+    if offline(host):
+        if cache:
+            hit = _read_cache(path, host)
+            if hit is not None:
+                _FELL_BACK.add(who)
+                return hit
+        raise PegaUnavailable(
+            "{}: FACTORY_PEGA_OFFLINE is set and this is not in the cache"
+            .format(path))
+
     url = "{}{}".format(base_url(host), path)
     try:
         with urllib.request.urlopen(url, timeout=TIMEOUT) as response:
@@ -265,20 +382,49 @@ def _get(path: str, cache: bool = False, stale_ok: bool = False,
     except (urllib.error.URLError, OSError, ValueError) as exc:
         # A name that does not resolve or a host with no route will not fix
         # itself between one day and the next; stop paying the timeout.
+        #
+        # A *timeout* is the exception to that, and treating it as proof of a
+        # dead host is what froze the published weekly tracker for three weeks.
+        # The relayed path to Hong Kong takes 5-12s to connect and occasionally
+        # much longer, so it takes TIMEOUT_STRIKES of them in a row — and any
+        # answer at all resets the count.
         if isinstance(exc, (urllib.error.URLError, OSError)):
-            _UNREACHABLE.add(who)
             # Only claim the cache when this call can actually use one. Saying
             # "using a cached copy instead" on a probe that reads no cache is a
             # log line asserting something it does not know.
-            log.info("%s unreachable (%s); %s", who, exc,
-                     "falling back to the cache" if cache
-                     else "this call has no cache to fall back to")
+            fallback = ("falling back to the cache" if cache
+                        else "this call has no cache to fall back to")
+            if not _is_timeout(exc):
+                _UNREACHABLE.add(who)
+                log.info("%s unreachable (%s); %s", who, exc, fallback)
+            else:
+                _TIMEOUTS[who] = _TIMEOUTS.get(who, 0) + 1
+                strikes = _TIMEOUTS[who]
+                if strikes >= TIMEOUT_STRIKES:
+                    _UNREACHABLE.add(who)
+                    # Said plainly, because this is the line that was missing
+                    # while the weekly tracker served three-week-old numbers:
+                    # the build carried on and reported success, and nothing
+                    # anywhere said the figures had stopped moving.
+                    log.warning(
+                        "%s timed out %d times in a row (%.0fs each); serving "
+                        "it from the cache for the REST OF THIS BUILD — any "
+                        "day it has no cached copy of will be missing from the "
+                        "output", who, strikes, TIMEOUT)
+                else:
+                    log.info("%s timed out after %.0fs (%d of %d before it is "
+                             "given up on); %s", who, TIMEOUT, strikes,
+                             TIMEOUT_STRIKES, fallback)
         if cache:
             hit = _read_cache(path, host)
             if hit is not None:
                 _FELL_BACK.add(who)
                 return hit
         raise PegaUnavailable("{}: {}".format(url, exc)) from exc
+
+    # It answered, so whatever the earlier timeouts were, they were not this
+    # host being gone.
+    _TIMEOUTS.pop(who, None)
 
     if cache:
         # Only a finished run is safe to keep: one still running would freeze

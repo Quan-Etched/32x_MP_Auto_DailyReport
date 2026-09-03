@@ -12,6 +12,15 @@ corporate network. The same host collects hourly at :05 under a systemd user
 timer with linger enabled, so it publishes whether or not anyone is logged in.
 Moved there 2026-08-13; the procedure is in `docs/deploy.md`.
 
+**The hourly job does not update the code — `make deploy` does.** The timer
+collects, builds and publishes whatever tree is already on the box. A fix
+committed on a laptop is not on the site until somebody deploys it, and until
+2026-09-03 nothing said when that had not happened: the box served `75579de`
+for eight commits while three separate fixes were written, committed and
+reported as done. `make deploy-status` compares the box's checkout to yours and
+exits non-zero when they differ; the build stamp in each page's masthead is the
+same fact, visible from a browser.
+
 Verified end to end from the box: 1260 runs collected, all four pages and all
 four data bundles served with the right sizes and MIME types, full chain in
 2m07s.

@@ -48,8 +48,12 @@
       button.addEventListener('click', function () {
         show(view[0]);
         /* In the address, so a link to the end-to-end chart lands on it — the
-           whole reason the separate page existed. */
-        if (window.history && window.history.replaceState) {
+           whole reason the separate page existed. Through FlowHash, because
+           the window control writes to the same address and assigning the
+           whole hash here erased its choice. */
+        if (window.FlowHash) {
+          window.FlowHash.set('chart', view[0]);
+        } else if (window.history && window.history.replaceState) {
           window.history.replaceState(null, '', '#chart=' + view[0]);
         }
       });

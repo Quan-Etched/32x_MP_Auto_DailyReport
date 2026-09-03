@@ -12,7 +12,7 @@ The retest *detail* table is capped; everything else is small by construction
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -273,7 +273,20 @@ def _week_bundle(payload: Dict[str, Any], state: Optional[Dict[str, Any]],
     say whether this morning's units are in it; "last counted 2026-08-20 07:41Z"
     does.
     """
-    today = datetime.now(timezone.utc).date()
+    # "Today" in the timezone the runs are filed under, not in UTC.
+    #
+    # The filter below asks day_key which local calendar day a run belongs to,
+    # so the Monday it is compared against has to be a local Monday too. Taken
+    # from UTC's date, the two disagree for the seven hours between 17:00
+    # Pacific and midnight — and on a Sunday evening that disagreement is a
+    # whole week: UTC has already rolled over to Monday, `start` becomes the
+    # Monday that has not begun locally, and every run of the week just
+    # finished is filtered out. The flow chart then reads "no runs in the
+    # window" at all thirteen stages, which is not an empty week, it is the
+    # wrong week. Deriving the date through day_key keeps the boundary and the
+    # filter on one definition of a day.
+    today = date.fromisoformat(
+        daily.day_key(int(datetime.now(timezone.utc).timestamp()), tz_name))
     monday = today - timedelta(days=today.weekday())
     start = monday.strftime("%Y-%m-%d")
 
@@ -284,9 +297,15 @@ def _week_bundle(payload: Dict[str, Any], state: Optional[Dict[str, Any]],
     bundle = build_bundle(scoped, state, 0)
 
     stamps = [run["startTs"] for run in scoped["runs"] if run.get("startTs")]
-    window = dict(bundle.get("window") or {})
+    # Built from the week's own runs, not from `bundle["window"]`. That one
+    # falls back to the *collected* window when nothing matched, so an empty
+    # week published a header spanning the whole month of collection — a week
+    # to date that claimed thirty days.
+    window = dict(_reported_window(scoped["runs"], tz_name))
     window["weekOf"] = start
-    window["from"] = window.get("from") or start
+    window.setdefault("from", start)
+    window.setdefault("to", today.isoformat())
+    window.setdefault("days", 0)
     window["startedAt"] = "{}T00:00:00Z".format(start) if tz_name == "UTC" else \
         "{}T00:00:00".format(start)
     window["lastRunAt"] = (

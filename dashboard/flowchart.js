@@ -67,7 +67,17 @@
     if (!el.canvas || !el.lanes || !el.wires) return;
     var boxes = {};
 
-    function views() { return STATIONS.viewsWeek || STATIONS.views || {}; }
+    /* The window is the page's, not this chart's: flow.html draws two of these
+       and a reader who widens one has widened the line, not one picture of it.
+       Falls back to the week when nothing owns the choice. */
+    function views() {
+      return (window.FlowWindow && window.FlowWindow.views()) ||
+             STATIONS.viewsWeek || STATIONS.views || {};
+    }
+    function windowOf() {
+      return (window.FlowWindow && window.FlowWindow.window()) ||
+             STATIONS.windowWeek || STATIONS.window || {};
+    }
     function summary(key) {
       var view = views()[key];
       return (view && view.summary) || null;
@@ -268,7 +278,7 @@
       var counted = NODES.filter(function (node) {
         return node.station && summary(node.station);
       });
-      var window_ = STATIONS.windowWeek || STATIONS.window || {};
+      var window_ = windowOf();
       if (chart.chrome === false) return;
       var meta = byId('meta');
       if (meta) {
@@ -282,8 +292,10 @@
           ? build.release + ' · ' + build.commit : '';
       }
       var days = byId('window-days');
-      if (days && window_.days) {
-        days.textContent = 'the last ' + window_.days + ' days';
+      if (days && (window_.weekOf || window_.days)) {
+        days.textContent = window_.weekOf
+          ? 'this week, from Monday ' + window_.weekOf
+          : 'the last ' + window_.days + ' days';
       }
       var footer = byId('footer-meta');
       if (footer) {
@@ -293,17 +305,24 @@
       }
     }
 
-    renderLanes();
-    renderLegend();
-    renderMeta();
-    /* After layout: the wires come from where the boxes ended up, so they
-     * cannot be drawn in the frame that created them. */
-    if (window.requestAnimationFrame) {
-      window.requestAnimationFrame(renderWires);
-    } else {
-      renderWires();
+    function draw() {
+      renderLanes();
+      renderLegend();
+      renderMeta();
+      /* After layout: the wires come from where the boxes ended up, so they
+       * cannot be drawn in the frame that created them. */
+      if (window.requestAnimationFrame) {
+        window.requestAnimationFrame(renderWires);
+      } else {
+        renderWires();
+      }
     }
+
+    draw();
+    /* One resize listener, registered here rather than inside draw(), so
+       changing the window does not leave another copy of it behind. */
     window.addEventListener('resize', renderWires);
+    if (window.FlowWindow) window.FlowWindow.onChange(draw);
   }
 
   window.FactoryFlow = { render: render };

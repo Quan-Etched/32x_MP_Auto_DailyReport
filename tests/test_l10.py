@@ -293,6 +293,16 @@ class SharedIndexTest(unittest.TestCase):
             "status": "failed" if run_id.endswith("old") else "passed",
             "participating": None, "dut_sn": "268645440002",
             "slot_number": 2, "test_cases": []}
+        # This class is about the span being read once and sliced per tab, not
+        # about how far back the line currently reports. Pin both ends of the
+        # reach so moving pega.CONTROLLER_FROM — 05-01 to 08-01 on 2026-09-03,
+        # and it will move again — cannot empty the fixture's June attempt out
+        # of the strip and fail a test that is measuring something else.
+        self.addCleanup(setattr, pega, "CONTROLLER_FROM", pega.CONTROLLER_FROM)
+        self.addCleanup(setattr, build_dailyexcel, "NEW_INPUT_LOOKBACK",
+                        build_dailyexcel.NEW_INPUT_LOOKBACK)
+        pega.CONTROLLER_FROM = "2026-05-01"
+        build_dailyexcel.NEW_INPUT_LOOKBACK = 200
 
     def index(self):
         return build_l10.stage_index("2026-05-01", "2026-09-01")

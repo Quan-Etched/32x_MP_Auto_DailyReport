@@ -80,6 +80,67 @@ class SnapshotTest(unittest.TestCase):
         self.assertEqual(job.steps[0]["state"], "pending")
 
 
+class NoCacheTest(unittest.TestCase):
+    """Everything the dev server hands out is served no-cache.
+
+    It was /data/ only — the bundles, on the reasoning that an update rewrites
+    them under the browser's feet. The pages and their scripts are rewritten by
+    editing them, which happens far more often, and both halves went wrong in
+    one afternoon: a fixed customize.js the browser would not re-fetch, so the
+    station picker stayed empty and read as unfixed; then a weekly page showing
+    three June rows from a cached bundle while the file on disk had twelve
+    weeks. Each cost far more to diagnose than caching a file on localhost
+    saves.
+
+    `no-cache`, not `no-store`: an unchanged 9 MB bundle still revalidates to a
+    304 instead of being re-sent.
+    """
+
+    def headers_for(self, path):
+        import factory.control as control
+
+        sent = []
+
+        class Fake(control.ControlHandler):
+            def __init__(self):                       # no socket, no request
+                self.path = path
+
+            def send_header(self, key, value):
+                sent.append((key, value))
+
+        # SimpleHTTPRequestHandler.end_headers writes to the output buffer;
+        # only this class's contribution is under test.
+        original = control.http.server.SimpleHTTPRequestHandler.end_headers
+        control.http.server.SimpleHTTPRequestHandler.end_headers = lambda self: None
+        try:
+            Fake().end_headers()
+        finally:
+            control.http.server.SimpleHTTPRequestHandler.end_headers = original
+        return sent
+
+    def test_a_data_bundle_is_not_cached(self):
+        self.assertIn(("Cache-Control", "no-cache"),
+                      self.headers_for("/data/weekly.js"))
+
+    def test_a_page_script_is_not_cached_either(self):
+        """The regression this exists for: customize.js and weeklysummary.js
+        are edited far more often than the bundles are rebuilt."""
+        for path in ("/customize.js", "/weeklysummary.js", "/dailysheet.js"):
+            self.assertIn(("Cache-Control", "no-cache"),
+                          self.headers_for(path), path)
+
+    def test_nor_is_a_page(self):
+        for path in ("/", "/weekly.html", "/customize.html"):
+            self.assertIn(("Cache-Control", "no-cache"),
+                          self.headers_for(path), path)
+
+    def test_it_is_no_cache_and_not_no_store(self):
+        """no-store would re-send the 9 MB run bundle on every reload."""
+        values = [v for k, v in self.headers_for("/data/runs_pega.js")
+                  if k == "Cache-Control"]
+        self.assertEqual(values, ["no-cache"])
+
+
 class GuardTest(unittest.TestCase):
     """POST is a real action: it publishes factory data to a shared URL."""
 

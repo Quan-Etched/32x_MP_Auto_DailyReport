@@ -87,8 +87,10 @@ DOM_SCRIPTS = {
     "rack2.html": ["rack2.js"],
     "week.html": ["week.js"],
     # Two drawings on one page: flow.js draws the summary, flowchart.js draws
-    # the end-to-end chart from flowe2e.js's data, flowswitch.js picks.
-    "flow.html": ["flow.js", "flowchart.js", "flowswitch.js", "flowcsv.js"],
+    # the end-to-end chart from flowe2e.js's data, flowswitch.js picks which,
+    # and flowwindow.js picks the window both of them count.
+    "flow.html": ["flow.js", "flowchart.js", "flowswitch.js", "flowcsv.js",
+                  "flowwindow.js"],
     "doe.html": ["doe.js"],
     "releases.html": ["releasesrc.js", "suitemap.js"],
 }
@@ -994,3 +996,275 @@ JSON.stringify(document.getElementById('nav').kids.map(function (a) {
         self.assertIn("section=errors", customize,
                       "customize.js must recognise the deep link")
         self.assertIn("deepLink", customize)
+
+
+class FlowHashOrderTest(unittest.TestCase):
+    """flowwindow.js defines the hash helper, so it has to load first.
+
+    Two controls on flow.html write to the address — which drawing, and which
+    window — and each used to write it by assignment, so whichever moved last
+    erased the other's choice. They go through `FlowHash` now, which
+    flowwindow.js defines. Loaded the other way round, `window.FlowHash` is
+    undefined when flowswitch.js is evaluated; it falls back to assigning the
+    whole hash, and the bug is back with nothing to show for it — the page
+    still works, it just quietly forgets the window whenever the drawing is
+    switched.
+    """
+
+    def order(self):
+        text = (DASHBOARD / "flow.html").read_text(encoding="utf-8")
+        return re.findall(r'<script src="([a-z0-9_]+\.js)"', text)
+
+    def test_flowwindow_loads_before_every_script_that_uses_flowhash(self):
+        loaded = self.order()
+        self.assertIn("flowwindow.js", loaded)
+        first = loaded.index("flowwindow.js")
+        for script in sorted(loaded):
+            source = (DASHBOARD / script).read_text(encoding="utf-8")
+            # The definition itself does not count as a use.
+            if script == "flowwindow.js" or "FlowHash" not in source:
+                continue
+            with self.subTest(script=script):
+                self.assertGreater(
+                    loaded.index(script), first,
+                    "{} reads FlowHash but loads before flowwindow.js defines "
+                    "it".format(script))
+
+    def test_the_page_hosts_the_control(self):
+        """The mount point flowwindow.js looks for. Without it the control
+        renders nowhere and the week is the only window there is again."""
+        self.assertIn("flow-window", element_ids("flow.html"))
+
+
+class ResultIsAColumnNotASectionTest(unittest.TestCase):
+    """The customize page's Result filter moved into the table.
+
+    It used to be section 3: five tickboxes, ticked before the table existed,
+    that decided which rows were ever computed. Asked for on 2026-09-03 as a
+    column instead — sortable, and filterable from its own heading the way the
+    daily tracker's columns are — because that is the same choice made where
+    its effect can be seen, with the counts in front of you.
+
+    What is pinned here is the shape of that move: the section is gone, the
+    column is in both the table and the CSV, the numbering left behind has no
+    hole in it, and the menu's styling exists once rather than once per page.
+    """
+
+    def page(self):
+        return (DASHBOARD / "customize.html").read_text(encoding="utf-8")
+
+    def script(self):
+        return (DASHBOARD / "customize.js").read_text(encoding="utf-8")
+
+    def test_the_result_type_section_is_gone(self):
+        page = self.page()
+        self.assertNotIn("Result type", page)
+        self.assertNotIn('id="types"', page,
+                         "the tickbox host is gone, not merely hidden")
+        self.assertNotIn('id="types-sub"', page)
+
+    def test_and_nothing_is_left_rendering_it(self):
+        script = self.script()
+        for dead in ("renderTypes", "wantedTypes", "byId('types')"):
+            with self.subTest(symbol=dead):
+                self.assertNotIn(dead, script)
+
+    def test_the_sections_are_numbered_one_to_five_with_no_hole(self):
+        found = re.findall(r"<h2>(\d+) · ", self.page())
+        self.assertEqual(found, ["1", "2", "3", "4", "5"],
+                         "removing a section renumbers the ones after it")
+
+    def test_result_is_a_column_in_the_table_and_the_csv(self):
+        script = self.script()
+        columns = script[script.index("var COLUMNS = ["):]
+        columns = columns[:columns.index("];")]
+        self.assertIn("'Result'", columns,
+                      "the CSV carries it too — the table and the export are "
+                      "the same rows")
+        preview = script[script.index("var PREVIEW_COLUMNS = ["):]
+        preview = preview[:preview.index("];")]
+        self.assertIn("'Result'", preview)
+
+    def test_the_csv_takes_what_the_filter_left(self):
+        """A filter the export ignored would be a trap: the reader screens
+        rows out on screen and downloads them anyway."""
+        script = self.script()
+        self.assertIn("renderDownload(shown)", script)
+        self.assertIn("renderPreview(rows, shown)", script)
+
+    def test_the_page_loads_the_shared_filter_engine(self):
+        page = self.page()
+        self.assertIn('src="colfilter.js"', page)
+        self.assertIn('href="colfilter.css"', page)
+
+    def test_the_menu_is_styled_in_exactly_one_place(self):
+        """It was lifted out of dailyexcel.css so two pages could share it.
+        A copy pasted back into either is a panel that gets restyled once and
+        stays wrong on the other page."""
+        owners = [path.name for path in sorted(DASHBOARD.glob("*.css"))
+                  if ".filter-menu {" in path.read_text(encoding="utf-8")]
+        self.assertEqual(owners, ["colfilter.css"])
+
+    def test_both_pages_that_offer_the_menu_load_its_stylesheet(self):
+        for name in ("customize.html", "dailyexcel.html"):
+            with self.subTest(page=name):
+                self.assertIn(
+                    'href="colfilter.css"',
+                    (DASHBOARD / name).read_text(encoding="utf-8"))
+
+    def test_the_daily_tracker_loads_it_before_its_own_sheet(self):
+        """dailyexcel.css reuses .fm-head, .fm-count and .fm-list for the
+        misflow panel. Those rules sat after the menu's when the two lived in
+        one file, so the order they win in has to survive the split."""
+        page = (DASHBOARD / "dailyexcel.html").read_text(encoding="utf-8")
+        # The stylesheet links themselves, not any prose about them.
+        sheets = re.findall(r'<link rel="stylesheet" href="([^"]+)"', page)
+        self.assertLess(sheets.index("colfilter.css"),
+                        sheets.index("dailyexcel.css"))
+
+    def test_an_old_link_still_lands_on_the_rows_it_named(self):
+        """`types=` is in shared links already. It seeds the column filter
+        now instead of a row of tickboxes, and `fail` still means the two
+        outcomes it stands for."""
+        script = self.script()
+        self.assertIn("TABLE.setFilter('Result', typeLabels(view.types))",
+                      script)
+        self.assertIn("FAIL_COVERS", script)
+
+    def test_a_link_that_arrives_already_run_fetches_what_it_shows(self):
+        """`ran=1` opened the output section over no rows, because only the
+        RUN button ever asked for the heavy half of the bundle."""
+        script = self.script()
+        self.assertIn("if (view.ran && BIGDATA.needed && BIGDATA.needed())",
+                      script)
+
+
+class FreshnessChipTest(unittest.TestCase):
+    """Every page can work out how old its own snapshot is.
+
+    update.js reads the build stamp off whichever bundle the page happens to
+    load. The customize page loads exactly one — the runs bundle — and that was
+    the one name missing from the list, so the page read its own freshness as
+    `unknown`, styled the chip stale and drew "This snapshot is stale" over a
+    snapshot published two minutes earlier. Wrong in the alarming direction: it
+    is the banner that tells a reader to go and restart the hourly job.
+    """
+
+    def bundles_for(self, page_text):
+        """The __FACTORY_*__ globals a page's own script tags define."""
+        out = []
+        for src in re.findall(r'<script src="data/([^"]+)"', page_text):
+            bundle = DASHBOARD / "data" / src
+            if not bundle.is_file():
+                continue
+            found = re.search(r"window\.(__FACTORY_[A-Z_]+__)",
+                              bundle.read_text(encoding="utf-8")[:400])
+            if found:
+                out.append(found.group(1))
+        return out
+
+    def test_every_page_with_the_chip_can_read_at_least_one_of_its_bundles(self):
+        """Not every bundle has to be in the chain — a page loading four only
+        needs one of them readable, and they all carry the same build stamp.
+        What must never happen again is a page where *none* of them is."""
+        update = (DASHBOARD / "update.js").read_text(encoding="utf-8")
+        chain = update[update.index("function bundle()"):]
+        chain = chain[:chain.index("}")]
+
+        checked = 0
+        for page in sorted(DASHBOARD.glob("*.html")):
+            text = page.read_text(encoding="utf-8")
+            if "update.js" not in text:
+                continue
+            loaded = self.bundles_for(text)
+            if not loaded:
+                continue          # a page with no bundle has no age to report
+            checked += 1
+            with self.subTest(page=page.name):
+                self.assertTrue(
+                    any(name in chain for name in loaded),
+                    "{} loads {} and update.js can read none of them, so it "
+                    "reports its snapshot age as unknown and draws the stale "
+                    "banner over fresh data".format(page.name, loaded))
+        self.assertGreater(checked, 3, "no pages were actually checked")
+
+    def test_the_customize_page_is_the_one_that_caught_this(self):
+        """It loads exactly one bundle, so it had no second chance."""
+        text = (DASHBOARD / "customize.html").read_text(encoding="utf-8")
+        self.assertIn("__FACTORY_RUNS__", self.bundles_for(text))
+        self.assertIn("__FACTORY_RUNS__",
+                      (DASHBOARD / "update.js").read_text(encoding="utf-8"))
+
+
+class DeployAndCachePushWiringTest(unittest.TestCase):
+    """The two commands that keep production current, and their scheduling.
+
+    Both exist because of things that actually went wrong: the box served a
+    checkout eight commits old while three fixes were reported as done, and it
+    cannot read three of the five controllers at more than 46 bytes a second.
+    A make target nobody can find is the same as no make target, so the wiring
+    is asserted rather than assumed.
+    """
+
+    ROOT = config.REPO_ROOT
+
+    def makefile(self):
+        return (self.ROOT / "Makefile").read_text(encoding="utf-8")
+
+    def test_the_targets_exist_and_are_phony(self):
+        text = self.makefile()
+        for target in ("deploy", "deploy-status", "pega-push", "pega-recache",
+                       "schedule-pega-push-install"):
+            with self.subTest(target=target):
+                self.assertRegex(text, r"(?m)^{}:".format(re.escape(target)))
+                self.assertIn(target, text[text.index(".PHONY"):
+                                            text.index("help:")])
+
+    def test_every_target_points_at_a_script_that_is_there(self):
+        for script in ("tools/deploy.sh", "tools/pega_push.sh",
+                       "tools/pega_recache.py"):
+            with self.subTest(script=script):
+                self.assertTrue((self.ROOT / script).is_file(), script)
+
+    def test_help_mentions_them(self):
+        """`make help` is where somebody looks before they look anywhere."""
+        text = self.makefile()
+        help_block = text[text.index("help:"):text.index("trust:")]
+        for phrase in ("make deploy", "deploy-status", "pega-push"):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, help_block)
+
+    def test_the_deploy_never_sends_the_boxs_own_env(self):
+        """The box's .env carries FACTORY_WEB_ROOT, which is what makes
+        publishing a copy into the web root instead of a push to gh-pages.
+        Overwriting it turns the dashboard host back into a laptop."""
+        deploy = (self.ROOT / "tools" / "deploy.sh").read_text(encoding="utf-8")
+        rsync = deploy[deploy.index("rsync -a --delete"):]
+        rsync = rsync[:rsync.index("fi")]
+        for excluded in ("'.env'", "'data/'", "'dashboard/data/'"):
+            with self.subTest(excluded=excluded):
+                self.assertIn("--exclude " + excluded, rsync)
+        self.assertNotIn("--delete-excluded", rsync,
+                         "that would delete the very paths just protected")
+
+    def test_the_cache_push_does_not_delete_what_the_box_fetched_itself(self):
+        """The box reads pega2 and pega6 fine and has entries this laptop
+        never fetched. --delete would take away the half that works."""
+        push = (self.ROOT / "tools" / "pega_push.sh").read_text(encoding="utf-8")
+        rsync = push[push.index("for attempt in"):]
+        rsync = rsync[:rsync.index("done")]
+        self.assertIn("rsync -a --partial", rsync)
+        self.assertNotIn("--delete", rsync)
+
+    def test_the_push_lands_before_the_box_rebuilds(self):
+        """:50 here, :05 there. The other way round and the box builds from
+        the cache that arrived an hour ago, every time."""
+        import plistlib
+        push = plistlib.loads(
+            (self.ROOT / "deploy" / "launchd"
+             / "com.etched.factory-pega-push.plist").read_bytes())
+        refresh = plistlib.loads(
+            (self.ROOT / "deploy" / "launchd"
+             / "com.etched.factory-analysis-refresh.plist").read_bytes())
+        self.assertEqual(push["StartCalendarInterval"]["Minute"], 50)
+        self.assertEqual(refresh["StartCalendarInterval"]["Minute"], 5)

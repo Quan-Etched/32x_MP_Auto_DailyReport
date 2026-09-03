@@ -203,7 +203,7 @@ def stage_index(first: str, last: str
         first, last)
 
 
-def _seen_before(day: str, lookback: int = build_dailyexcel.NEW_INPUT_LOOKBACK
+def _seen_before(day: str, lookback: Optional[int] = None
                  ) -> Dict[str, Dict[str, List[Dict[str, str]]]]:
     """Every attempt each L10 stage made on a chassis before ``day``.
 
@@ -212,6 +212,12 @@ def _seen_before(day: str, lookback: int = build_dailyexcel.NEW_INPUT_LOOKBACK
     one. Keyed by stage rather than by station so the caller can look up with
     the key it already has.
     """
+    # Late-bound rather than a default argument: the reach is derived from
+    # pega.CONTROLLER_FROM, and a default freezes it at import, so moving the
+    # floor left this function reaching a distance nothing else used.
+    if lookback is None:
+        lookback = build_dailyexcel.NEW_INPUT_LOOKBACK
+
     start = datetime.strptime(day, "%Y-%m-%d").date()
     first = max(pega.CONTROLLER_FROM,
                 (start - timedelta(days=lookback)).strftime("%Y-%m-%d"))

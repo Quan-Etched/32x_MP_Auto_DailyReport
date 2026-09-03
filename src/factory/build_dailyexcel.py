@@ -1157,7 +1157,7 @@ def module_index(first: str, last: str
         first, last)
 
 
-def _seen_before(day: str, lookback: int = NEW_INPUT_LOOKBACK,
+def _seen_before(day: str, lookback: Optional[int] = None,
                  index: Optional[Dict[str, Dict[str, List[Dict[str, str]]]]] = None
                  ) -> Dict[str, Dict[str, List[Dict[str, str]]]]:
     """Every attempt each station made on a serial before ``day``.
@@ -1171,6 +1171,12 @@ def _seen_before(day: str, lookback: int = NEW_INPUT_LOOKBACK,
     Without one this reads the span itself, which is what a standalone call
     and the tests do.
     """
+    # Late-bound rather than a default argument: the reach is derived from
+    # pega.CONTROLLER_FROM, and a default freezes it at import, so moving the
+    # floor left this function reaching a distance nothing else used.
+    if lookback is None:
+        lookback = NEW_INPUT_LOOKBACK
+
     if not pega.enabled():
         return {"mlt": {}, "htt": {}}
     if index is not None:

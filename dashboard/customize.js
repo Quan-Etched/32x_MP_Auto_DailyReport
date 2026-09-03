@@ -73,6 +73,10 @@
   var view = { from: null, to: null, stations: null, types: null,
                ran: false, running: false };
 
+  /* The preview table's column filters and sort. Created in init(), because
+     it needs colfilter.js to have loaded and it re-renders on every change. */
+  var TABLE = null;
+
   /* One unit's attempts at one station, in time order, to an outcome. */
   function outcomeOf(attempts) {
     var graded = attempts.filter(function (r) { return GRADED[r.s]; });
@@ -101,17 +105,45 @@
     return out;
   }
 
-  function wantedTypes() {
-    var picked = {};
-    (view.types || []).forEach(function (name) {
-      if (name === 'fail') {
-        FAIL_COVERS.forEach(function (k) { picked[k] = true; });
-      } else {
-        picked[name] = true;
-      }
+  /* outcome key <-> the word the Result column shows, both ways. The column
+     filters on the text in the cell, because that is what the reader ticked;
+     the hash keeps carrying keys, because that is what shared links already
+     hold. */
+  var RESULT_LABEL = {};
+  var RESULT_KEY = {};
+  OUTCOMES.forEach(function (spec) {
+    RESULT_LABEL[spec[0]] = spec[1];
+    RESULT_KEY[spec[1]] = spec[0];
+  });
+
+  /* The labels an incoming `types=` asks for. `fail` is the union of two
+     others, so it expands here and the column never has to know it is not a
+     value of its own. */
+  function typeLabels(types) {
+    var out = [];
+    (types || []).forEach(function (name) {
+      (name === 'fail' ? FAIL_COVERS : [name]).forEach(function (key) {
+        var label = RESULT_LABEL[key];
+        if (label && out.indexOf(label) === -1) out.push(label);
+      });
     });
-    return picked;
+    return out;
   }
+
+  /* The Result column's filter, expressed as outcome keys for the URL. Empty
+     when nothing is filtered, which is what "every outcome" has always meant
+     in the hash. */
+  function resultTypes() {
+    var labels = TABLE ? TABLE.filterFor('Result') : null;
+    if (!labels) return [];
+    return labels.map(function (label) { return RESULT_KEY[label]; })
+                 .filter(function (key) { return !!key; });
+  }
+
+  /* (unit|station) -> outcome, for whatever selection was last computed. The
+     Result column reads it per row; it cannot be derived one row at a time,
+     which is why it is an index and not a function of `run`. */
+  var OUTCOME_OF = {};
 
   function h(tag, attrs, kids) {
     var node = document.createElement(tag);
@@ -268,14 +300,15 @@
     }).sort(function (a, b) { return (a.t || 0) - (b.t || 0); });
   }
 
+  /* Every row the days and stations chose, classified but not cut down.
+     Result used to be decided here, before the table existed; it is a column
+     filter now, applied where the reader can see what it removes. The
+     classification still happens over the whole scope — a unit's outcome
+     depends on attempts a filter might itself hide. */
   function selected() {
     var scope = inScope();
-    var picked = wantedTypes();
-    if (!Object.keys(picked).length) return scope;
-    var index = outcomeIndex(scope);
-    return scope.filter(function (run) {
-      return picked[index[run.d + '|' + run.k]];
-    });
+    OUTCOME_OF = outcomeIndex(scope);
+    return scope;
   }
 
   /* --------------------------------------------------------------- decoding */
@@ -348,6 +381,12 @@
     ['DUT_SN', function (r) { return r.d || ''; }],
     ['Suite', function (r) { return r.su || ''; }],
     ['Status', function (r) { return r.s || ''; }],
+    /* The unit's outcome at this station over the chosen days — Pass, Retest
+       Pass, Bonepile, No result — as against Status, which is this one run's
+       verdict. A row can be a `fail` Status inside a Retest Pass unit. */
+    ['Result', function (r) {
+      return RESULT_LABEL[OUTCOME_OF[r.d + '|' + r.k]] || '';
+    }],
     ['Attempt', function (r) { return r.a === undefined ? '' : r.a; }],
     ['Started_UTC', stamp],
     ['Duration_s', function (r) { return r.u === undefined ? '' : r.u; }],
@@ -359,7 +398,7 @@
   /* The preview shows the columns worth scanning; the CSV carries all of them.
    * Twelve columns on screen is a horizontal scrollbar and nothing gained. */
   var PREVIEW_COLUMNS = ['Day_UTC', 'Station', 'DUT_SN', 'Suite', 'Status',
-                         'Attempt', 'Started_UTC', 'First_Failure'];
+                         'Result', 'Attempt', 'Started_UTC', 'First_Failure'];
 
   /* -------------------------------------------------------------- rendering */
 
@@ -518,33 +557,77 @@
     });
   }
 
-  function renderPreview(rows) {
+  /* The preview columns, in the shape ColFilter wants. Rebuilt per render
+     because the value functions close over OUTCOME_OF, which the last
+     selection replaced. */
+  function previewColumns() {
+    return COLUMNS.filter(function (pair) {
+      return PREVIEW_COLUMNS.indexOf(pair[0]) !== -1;
+    }).map(function (pair) {
+      return { key: pair[0], title: pair[0], value: pair[1] };
+    });
+  }
+
+  /* Which rows survive the column filters, out of everything the days and
+     stations chose. The CSV takes the same list, so what is downloaded is what
+     is on the screen — a filter that the export ignored would be a trap. */
+  function shownRows(rows) {
+    return TABLE ? TABLE.rows(rows, previewColumns()) : rows;
+  }
+
+  function renderPreview(rows, shown) {
     var head = byId('preview-head'), body = byId('preview-body');
     head.innerHTML = ''; body.innerHTML = '';
-    var pick = COLUMNS.filter(function (pair) {
-      return PREVIEW_COLUMNS.indexOf(pair[0]) !== -1;
+    var pick = previewColumns();
+    var headRow = h('tr', {});
+    pick.forEach(function (column) {
+      var th = h('th', {}, [h('span', { class: 'col-name',
+                                        text: column.title })]);
+      if (TABLE) TABLE.head(th, column, pick, rows);
+      headRow.appendChild(th);
     });
-    head.appendChild(h('tr', {}, pick.map(function (pair) {
-      return h('th', { text: pair[0] });
-    })));
-    rows.slice(0, PREVIEW).forEach(function (run) {
-      body.appendChild(h('tr', {}, pick.map(function (pair) {
-        var value = String(pair[1](run) === null ? '' : pair[1](run));
-        var cls = pair[0] === 'Status'
+    head.appendChild(headRow);
+
+    shown.slice(0, PREVIEW).forEach(function (run) {
+      body.appendChild(h('tr', {}, pick.map(function (column) {
+        var raw = column.value(run);
+        var value = String(raw === null || raw === undefined ? '' : raw);
+        var cls = column.key === 'Status'
           ? (run.s === 'pass' ? 'tone-pass' : run.s === 'fail' ? 'tone-fail' : '')
-          : (pair[0] === 'DUT_SN' || pair[0] === 'Suite' ? 'mono' : '');
+          : column.key === 'Result'
+            ? resultTone(value)
+            : (column.key === 'DUT_SN' || column.key === 'Suite' ? 'mono' : '');
         return h('td', { class: cls, text: value });
       })));
     });
 
-    byId('preview-note').textContent = rows.length > PREVIEW
-      ? 'Showing the first ' + PREVIEW + ' of ' + rows.length +
-        ' rows. The CSV has all ' + rows.length + ', with four more columns ' +
-        '(station key, duration, every failed case, and the run link).'
-      : rows.length
-        ? 'All ' + plural(rows.length, 'row') + ', and the CSV adds four ' +
-          'columns: station key, duration, every failed case, and the run link.'
+    var CSV_EXTRA = 'The CSV adds four columns: station key, duration, every ' +
+                    'failed case, and the run link.';
+    var note = byId('preview-note');
+    if (!shown.length) {
+      note.textContent = rows.length
+        ? 'No rows match the column filters — ' + plural(rows.length, 'row') +
+          ' selected, all filtered out. Clear a filter from its heading.'
         : 'Nothing selected yet.';
+      return;
+    }
+    /* Say when a filter is narrowing the view. A filtered table that does not
+       say so is a table somebody screenshots as though it were the whole set. */
+    var of = TABLE && TABLE.active()
+      ? plural(shown.length, 'row') + ' of ' + rows.length +
+        ' after filtering. '
+      : '';
+    note.textContent = shown.length > PREVIEW
+      ? of + 'Showing the first ' + PREVIEW + ' of ' + shown.length +
+        ' rows. The CSV has all ' + shown.length + '. ' + CSV_EXTRA
+      : of + (of ? '' : 'All ' + plural(shown.length, 'row') + '. ') + CSV_EXTRA;
+  }
+
+  function resultTone(label) {
+    var key = RESULT_KEY[label];
+    if (key === 'pass') return 'tone-pass';
+    if (key === 'bonepile') return 'tone-fail';
+    return '';
   }
 
   function renderDownload(rows) {
@@ -583,7 +666,12 @@
     var all = allStations();
     var parts = ['from=' + view.from, 'to=' + view.to];
     if (picked.length !== all.length) parts.push('stations=' + picked.join(','));
-    if ((view.types || []).length) parts.push('types=' + view.types.join(','));
+    /* `types=` still means the same thing to a reader opening an old link;
+       it is just read off the Result column now instead of a row of
+       tickboxes. A link that said `fail` comes back as the two outcomes it
+       stands for, which selects exactly the same rows. */
+    var types = resultTypes();
+    if (types.length) parts.push('types=' + types.join(','));
     if (view.ran) parts.push('ran=1');
     /* Carry through the keys this script does not own.
      *
@@ -621,6 +709,9 @@
 
     var types = /types=([a-z,-]+)/.exec(hash);
     view.types = types ? types[1].split(',') : [];
+    /* An old link's `types=` lands on the Result column, so the page it opens
+       is the page that was shared. */
+    if (TABLE) TABLE.setFilter('Result', typeLabels(view.types));
     /* A shared link that already ran should show its results, not make the
        reader press RUN to see what they were sent. */
     view.ran = /ran=1/.test(hash) || deepLink;
@@ -637,44 +728,6 @@
   }
 
   /* -------------------------------------------------------------------- run */
-
-  /* Section 3: which outcomes to keep. Nothing ticked means every outcome,
-     which is the sane default for a filter — a filter that starts by excluding
-     everything shows an empty page and looks broken. */
-  function renderTypes() {
-    var host = byId('types');
-    if (!host) return;
-    host.innerHTML = '';
-    OUTCOMES.forEach(function (spec) {
-      var key = spec[0];
-      var on = (view.types || []).indexOf(key) !== -1;
-      var box = h('label', { class: 'check' + (view.ran ? ' frozen' : '') });
-      var input = h('input', { type: 'checkbox', id: 'ty-' + key });
-      if (on) input.setAttribute('checked', 'checked');
-      if (view.ran) input.setAttribute('disabled', 'disabled');
-      input.addEventListener('change', function (event) {
-        var next = (view.types || []).filter(function (k) { return k !== key; });
-        if (event.target.checked) next.push(key);
-        view.types = next;
-        writeHash();
-        render();
-      });
-      box.appendChild(input);
-      box.appendChild(h('span', { class: 'check-k', text: spec[1] }));
-      box.appendChild(h('span', { class: 'check-n', text: spec[2] }));
-      host.appendChild(box);
-    });
-    var sub = byId('types-sub');
-    if (sub) {
-      sub.textContent = (view.types || []).length
-        ? (view.types || []).map(function (k) {
-            return (OUTCOMES.filter(function (o) { return o[0] === k; })[0]
-                    || [k, k])[1];
-          }).join(', ') + ' — Fail selects Retest Pass and Bonepile together, '
-          + 'because it is the two of them.'
-        : 'Nothing ticked: every outcome is included.';
-    }
-  }
 
   /* The RUN gate.
    *
@@ -752,7 +805,6 @@
     renderQuick();
     renderPickers();
     renderStations();
-    renderTypes();
     renderRun();
 
     /* Everything below the RUN button, shown only once it has been pressed. */
@@ -764,10 +816,15 @@
     }
 
     var rows = selected();
-    renderTiles(rows);
-    renderBreakdown(rows);
-    renderPreview(rows);
-    renderDownload(rows);
+    /* One list for the whole output section. The tiles, the per-station
+       breakdown, the table and the CSV all describe the same rows, so a
+       Result filter cannot leave a tile disagreeing with the table under it —
+       the daily tracker behaves the same way. */
+    var shown = shownRows(rows);
+    renderTiles(shown);
+    renderBreakdown(shown);
+    renderPreview(rows, shown);
+    renderDownload(shown);
     /* Section 4 draws from the same station selection — that choice is about
        which stations you care about, and the answer does not change between a
        run CSV and a failure table. Published rather than reached for: errors.js
@@ -783,8 +840,9 @@
       window.FactoryCustomCharts.show(view.from, view.to, picked);
     }
     byId('take-sub').textContent = rows.length
-      ? plural(rows.length, 'run') + ' from ' + view.from + ' to ' + view.to +
-        ' (UTC)'
+      ? plural(shown.length, 'run') +
+        (shown.length === rows.length ? '' : ' of ' + rows.length) +
+        ' from ' + view.from + ' to ' + view.to + ' (UTC)'
       : 'Widen the days or pick more stations.';
     byId('meta').textContent = view.from && view.to
       ? view.from + ' → ' + view.to + ' UTC' : '';
@@ -804,6 +862,16 @@
         'No run bundle — run `make build` and publish, then reload.';
       return;
     }
+    /* Sorting or filtering a column redraws the output section and nothing
+       else: the days and stations above it did not change, and re-running the
+       whole render would reset the RUN gate under the reader. */
+    TABLE = window.ColFilter ? window.ColFilter.create({
+      onChange: function () {
+        writeHash();
+        render();
+      }
+    }) : null;
+
     readHash();
     /* Written once on load: without it a shared URL has no range in it and the
      * recipient gets "last seven days" relative to their own bundle, which is a
@@ -834,6 +902,19 @@
       });
     });
     render();
+
+    /* A link that arrives already run has to fetch what it needs to show.
+     *
+     * `ran=1` says "this selection has been computed, show me the answer" —
+     * and readHash sets it for the Error codes deep link too. But only the RUN
+     * button ever called BIGDATA.ensure, so the heavy half was never fetched
+     * and the output section opened with the right headings over no rows: a
+     * shared link that looked like an empty result rather than a loading one.
+     * The gate is about not computing before the reader asks; a reader who
+     * arrives on `ran=1` has already asked. */
+    if (view.ran && BIGDATA.needed && BIGDATA.needed()) {
+      BIGDATA.ensure(function () { render(); });
+    }
   }
 
   if (document.readyState === 'loading') {

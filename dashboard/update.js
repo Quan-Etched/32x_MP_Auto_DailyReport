@@ -65,10 +65,17 @@
 
   /* ------------------------------------------------------------- freshness */
 
+  /* Any bundle will do — they are all stamped by the same build. Last in the
+     chain is the runs bundle, which is the ONLY one the customize page loads:
+     without it that page found nothing here, read its own freshness as
+     "unknown", and drew the stale banner over a snapshot published minutes
+     earlier. A page telling the reader its data might be two hours old when it
+     is two minutes old is worse than saying nothing. */
   function bundle() {
     return window.__FACTORY_STATIONS__ || window.__FACTORY_METRICS__ ||
            window.__FACTORY_RELEASES__ || window.__FACTORY_DAILY_EXCEL__ ||
-           window.__FACTORY_REQUESTS__ || window.__FACTORY_WEEKLY__ || {};
+           window.__FACTORY_REQUESTS__ || window.__FACTORY_WEEKLY__ ||
+           window.__FACTORY_RUNS__ || window.__FACTORY_OUTCOMES__ || {};
   }
 
   function generatedAt() {

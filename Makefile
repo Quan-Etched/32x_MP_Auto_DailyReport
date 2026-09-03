@@ -23,6 +23,9 @@ DAYS_RECONCILE ?= 7
 	sfis-dashboard \
 	help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
+        deploy deploy-status pega-recache pega-push \
+        schedule-pega-push-install schedule-pega-push-uninstall \
+        schedule-pega-push-status \
         dailyexcel requests pega-stations release-source suite-map reconcile \
         errors annotate error-catalogue retest-slide \
         outcomes doe-deck chips fpy \
@@ -43,6 +46,11 @@ help:
 	@echo "make refresh            one scheduler tick: collect + rebuild (WINDOW=30 days)"
 	@echo "make status             last fetch vs last update, per station"
 	@echo "make publish            publish dashboard/ (FACTORY_WEB_ROOT, else gh-pages)"
+	@echo "make deploy             THE way code reaches production: rsync + rebuild there"
+	@echo "make deploy-status      is the box running this checkout, or an older one?"
+	@echo "make pega-recache FROM=2026-08-01  drop cached day-listings so they refetch"
+	@echo "make pega-push          warm the controller cache here, push it to the box"
+	@echo "make schedule-pega-push-install  do that hourly at :50 (laptop only)"
 	@echo "make items [STATION=..]  flatten test cases to numeric test items"
 	@echo "make dailyexcel         compile daily/*.xlsx (MLT/HTT tracker) into the dashboard"
 	@echo "make requests           re-check what we need from other systems"
@@ -115,6 +123,66 @@ publish:
 
 # Collect and publish in one step — what the hourly agent does.
 refresh-publish: refresh publish
+
+# Put this checkout on the dashboard host and rebuild there.
+#
+# `make publish` publishes the BOX'S OWN tree; nothing in the hourly job updates
+# the code. So a fix committed here is not on the site until this runs — which
+# is how the box came to serve 75579de for eight commits while three separate
+# fixes were reported as done. NO_UPDATE=1 syncs without rebuilding.
+deploy:
+	@bash tools/deploy.sh
+
+# Is the box running this checkout? Non-zero and loud when it is not.
+deploy-status:
+	@bash tools/deploy.sh --status
+
+# Throw away cached controller day-listings so the next build fetches them
+# again. For after a spell where the controllers were timing out and every
+# build quietly served the same stale copy. FROM= is required, TO= defaults to
+# today, DRY_RUN=1 to look first.
+pega-recache:
+	$(PY) tools/pega_recache.py --from $(FROM) $(if $(TO),--to $(TO),) \
+	    $(if $(DRY_RUN),--dry-run,)
+
+# Warm the controller cache here and hand it to the box, which cannot read
+# pega3/4/5 itself — 46 bytes a second over a DERP relay, against 0.09s from a
+# laptop. Runs on a machine with the VPN; the box picks the cache up on its
+# next hourly build. A workaround for a network fault, not a design: see
+# "The box cannot reach the controllers" in docs/deploy.md.
+pega-push:
+	@bash tools/pega_push.sh
+
+LAUNCHD_PEGA_PUSH := com.etched.factory-pega-push
+LAUNCHD_PEGA_PUSH_DEST := $(HOME)/Library/LaunchAgents/$(LAUNCHD_PEGA_PUSH).plist
+
+# macOS only, deliberately: the thing being worked around is that the Linux box
+# has no route, so scheduling this there would push a cache to itself.
+schedule-pega-push-install:
+	@if [ "$(UNAME_S)" != "Darwin" ]; then \
+	    echo "This runs on a machine that can reach the controllers — a Mac on"; \
+	    echo "the VPN. The dashboard host is the one being pushed TO."; \
+	    exit 1; \
+	fi
+	@mkdir -p $(HOME)/Library/LaunchAgents data/logs
+	@sed 's|__REPO__|$(REPO_DIR)|g' deploy/launchd/$(LAUNCHD_PEGA_PUSH).plist \
+	    > $(LAUNCHD_PEGA_PUSH_DEST)
+	@launchctl unload $(LAUNCHD_PEGA_PUSH_DEST) 2>/dev/null || true
+	@launchctl load $(LAUNCHD_PEGA_PUSH_DEST)
+	@echo "Installed $(LAUNCHD_PEGA_PUSH) — warms and pushes at :50 every hour."
+	@echo "The box rebuilds from it at :05.  Logs: data/logs/pega_push.log"
+	@echo "A sleeping laptop pushes nothing; the box then serves the last cache"
+	@echo "it got. Retire this once the box has a direct path to the pegas."
+
+schedule-pega-push-uninstall:
+	@launchctl unload $(LAUNCHD_PEGA_PUSH_DEST) 2>/dev/null || true
+	@rm -f $(LAUNCHD_PEGA_PUSH_DEST)
+	@echo "Removed $(LAUNCHD_PEGA_PUSH)."
+
+schedule-pega-push-status:
+	@launchctl list | grep $(LAUNCHD_PEGA_PUSH) || echo "not loaded"
+	@echo "---"
+	@tail -12 data/logs/pega_push.log 2>/dev/null || echo "no log yet"
 
 status:
 	$(PY) -m factory.cli status
