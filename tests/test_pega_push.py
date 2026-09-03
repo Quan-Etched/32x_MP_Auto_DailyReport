@@ -118,6 +118,22 @@ class PushPlan(unittest.TestCase):
         self.stub_ssh([])
         self.assertIn("data/raw/pega/aaa.json", self.plan())
 
+    def test_it_sets_its_own_pythonpath(self):
+        """launchd runs the script, not `make`.
+
+        The Makefile exports PYTHONPATH=src, so `make pega-push` worked by hand
+        while every scheduled run died on "No module named 'factory'" and
+        exited 2 having sent nothing — the exact shape of a job that looks
+        installed and does nothing. hourly_refresh.sh sets it for the same
+        reason; found by running the script the way launchd does instead of
+        the way a person does.
+        """
+        text = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn('export PYTHONPATH="$REPO/src"', text)
+        # And before the first use of the module it needs.
+        self.assertLess(text.index("export PYTHONPATH"),
+                        text.index("factory.cli"))
+
     def test_the_plan_changes_nothing(self):
         self.cache("aaa.json")
         self.stub_ssh(["aaa.json"])

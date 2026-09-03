@@ -34,6 +34,20 @@ cd "$REPO" || exit 1
 
 [ -f "$REPO/.env" ] && set -a && . "$REPO/.env" && set +a
 
+# launchd hands over an almost-empty environment — no PYTHONPATH, and the
+# Makefile's `export PYTHONPATH := src` never runs because launchd calls this
+# script directly. Without this the warm step dies on "No module named
+# 'factory'" and every scheduled push exits 2 having sent nothing, while
+# `make pega-push` by hand works perfectly. hourly_refresh.sh sets it for the
+# same reason.
+export PYTHONPATH="$REPO/src"
+
+# macOS tar writes an AppleDouble `._file` header beside every entry unless
+# told not to; GNU tar on the far side then warns about each one and 51 of them
+# were left littering the box before this was noticed.
+MAC_META=""
+tar --no-mac-metadata --version >/dev/null 2>&1 && MAC_META="--no-mac-metadata"
+
 # --plan prints the entries a push would send and stops. For checking the
 # delta without waiting on a transfer, and for the test that pins it.
 PLAN=0
@@ -182,7 +196,8 @@ if [ "$pushed" -ne 1 ]; then
     count="$(printf '%s\n' "$list" | wc -l | tr -d ' ')"
     log "streaming $count entries"
     if printf '%s\n' "$list" \
-        | COPYFILE_DISABLE=1 tar czf - -C "$REPO" -T - --exclude '._*' 2>/dev/null \
+        | COPYFILE_DISABLE=1 tar czf - -C "$REPO" -T - --exclude '._*' \
+              $MAC_META 2>/dev/null \
         | ssh -o ConnectTimeout=20 -o BatchMode=yes -o ServerAliveInterval=15 \
               "$HOST" "cd $DEST && tar xzf - && find data/raw/pega -name '._*' -delete" \
               >>"$LOG" 2>&1; then
