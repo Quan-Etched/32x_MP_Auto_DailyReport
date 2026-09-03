@@ -19,7 +19,17 @@ So a failed fetch now retries once with ``cache: 'reload'``, which bypasses the
 stored copy. A genuinely absent file fails twice and says so; a stale cached
 failure heals itself silently.
 
-Writing the test found a second fault behind the same symptom: ``ensureUnit``
+THE CAUSE, once a fresh browser reproduced it. ``build_trace.py`` writes
+``unitPath: "trace/{sn}.json"`` — beside ``data/trace.js``, which is where the
+files are. But ``fetch()`` resolves a relative path against the PAGE, and the
+page is ``/customize.html``, so it asked for ``/trace/<sn>.json`` and got a 404
+while ``/data/trace/<sn>.json`` returned 200 to anyone who tried it by hand.
+Every serial, every reader, for as long as the panel has existed. The same flaw
+made the YAML download link point at a URL that was never there. Side files are
+resolved against the bundle now, which is what the offline harness already
+assumed.
+
+Writing the test found a further fault behind the same symptom: ``ensureUnit``
 had no in-flight guard, so two ticks landing together each fetched, and
 whichever landed LAST decided what was drawn — a late failure painting an error
 over a tree that had already loaded. That is the same report, from a different

@@ -66,7 +66,7 @@ window.__FACTORY_TRACE__ = null;
 
 /* THE CASE: the cache holds a 404 for the bundle, the network has it. */
 plan['data/trace.js'] = [notFound(), respond(BUNDLE_TEXT)];
-plan['trace/268633790001.json'] = [notFound(), respond(UNIT_TEXT)];
+plan['data/trace/268633790001.json'] = [notFound(), respond(UNIT_TEXT)];
 
 load(ROOT + '/dashboard/trace.js');
 
@@ -89,11 +89,23 @@ after(40, function () {
          'and it is the one the network returned');
 
   var unitCalls = calls.filter(function (c) {
-    return c.url === 'trace/268633790001.json';
+    return c.url === 'data/trace/268633790001.json';
   });
   assert(unitCalls.length === 2,
          'the per-unit file is retried too — this is the fetch that was ' +
          'reported failing (got ' + unitCalls.length + ')');
+
+  /* THE FAULT THAT ACTUALLY CAUSED THE REPORT. The bundle says
+     `unitPath: "trace/{sn}.json"`, meaning beside data/trace.js. fetch()
+     resolves against the page, so it asked for /trace/<sn>.json — a 404 —
+     while /data/trace/<sn>.json returned 200 to everyone who tried it by
+     hand. Every serial, every reader. */
+  var wrong = calls.filter(function (c) {
+    return c.url.indexOf('trace/') === 0;      /* i.e. missing the data/ */
+  });
+  assert(wrong.length === 0,
+         'the unit file is fetched beside the bundle, not beside the page ' +
+         '(asked for: ' + wrong.map(function (c) { return c.url; }).join(', ') + ')');
   assert(unitCalls[1] && unitCalls[1].cache === 'reload',
          'and its retry bypasses the cache as well');
 
@@ -105,14 +117,14 @@ after(40, function () {
   /* And a genuinely missing file still reports, rather than retrying for
      ever or going quiet. */
   calls.length = 0;
-  plan['trace/268633790001.json'] = [];        /* 404 both times */
+  plan['data/trace/268633790001.json'] = [];        /* 404 both times */
   window.__FACTORY_TRACE__.nodes = {};
   load(ROOT + '/dashboard/trace.js');
   listeners.hashchange();
 
   after(40, function () {
     var again = calls.filter(function (c) {
-      return c.url === 'trace/268633790001.json';
+      return c.url === 'data/trace/268633790001.json';
     });
     assert(again.length <= 2,
            'a file that is really absent is tried twice, not endlessly (got ' +

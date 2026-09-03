@@ -62,6 +62,31 @@
    * `reload`, which bypasses the cached copy entirely. A genuinely missing
    * file fails twice and reports honestly; a stale cached failure heals itself
    * and the reader never learns it happened. */
+  /* The bundle names its side files relative to ITSELF.
+   *
+   * build_trace.py writes `unitPath: "trace/{sn}.json"` and
+   * `yamlPath: "trace/{sn}.yaml"`, meaning "beside data/trace.js" — which is
+   * where they are on disk. But `fetch()` and an `href` resolve a relative
+   * path against the PAGE, and the page is /customize.html, so both asked for
+   * /trace/<sn>.json and got a 404 while /data/trace/<sn>.json sat there
+   * returning 200. Every serial, every reader, for as long as the panel has
+   * existed — reported on 2026-09-03 for 268633790001 and reproduced in a
+   * fresh browser with an empty cache.
+   *
+   * Resolving against the bundle rather than the page is also what the
+   * offline harness does (tests/trace_dom_test.js builds the same paths from
+   * the bundle's own directory), so this makes the two agree. */
+  var BUNDLE_DIR = BUNDLE_URL.replace(/[^/]*$/, '');
+
+  function beside(path) {
+    /* Leave anything already absolute alone — a future bundle served from a
+       CDN would name its files properly and must not be prefixed. */
+    if (!path || path.charAt(0) === '/' || path.indexOf('://') !== -1) {
+      return path;
+    }
+    return BUNDLE_DIR + path;
+  }
+
   function fetchTwice(url, onOk, onFail) {
     function attempt(mode, andThen) {
       fetch(url, { cache: mode })
@@ -184,7 +209,7 @@
       });
     }
 
-    fetchTwice(T.unitPath.replace('{sn}', encodeURIComponent(unit)),
+    fetchTwice(beside(T.unitPath.replace('{sn}', encodeURIComponent(unit))),
       function (res) {
         return res.json().then(function (payload) {
           T.nodes = T.nodes || {};
@@ -361,7 +386,7 @@
     var units = T.yamlUnits || [];
     if (!T.yamlPath || units.indexOf(unit) < 0) return null;
     return h('a', { class: 'view-toggle', download: unit + '.yaml',
-                    href: T.yamlPath.replace('{sn}', encodeURIComponent(unit)),
+                    href: beside(T.yamlPath.replace('{sn}', encodeURIComponent(unit))),
                     text: 'Download ' + unit + '.yaml' });
   }
 
