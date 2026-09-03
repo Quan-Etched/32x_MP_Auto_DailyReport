@@ -34,6 +34,11 @@ cd "$REPO" || exit 1
 
 [ -f "$REPO/.env" ] && set -a && . "$REPO/.env" && set +a
 
+# --plan prints the entries a push would send and stops. For checking the
+# delta without waiting on a transfer, and for the test that pins it.
+PLAN=0
+[ "${1:-}" = "--plan" ] && PLAN=1
+
 HOST="${FACTORY_DEPLOY_HOST:-chuck@chuck-dashboard.usw2.i.etched.com}"
 DEST="${FACTORY_DEPLOY_PATH:-factory_data_analysis}"
 LOG_DIR="$REPO/data/logs"
@@ -42,6 +47,69 @@ LOCK="$LOG_DIR/.pega_push.lock"
 mkdir -p "$LOG_DIR"
 
 log() { printf '%s  %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" | tee -a "$LOG"; }
+
+STAMP="$LOG_DIR/.pega_push.stamp"
+
+# The cache entries the box does not have, one path per line, relative to the
+# repo so `tar -C "$REPO" -T -` can read the list directly.
+#
+# BY NAME, NOT BY TIMESTAMP. The box writes its own pega2 and pega6 entries on
+# every build, so its newest mtime is always about now: a "send what is newer
+# than the box's latest" delta comes out empty while entries are genuinely
+# absent. That was tried and it was wrong. The cache is keyed by a hash of host
+# and URL, so a name the box does not have IS an entry it does not have.
+# Its whole listing is ~4,500 short names — one cheap stream to know exactly
+# what to send, instead of guessing or sending 97 MB.
+#
+# Plus whatever was written here since the last successful push, which catches
+# an entry whose name the box already has but whose contents changed — a day
+# listing that was provisional and has since settled.
+missing_entries() {
+    local theirs="$LOG_DIR/.pega_push.theirs"
+    # A generous timeout on purpose: this one small call decides between
+    # sending ~20 entries and sending 97 MB, so it is worth waiting out a slow
+    # connect for. Observed failing at 20s on a link that then carried the
+    # whole cache in under two minutes.
+    if ! ssh -o ConnectTimeout=60 -o BatchMode=yes -o ServerAliveInterval=15 \
+             "$HOST" "cd $DEST && ls data/raw/pega/ 2>/dev/null" \
+             > "$theirs" 2>/dev/null || [ ! -s "$theirs" ]; then
+        rm -f "$theirs"
+        log "could not read the box's cache listing — sending all of it" >&2
+        find data/raw/pega -type f 2>/dev/null
+        return
+    fi
+
+    ls "$REPO/data/raw/pega/" 2>/dev/null | LC_ALL=C sort > "$theirs.mine"
+    LC_ALL=C sort "$theirs" > "$theirs.sorted"
+    local missing
+    missing="$(LC_ALL=C comm -23 "$theirs.mine" "$theirs.sorted" \
+               | sed 's|^|data/raw/pega/|')"
+    local changed=""
+    [ -f "$STAMP" ] && changed="$(find data/raw/pega -type f -newer "$STAMP" 2>/dev/null)"
+    log "the box is missing $(printf '%s\n' "$missing" | sed '/^$/d' | wc -l | tr -d ' ') entries" >&2
+    rm -f "$theirs" "$theirs.mine" "$theirs.sorted"
+    printf '%s\n%s\n' "$missing" "$changed" | sed '/^$/d' | LC_ALL=C sort -u
+}
+
+# --plan: say what a push would send, change nothing.
+plan_list() {
+    local list
+    list="$(missing_entries)"
+    if [ -z "$list" ]; then
+        echo "nothing to send — the box already has every cache entry"
+        exit 0
+    fi
+    printf '%s\n' "$list"
+    printf 'would send %s entries\n' \
+        "$(printf '%s\n' "$list" | wc -l | tr -d ' ')"
+    exit 0
+}
+
+# After the definitions above, because bash resolves a function at call time
+# and calling plan_list before it exists just falls through into the push.
+if [ "$PLAN" = "1" ]; then
+    plan_list
+fi
 
 # A slow push must not overlap the next hour's, same rule as the refresh.
 . "$REPO/tools/lock.sh"
@@ -92,12 +160,47 @@ for attempt in 1 2 3; do
     [ "$attempt" -lt 3 ] && sleep $((attempt * 30))
 done
 
+# --------------------------------------------------- fallback: one tar stream
+# rsync exchanges a file list and then negotiates per file, and over this link
+# that is what fails: 4,460 files of round trips die on `poll: timeout` while a
+# single stream of the same bytes goes through untouched. Measured the same
+# hour — rsync failed three times, a 97 MB tar and a 57 MB bundle both landed.
+#
+# So the fallback sends only what is new since the last successful push, as one
+# stream. COPYFILE_DISABLE because macOS tar otherwise writes an AppleDouble
+# `._file` beside every entry, and 51 of them ended up littering the box.
 if [ "$pushed" -ne 1 ]; then
-    log "FAIL rsync to $HOST after 3 attempts — network, or the box is down."
-    log "     The box keeps serving the cache it already has; nothing is lost"
-    log "     but freshness. The next tick at :50 tries again."
+    log "rsync will not cross this link; sending the new entries as one stream"
+    list="$(missing_entries)"
+
+    if [ -z "$list" ]; then
+        log "OK the box already has everything"
+        touch "$STAMP"
+        exit 0
+    fi
+
+    count="$(printf '%s\n' "$list" | wc -l | tr -d ' ')"
+    log "streaming $count entries"
+    if printf '%s\n' "$list" \
+        | COPYFILE_DISABLE=1 tar czf - -C "$REPO" -T - --exclude '._*' 2>/dev/null \
+        | ssh -o ConnectTimeout=20 -o BatchMode=yes -o ServerAliveInterval=15 \
+              "$HOST" "cd $DEST && tar xzf - && find data/raw/pega -name '._*' -delete" \
+              >>"$LOG" 2>&1; then
+        pushed=1
+        log "streamed $count entries"
+    fi
+fi
+
+if [ "$pushed" -ne 1 ]; then
+    log "FAIL could not reach $HOST by rsync or by stream — network, or the"
+    log "     box is down. The box keeps serving the cache it already has;"
+    log "     nothing is lost but freshness. The next tick at :50 tries again."
     exit 3
 fi
+
+# Only after something actually landed, so a failed push does not narrow what
+# the next one considers new.
+touch "$STAMP"
 
 log "OK pushed; the box picks it up on its next hourly build at :05"
 exit 0
