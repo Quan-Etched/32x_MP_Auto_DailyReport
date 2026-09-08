@@ -69,6 +69,42 @@ def web_url(remote: Optional[str]) -> Optional[str]:
     return url if url.startswith("http") else None
 
 
+#: Paths the deploy does not ship, and so cannot make a published page wrong.
+#:
+#: `tools/deploy.sh` excludes these deliberately — the box's collected history
+#: and generated bundles are its own, and overwriting them with a laptop's
+#: would be the bug rather than the fix. The consequence for this module is
+#: that a tracked file under one of them is *absent* on the box for a good
+#: reason, and `git describe --dirty` cannot tell that from a modified source
+#: file.
+#:
+#: It had been reading every published page as dirty since the box was set up:
+#: two hand-exported reconciliation CSVs under dashboard/data/ and the line's
+#: workbook under data/, all three committed here, none of them ever sent. A
+#: flag that is permanently on says nothing, and this one is load-bearing — it
+#: is how a reader is told the page in front of them came from no commit at
+#: all. So it is asked of the files the deploy actually carries.
+#:
+#: Keep in step with the --exclude list in tools/deploy.sh.
+NOT_DEPLOYED = ("data", "dashboard/data")
+
+
+def _dirty() -> Optional[bool]:
+    """Whether anything the deploy *ships* differs from HEAD.
+
+    Tracked changes only: an untracked file is not a modified source, and the
+    box writes several by design (its trace bundles, its own dated exports).
+    None where git cannot say, which is the same answer the rest of this module
+    gives in that case.
+    """
+    status = _git("status", "--porcelain", "--untracked-files=no",
+                  "--", ".", *(":(exclude){}".format(path)
+                               for path in NOT_DEPLOYED))
+    if status is None:
+        return None
+    return bool(status.strip())
+
+
 def describe() -> Dict[str, Any]:
     """Release, commit and repository, or Nones where git cannot say."""
     commit = _git("rev-parse", "--short", "HEAD")
@@ -96,7 +132,9 @@ def describe() -> Dict[str, Any]:
         "release": release,
         "commit": commit,
         "commitsSinceRelease": int(ahead) if ahead and ahead.isdigit() else 0,
-        "dirty": bool(described and described.endswith("-dirty")),
+        # Asked of the deployed files rather than read off `describe`, which
+        # counts paths the deploy excludes on purpose. See NOT_DEPLOYED.
+        "dirty": _dirty(),
         "repo": remote,
         "commitUrl": "{}/commit/{}".format(remote, commit) if remote and commit else None,
         "releaseUrl": "{}/releases/tag/{}".format(remote, release)
