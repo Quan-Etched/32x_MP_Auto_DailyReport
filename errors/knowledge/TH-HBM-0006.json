@@ -1,0 +1,26 @@
+{
+ "_comment": [
+  "Seeded 2026-09-04 from the MLT/HTT incident window (2026-08-28 -> 2026-09-04)",
+  "captured in 32x-error-code/incidents.yaml.",
+  "",
+  "rootCauses is deliberately EMPTY. The failure is real, repeated and evidenced, but",
+  "nobody has articulated why it happens yet, and the schema's rule is that a root",
+  "cause without a team is not a root cause. An empty list here is the honest state:",
+  "the page will show the occurrences and the evidence with no cause attached, which",
+  "is what makes the gap visible instead of invisible.",
+  "",
+  "Fill this in when somebody can say what causes it -- not before."
+ ],
+ "schemaVersion": 1,
+ "code": "TH-HBM-0006",
+
+ "appliesTo": {
+  "cases": ["SohuLaneRepairTestCase"],
+  "stations": ["mlt"]
+ },
+
+ "rootCauses": [],
+
+ "updatedAt": "2026-09-04T00:00:00Z",
+ "updatedBy": "chuck"
+}
