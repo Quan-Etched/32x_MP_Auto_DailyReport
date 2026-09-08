@@ -281,6 +281,11 @@
      testNames, 8.6 MB — is fetched by bigdata.js when something
      actually needs it, with a progress bar and an estimate. -->
 <script src="data/runs_pega_light.js"></script>
+<!-- A board's attempts from before the collected window (176 KB), so a serial
+     search reaches its first ever test rather than the reporting horizon. Small
+     enough to load with the page: it carries no per-test detail, which is what
+     makes the runs bundle 6.6 MB. -->
+<script src="data/unit_history.js"></script>
 <script src="bigdata.js"></script>
 <script src="data/errors.js"></script>
 <script src="charts.js"></script>

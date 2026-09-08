@@ -61,7 +61,14 @@ MULTI = {
     # data/trace.js is deliberately NOT here: trace.js fetches the genealogy
     # itself, the first time a serial is actually being looked at. It is 1.3 MB
     # at production scale and most visits to this page never open the tree.
-    "customize.html": ["data/runs_pega_light.js", "data/errors.js"],
+    # data/unit_history.js is the third: a serial's attempts from before the
+    # collected window, which the runs bundle cannot reach. Loaded with the
+    # page rather than behind the button, because it is 176 KB — it carries no
+    # per-test detail, which is the whole reason the runs bundle is 6.6 MB —
+    # and because the answer to "has this board been here before" should not
+    # need a second click.
+    "customize.html": ["data/runs_pega_light.js", "data/errors.js",
+                       "data/unit_history.js"],
     # The releases page hosts two analyses of the same releases: one built
     # from test logs, one from the source tree they were built from.
     "releases.html": ["data/release_source.js", "data/releases.js"],

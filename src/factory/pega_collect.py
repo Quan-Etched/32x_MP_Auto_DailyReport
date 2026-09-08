@@ -131,6 +131,23 @@ def _epoch(value: Optional[str]) -> Optional[int]:
     return int(moment.timestamp())
 
 
+#: Stage key -> station key, for the controllers whose stage tables and the
+#: runs bundle spell the same stage differently.
+#:
+#: One table, because the two names have to agree everywhere or a board's
+#: history splits in two. build_l10 and build_l11 key their indices by stage
+#: ("fat", "provision"); the runs bundle, the weekly rows and the station
+#: registry key by station ("l10_fat", "l11_provision"). An L10 attempt from
+#: July filed under "fat" reads on a page as a different stage from the same
+#: chassis's August attempt under "l10_fat" — one unit, two histories, and
+#: nothing to say they are the same.
+STAGE_STATIONS: Dict[str, Dict[str, str]] = {
+    "pega4": {"fat": "l10_fat", "sft": "l10_sft",
+              "rin": "l10_rin", "2u": "l10_2u"},
+    "pega5": {"provision": "l11_provision", "test": "l11_test"},
+}
+
+
 def station_of(host: str, suite: Optional[str]) -> Optional[str]:
     """The station key for a controller's suite name.
 
@@ -144,9 +161,7 @@ def station_of(host: str, suite: Optional[str]) -> Optional[str]:
         return None
 
     if host == "pega4":
-        stage = build_l10.stage_of(name)
-        return {"fat": "l10_fat", "sft": "l10_sft",
-                "rin": "l10_rin", "2u": "l10_2u"}.get(stage)
+        return STAGE_STATIONS["pega4"].get(build_l10.stage_of(name))
 
     if host == "pega5":
         lowered = name.lower()

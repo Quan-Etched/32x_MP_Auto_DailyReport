@@ -13,6 +13,20 @@
  * top, the same way flow.html switches between its two drawings. The range view
  * stays the default because it is what the page has always been for.
  *
+ * TWO SOURCES, JOINED RATHER THAN MERGED
+ * The runs bundle starts at the line's reporting horizon (2026-08-01), so this
+ * page used to answer "everything the controllers ever saw" with everything
+ * since August — and a board first tested in July arrived looking new. Chris
+ * asked for the history to reach the first test on 2026-09-07; 268086800000021
+ * had four MLT attempts in July and two runs in the bundle, both dated 09-07.
+ *
+ * So attempts from before that horizon come from a second, thinner file
+ * (data/unit_history.js): day, verdict, suite and the log link, no duration
+ * and no per-test detail. The two do not overlap — that file stops the day the
+ * runs bundle starts — so there is nothing to dedupe and no tie to break. What
+ * the reader is owed is knowing which side of the join a row came from, and
+ * the table says so on the row rather than in a legend.
+ *
  * MULTIPLE SERIALS
  * One per line. A tray of modules, a rack's four servers, the eight serials
  * somebody pasted out of a spreadsheet — that is the shape the question comes
@@ -32,6 +46,14 @@
   var ORDER = DATA.stationOrder || [];
   var NAMES = DATA.testNames || [];
   var TSTATUS = DATA.testStatuses || [];
+
+  /* Attempts from before the collected window. Optional throughout: a checkout
+     without the file, or a build whose controllers were unreachable, renders
+     exactly the page this was before. */
+  var EARLIER = window.__FACTORY_UNIT_HISTORY__ || {};
+  var EARLIER_UNITS = EARLIER.units || {};
+  var JOIN = (EARLIER.window || {}).from || '';
+  var REACH = EARLIER.historyFrom || '';
 
   var GRADED = { pass: true, fail: true, error: true };
   var RUN_PREFIX = /^[0-9a-f]{6,10}_(chip\d+_|sohu_)?/i;
@@ -54,11 +76,17 @@
   function labelOf(key) { return LABELS[key] || key; }
 
   function utcDay(run) {
-    return run.t ? new Date(run.t * 1000).toISOString().slice(0, 10) : '';
+    if (run.t) return new Date(run.t * 1000).toISOString().slice(0, 10);
+    return run.day || '';
   }
   function stamp(run) {
-    return run.t ? new Date(run.t * 1000).toISOString()
-      .replace('T', ' ').slice(0, 16) + 'Z' : '';
+    if (run.t) {
+      return new Date(run.t * 1000).toISOString()
+        .replace('T', ' ').slice(0, 16) + 'Z';
+    }
+    /* A row with a date and no clock says the date. Rendering midnight would
+       be a time nobody recorded. */
+    return run.day ? run.day : '';
   }
   function minutes(run) {
     return run.u === undefined || run.u === null ? null
@@ -107,11 +135,45 @@
     return out;
   }
 
-  /* Every run for a serial, oldest first, across every station. No window:
-     the whole point of searching by serial is that you do not know when. */
+  /* One earlier attempt, in the shape the rest of this module already reads.
+     The same field names, so nothing downstream has to know where a row came
+     from — and nothing invented where the source has nothing: nothing is put
+     in `u` (duration) or `T` (test detail), because that file does not carry
+     them and a zero there would read as "instant" and "no failures". */
+  function earlyRuns(serial) {
+    var per = EARLIER_UNITS[serial];
+    if (!per) return [];
+    var out = [];
+    Object.keys(per).forEach(function (station) {
+      per[station].forEach(function (row) {
+        var runId = row[3], slot = row[4];
+        out.push({
+          d: serial, k: station, s: row[2], t: row[1], day: row[0],
+          /* The runs bundle's own convention for "this run, this slot" — see
+             runUrl, which splits on it. Same links from either side. */
+          i: (slot === null || slot === undefined)
+            ? runId : runId + '#slot' + slot,
+          su: row[5],
+          early: true
+        });
+      });
+    });
+    return out;
+  }
+
+  function timeOf(run) {
+    if (run.t) return run.t;
+    return run.day ? Date.parse(run.day + 'T00:00:00Z') / 1000 : 0;
+  }
+
+  /* Every run for a serial, oldest first, across every station and both
+     sources. No window: the whole point of searching by serial is that you do
+     not know when — which was the one thing this could not deliver while it
+     read only the collected window. */
   function historyFor(serial) {
     return RUNS.filter(function (run) { return String(run.d) === serial; })
-      .sort(function (a, b) { return (a.t || 0) - (b.t || 0); });
+      .concat(earlyRuns(serial))
+      .sort(function (a, b) { return timeOf(a) - timeOf(b); });
   }
 
   function stationRank(key) {
@@ -141,6 +203,21 @@
     runs.forEach(function (run) {
       (byStation[run.k] || (byStation[run.k] = [])).push(run);
     });
+
+    /* Attempt numbers, counted across the whole sequence rather than within
+       the collected window.
+       `run.a` comes from the build and counts from 2026-08-01, so a bonepile
+       board's September run described itself as attempt 1 when it was its
+       fifth — the same off-by-a-window the daily tracker's F1 had. Held beside
+       the runs rather than written onto them: these objects are the runs
+       bundle's own, shared with every other view on this page. */
+    var seen = {};
+    var attemptNo = runs.map(function (run) {
+      if (!GRADED[run.s]) return null;
+      seen[run.k] = (seen[run.k] || 0) + 1;
+      return seen[run.k];
+    });
+    var early = runs.filter(function (run) { return run.early; }).length;
     var stations = Object.keys(byStation).sort(function (a, b) {
       return stationRank(a) - stationRank(b);
     }).map(function (key) {
@@ -153,6 +230,7 @@
       };
     });
     return { serial: serial, runs: runs, stations: stations,
+             attemptNo: attemptNo, early: early,
              firstSeen: runs.length ? utcDay(runs[0]) : null,
              lastSeen: runs.length ? utcDay(runs[runs.length - 1]) : null };
   }
@@ -167,7 +245,7 @@
     var lines = [['DUT_SN', 'Seq', 'Station', 'Station_Key', 'Result',
                   'Station_Outcome', 'Attempt', 'Started_UTC', 'Day_UTC',
                   'Duration_min', 'Suite', 'Version', 'Failed_Cases',
-                  'Run_Link']];
+                  'Run_Link', 'Source']];
     found.forEach(function (unit) {
       var outcomeAt = {};
       unit.stations.forEach(function (station) {
@@ -176,12 +254,17 @@
       unit.runs.forEach(function (run, index) {
         lines.push([
           unit.serial, index + 1, labelOf(run.k), run.k || '', run.s || '',
-          outcomeAt[run.k] || '', run.a === undefined ? '' : run.a,
+          outcomeAt[run.k] || '',
+          unit.attemptNo[index] === null ? '' : unit.attemptNo[index],
           stamp(run), utcDay(run),
           minutes(run) === null ? '' : minutes(run),
           run.su || '', run.v || '',
           failedCases(run).join('; '),
-          runUrl(run)
+          runUrl(run),
+          /* A forwarded row has to say what it is. The blank duration and
+             blank failure list on an earlier row are the source's, not a
+             finding about the run. */
+          run.early ? 'run index (before ' + JOIN + ')' : 'runs bundle'
         ]);
       });
     });
@@ -276,7 +359,16 @@
           ? unit.firstSeen
           : unit.firstSeen + ' → ' + unit.lastSeen }),
         h('span', { class: 'dut-when', text: plural(unit.runs.length, 'run')
-          + ' over ' + plural(unit.stations.length, 'station') })
+          + ' over ' + plural(unit.stations.length, 'station') }),
+        /* The headline fact for a bonepile board: its history starts before
+           the window this page used to be able to see. */
+        unit.early
+          ? h('span', { class: 'dut-early-tag',
+                        title: 'from the controllers\u2019 run index, which '
+                             + 'reaches back to ' + (REACH || 'the first run')
+                             + ' — the collected window starts ' + JOIN,
+                        text: plural(unit.early, 'attempt') + ' before ' + JOIN })
+          : null
       ]));
 
       /* Per station, the outcome and the attempts behind it — the shape of the
@@ -307,21 +399,31 @@
       unit.runs.forEach(function (run, index) {
         var url = runUrl(run);
         var cases = failedCases(run);
-        body.appendChild(h('tr', {}, [
+        body.appendChild(h('tr', { class: run.early ? 'dut-early' : null }, [
           h('td', { class: 'num', text: String(index + 1) }),
           h('td', { text: labelOf(run.k) }),
           h('td', {}, [h('span', {
             class: run.s === 'pass' ? 'dut-pass'
                    : run.s === 'fail' ? 'dut-fail' : 'dut-other',
             text: run.s || '—' })]),
-          h('td', { class: 'num', text: run.a === undefined ? '' : String(run.a) }),
+          h('td', { class: 'num', text: unit.attemptNo[index] === null
+            ? '' : String(unit.attemptNo[index]) }),
           h('td', { class: 'mono', text: stamp(run) }),
           h('td', { class: 'num',
                     text: minutes(run) === null ? '' : String(minutes(run)) }),
           h('td', { class: 'dut-suite', text: run.su || '' }),
-          h('td', { class: 'dut-cases',
-                    text: cases.slice(0, 3).join(', ')
-                          + (cases.length > 3 ? ', +' + (cases.length - 3) : '') }),
+          /* An earlier row has no per-test detail to show, and an empty cell
+             where the other rows list failures would be read as "it failed
+             nothing". Said, once, on the row. */
+          run.early
+            ? h('td', { class: 'dut-cases dut-nodetail',
+                        title: 'the run index carries the verdict and the log '
+                             + 'link; per-test detail is not collected before '
+                             + JOIN,
+                        text: 'not collected' })
+            : h('td', { class: 'dut-cases',
+                        text: cases.slice(0, 3).join(', ')
+                              + (cases.length > 3 ? ', +' + (cases.length - 3) : '') }),
           h('td', {}, [url
             ? h('a', { class: 'dut-link', href: url, target: '_blank',
                        rel: 'noopener noreferrer', title: url, text: 'open' })
@@ -331,6 +433,15 @@
       table.appendChild(head);
       table.appendChild(body);
       card.appendChild(h('div', { class: 'table-wrap' }, [table]));
+      if (unit.early) {
+        card.appendChild(h('p', { class: 'dut-note', text:
+          'The tinted rows are before ' + JOIN + ', the day the collected '
+          + 'window starts. They come from the controllers\u2019 own run index, '
+          + 'which reaches ' + (REACH || 'the first run on record') + ': day, '
+          + 'verdict, suite and the log link. Duration and failed cases are '
+          + 'not collected that far back, and the attempt numbers count from '
+          + 'the unit\u2019s first ever run rather than from ' + JOIN + '.' }));
+      }
       host.appendChild(card);
     });
 
