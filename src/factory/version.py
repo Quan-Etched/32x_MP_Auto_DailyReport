@@ -36,7 +36,15 @@ from . import config
 TIMEOUT = 5.0
 
 
-def _git(*args: str) -> Optional[str]:
+def _git_output(*args: str) -> Optional[str]:
+    """What git printed, or None if it could not be asked.
+
+    Distinct from :func:`_git` in one way that matters: an empty answer comes
+    back as "" rather than as None. `git status --porcelain` on a clean tree
+    prints nothing, and reading that as "git could not say" turned a clean
+    checkout into an unknown one — the published pages carried `dirty: null`
+    for exactly as long as it took to notice.
+    """
     try:
         result = subprocess.run(
             ("git",) + args,
@@ -47,7 +55,13 @@ def _git(*args: str) -> Optional[str]:
         return None
     if result.returncode != 0:
         return None
-    return result.stdout.strip() or None
+    return result.stdout.strip()
+
+
+def _git(*args: str) -> Optional[str]:
+    """A git answer that has content, or None. Every caller here wants a value
+    it can print, so "nothing to say" and "could not ask" are the same."""
+    return _git_output(*args) or None
 
 
 def web_url(remote: Optional[str]) -> Optional[str]:
@@ -97,12 +111,12 @@ def _dirty() -> Optional[bool]:
     None where git cannot say, which is the same answer the rest of this module
     gives in that case.
     """
-    status = _git("status", "--porcelain", "--untracked-files=no",
-                  "--", ".", *(":(exclude){}".format(path)
-                               for path in NOT_DEPLOYED))
+    status = _git_output("status", "--porcelain", "--untracked-files=no",
+                         "--", ".", *(":(exclude){}".format(path)
+                                      for path in NOT_DEPLOYED))
     if status is None:
         return None
-    return bool(status.strip())
+    return bool(status)
 
 
 def describe() -> Dict[str, Any]:
