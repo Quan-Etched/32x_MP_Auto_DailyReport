@@ -101,6 +101,83 @@ class RolledTest(unittest.TestCase):
         self.assertAlmostEqual(totals["rolledFpy"], 0.5 * 0.75)
         self.assertEqual(sorted(totals["rolledOver"]), ["HTT", "MLT"])
 
+    def repeats(self, station, count, passing):
+        """Units the step has seen before: the first run is outside the window,
+        so they count as units run and not as a first-pass cohort."""
+        out = []
+        for i in range(count):
+            dut = "%s-back-%d" % (station, i)
+            out.append(run(dut, station, "pass", ts(20)))
+            out.append(run(dut, station,
+                           "pass" if i < passing else "fail", ts(2)))
+        return out
+
+    def test_a_week_of_repeats_publishes_its_product_and_marks_it_thin(self):
+        """2026-W36, and the answer the line asked for on 2026-09-08.
+
+        MLT ran 90 units that week and HTT 67, both published a yield, and the
+        rolled column was a dash: first-pass yield is over units on their
+        *first* run at a step, almost every unit that week had been through
+        before, and neither cohort reached the floor. Withholding the product
+        was not the cautious answer — a blank beside 157 units was read twice
+        in one day as "the week was not measured". So it publishes, over the
+        cohorts it actually had, with those cohorts named.
+        """
+        bundle = self.bundle(
+            self.many("mlt", 10, 4) + self.repeats("mlt", 80, 40) +
+            self.many("htt", 19, 15) + self.repeats("htt", 48, 40), days=7)
+        totals = bundle["totals"]
+        self.assertAlmostEqual(totals["rolledFpy"], 0.4 * (15 / 19))
+        self.assertEqual(["MLT", "HTT"], totals["rolledOver"])
+        self.assertEqual(
+            [("MLT", 10, 90), ("HTT", 19, 67)],
+            [(step["label"], step["newUnits"], step["units"])
+             for step in totals["rolledThin"]],
+            "and what makes it thin is named, with each denominator")
+        self.assertEqual([], totals["rolledMissing"])
+
+    def test_one_thin_half_marks_the_whole_product(self):
+        """A product is as thin as its thinnest term. MLT over 300 units and
+        HTT over 12 is not a figure to lean on, and the mark says which half
+        is the reason."""
+        bundle = self.bundle(self.many("mlt", 40, 20) +
+                             self.many("htt", 12, 9), days=7)
+        totals = bundle["totals"]
+        self.assertAlmostEqual(totals["rolledFpy"], 0.5 * 0.75)
+        self.assertEqual([("HTT", 12, 12)],
+                         [(s["label"], s["newUnits"], s["units"])
+                          for s in totals["rolledThin"]])
+
+    def test_a_missing_half_is_not_a_product(self):
+        """2026-W31 ran MLT before HTT existed. 54.5% under a heading that
+        says MLT x HTT would be a different measure wearing the headline's
+        name, so the figure is withheld and the absent half is named — the
+        rule the all-hands chart already applies week by week."""
+        bundle = self.bundle(self.many("mlt", 11, 6), days=7)
+        totals = bundle["totals"]
+        self.assertIsNone(totals["rolledFpy"])
+        self.assertEqual([], totals["rolledOver"])
+        self.assertEqual(["HTT"], totals["rolledMissing"])
+        self.assertEqual([("MLT", 11, 11)],
+                         [(s["label"], s["newUnits"], s["units"])
+                          for s in totals["rolledThin"]],
+                         "MLT is still named as thin — it is in the scope")
+
+    def test_nothing_is_waiting_where_the_figure_publishes(self):
+        bundle = self.bundle(self.many("mlt", 40, 20) + self.many("htt", 40, 30))
+        self.assertEqual([], bundle["totals"]["rolledThin"])
+
+    def test_only_the_stages_in_scope_hold_the_rolled_figure_up(self):
+        """TIM being thin is a fact about TIM. It is not why a rolled MLT x HTT
+        is missing, and a tile that said so would send someone to the wrong
+        station."""
+        bundle = self.bundle(self.many("mlt", 40, 20) +
+                             self.many("htt", 40, 30) +
+                             self.many("tim", 3, 1))
+        totals = bundle["totals"]
+        self.assertEqual(["TIM"], [e["label"] for e in totals["excludedThin"]])
+        self.assertEqual([], totals["rolledThin"])
+
     def test_a_station_outside_the_scope_stays_out_however_readable(self):
         """The failure this pins actually happened.
 
@@ -130,14 +207,16 @@ class RolledTest(unittest.TestCase):
         numbers; what makes it safe is that the rolled figure is scoped to
         MLT x HTT, so a two-unit stage can no longer drag the headline."""
         bundle = self.bundle(self.many("mlt", 40, 20) +
+                             self.many("htt", 40, 30) +
                              self.many("l10_fat", 4, 1))
         rows = {row["key"]: row for row in bundle["rows"]}
         fat = rows["l10_fat"]
         self.assertEqual(0.25, fat["fpy"], "the yield must be published")
         self.assertFalse(fat["countsOnly"])
         self.assertTrue(fat["thinCohort"], "and marked as thin")
-        self.assertEqual(["MLT"], bundle["totals"]["rolledOver"],
+        self.assertEqual(["MLT", "HTT"], bundle["totals"]["rolledOver"],
                          "but it stays out of the rolled figure")
+        self.assertAlmostEqual(bundle["totals"]["rolledFpy"], 0.5 * 0.75)
 
     def test_a_thin_yield_is_marked_not_withheld(self):
         bundle = self.bundle(self.many("mlt", 40, 20))
@@ -204,10 +283,14 @@ class RolledTest(unittest.TestCase):
         Uses SLT rather than an L10 stage: L10 and L11 report quantity only by
         policy now, so they can no longer demonstrate the volume floor."""
         bundle = self.bundle(self.many("mlt", 40, 20) +
+                             self.many("htt", 40, 40) +
                              [run("X", "slt", "fail", ts(1))])
-        self.assertAlmostEqual(bundle["totals"]["rolledFpy"], 0.5)
+        self.assertAlmostEqual(bundle["totals"]["rolledFpy"], 0.5,
+                               msg="MLT x HTT, and SLT's 0% nowhere in it")
         self.assertEqual([e["label"] for e in bundle["totals"]["excludedThin"]],
                          ["SLT"])
+        self.assertEqual([], bundle["totals"]["rolledThin"],
+                         "and neither half of the product is thin")
 
     def test_below_the_floor_the_yield_publishes_but_is_marked(self):
         """It used to be withheld. A 0.0% over two units is still not a yield

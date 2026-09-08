@@ -377,6 +377,24 @@ def callout_lines(spec, by_station, external):
              ("  few units", {"size": 8, "color": MUTE})]]
 
 
+def rolled_thin(totals):
+    """The in-scope stages the rolled figure is thin over, as a phrase.
+
+    Empty where the product is solid or absent. A deck is quoted from a
+    projector and a screenshot months later, so the mark and its denominators
+    have to travel with the number — the rolled figure publishes below the
+    cohort floor since 2026-09-08, and a bare 31.6% in 26-point accent blue
+    is exactly the confident wrong figure this file exists to avoid.
+    """
+    if totals.get("rolledFpy") is None:
+        return ""
+    return ", ".join(
+        "{} over {} first-time unit{}".format(
+            step["label"], step.get("newUnits"),
+            "" if step.get("newUnits") == 1 else "s")
+        for step in totals.get("rolledThin") or [])
+
+
 def headline(slide, data, week, x):
     """The week in three figures, beside the chart.
 
@@ -393,13 +411,16 @@ def headline(slide, data, week, x):
     # multiplies two percentages in their head.
     by_key = {row["key"]: row for row in week["rows"]}
     mlt, htt = by_key.get("mlt") or {}, by_key.get("htt") or {}
+    thin_rolled = rolled_thin(totals)
     textbox(slide, x, Inches(1.42), Inches(2.20), Inches(1.25),
             [[("L6 combined  (MLT × HTT)", {"size": 10, "color": MUTE})],
-             [(pct(totals["rolledFpy"]), {"size": 26, "bold": True, "color": ACC})],
+             [(pct(totals["rolledFpy"]) + (" *" if thin_rolled else ""),
+               {"size": 26, "bold": True, "color": ACC})],
              [("MLT {}   ·   HTT {}".format(pct(mlt.get("fpy")),
                                             pct(htt.get("fpy"))),
                {"size": 10, "color": MUTE})],
-             [("a module's chance of clearing both first time",
+             [(("* thin — " + thin_rolled) if thin_rolled
+               else "a module's chance of clearing both first time",
                {"size": 9, "color": MUTE})]],
             space=1)
     textbox(slide, x, Inches(2.95), Inches(2.20), Inches(1.0),
@@ -722,9 +743,11 @@ def metrics_slide(prs, data, week, by_station):
                  sum(r["runs"] for r in week["rows"])),
          "It sets the schedule: a station cannot ship what it cannot test."),
         ("2.  Yield", "How many percentage we can ship vs total production",
-         "First pass {} at MLT and {} at HTT — {} rolled across the two."
+         "First pass {} at MLT and {} at HTT — {} rolled across the two.{}"
          .format(pct(mlt.get("fpy")), pct(htt.get("fpy")),
-                 pct(totals["rolledFpy"])),
+                 pct(totals["rolledFpy"]),
+                 " Thin: {}.".format(rolled_thin(totals))
+                 if rolled_thin(totals) else ""),
          "It sets how many units must be started to ship one."),
         ("3.  Retest", "How stable is the test",
          "{} of MLT units and {} of HTT units had to be run again — {} and {} "
@@ -983,12 +1006,16 @@ def table_slide(prs, data, week, external):
         [("Rolled first-pass across {}: ".format(
             " × ".join(week["totals"]["rolledOver"]) or "no step"),
           {"size": 12}),
-         (pct(week["totals"]["rolledFpy"]), {"size": 14, "bold": True,
-                                             "color": ACC})],
-        [("Steps under {} first-time units report counts only. Full unit-level "
-          "source data, every serial and release with a link to its run: "
-          "32x-production.i.etched.com/week.html#week={}"
-          .format(data["minCohort"], week["week"]),
+         (pct(week["totals"]["rolledFpy"])
+          + (" *" if rolled_thin(week["totals"]) else ""),
+          {"size": 14, "bold": True, "color": ACC})],
+        [("{}Steps under {} first-time units publish their yield with a * and "
+          "stay out of nothing — the rolled figure carries the mark too. Full "
+          "unit-level source data, every serial and release with a link to "
+          "its run: 32x-production.i.etched.com/week.html#week={}"
+          .format("* thin: {}. ".format(rolled_thin(week["totals"]))
+                  if rolled_thin(week["totals"]) else "",
+                  data["minCohort"], week["week"]),
           {"size": 9.5, "color": MUTE})],
     ], space=3)
     return slide

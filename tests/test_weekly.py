@@ -112,8 +112,13 @@ class SummaryTest(unittest.TestCase):
         self.assertIn("WST *(reported 2026-08-14)*", self.summary())
 
     def test_the_thin_stages_are_named_with_their_volumes(self):
+        """And with the volume the sentence is about.
+
+        It printed the week's unit count under a line about first-time units,
+        so a thin MLT read "fewer than 20 first-time units: MLT (90 units)" —
+        a sentence arguing with itself, and the reader believes the number."""
         text = self.summary()
-        self.assertIn("L10 SFT (1 unit)", text)
+        self.assertIn("L10 SFT (0 first-time of 1 unit)", text)
         self.assertIn("fewer than 20", text)
 
     def test_the_commit_is_recorded(self):

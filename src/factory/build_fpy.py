@@ -433,9 +433,15 @@ ROLLED_STATIONS = ("mlt", "htt")
 
 
 def _totals(rows: List[Dict[str, Any]], floor: int = MIN_COHORT) -> Dict[str, Any]:
+    labels = {entry["key"]: entry.get("label", entry["key"])
+              for entry in stations.registry()}
     graded = [row for row in rows if row["fpy"] is not None]
-    counted = [row for row in graded
-               if row["readable"] and row["key"] in ROLLED_STATIONS]
+    in_scope = [row for row in graded if row["key"] in ROLLED_STATIONS]
+    # Both halves, or no product. See `rolledFpy`.
+    complete = len(in_scope) == len(ROLLED_STATIONS)
+    thin_scope = [row for row in in_scope if not row["readable"]]
+    absent = [labels.get(key, key.upper()) for key in ROLLED_STATIONS
+              if key not in {row["key"] for row in in_scope}]
     thin = [row for row in rows
             if not row["readable"] and not row.get("countsOnly")]
     return {
@@ -446,8 +452,38 @@ def _totals(rows: List[Dict[str, Any]], floor: int = MIN_COHORT) -> Dict[str, An
         # time. A product, because that is what it is — and the number nobody
         # had computed for this line. Scope is ROLLED_STATIONS, and `rolledOver`
         # names it so the pages can say which stages are in the number.
-        "rolledFpy": _product([row["fpy"] for row in counted]) if counted else None,
-        "rolledOver": [row["label"] for row in counted],
+        #
+        # PUBLISHED THIN RATHER THAN WITHHELD, asked for on 2026-09-08.
+        # A thin stage's own yield has published-and-marked since L10 and L11
+        # wanted their numbers; the product went on being withheld, so 2026-W36
+        # — MLT 40% over 10 first-time units, HTT 78.9% over 19 — had a blank
+        # headline while both its halves were on the page. A blank is not the
+        # more cautious answer, it is a different claim: two people read it as
+        # "the week was not measured" in one day. So the product publishes with
+        # its cohorts named in `rolledThin`, and every page marks it.
+        #
+        # BOTH HALVES OR NOTHING. The figure is called MLT x HTT and one
+        # station is not a product of two: 2026-W31 ran MLT before HTT existed,
+        # and 54.5% under that heading would be a different measure wearing the
+        # headline's name. `rolledMissing` says which half is absent, which is
+        # the same rule the all-hands chart already applies week by week.
+        "rolledFpy": (_product([row["fpy"] for row in in_scope])
+                      if complete else None),
+        "rolledOver": [row["label"] for row in in_scope] if complete else [],
+        # What makes the published product thin, or — where it is withheld —
+        # what it was waiting for. Either way these are the in-scope stations
+        # whose first-pass cohort is under the floor, with the denominator each
+        # was taken over.
+        #
+        # First-pass yield is over *first-time* units, and W36 put 90 units
+        # through MLT of which 10 had never been there before. `excludedThin`
+        # names every thin stage; this names only the ones in the product.
+        "rolledThin": [{"label": row["label"], "newUnits": row["newUnits"],
+                        "units": row["units"]}
+                       for row in thin_scope],
+        # The half that did not run, or ran without a first-time unit to take a
+        # yield over. Non-empty is exactly when `rolledFpy` is None.
+        "rolledMissing": absent,
         # Named, not hidden. That these stages are too thin to roll is itself
         # the readiness finding, and burying it would make the headline look
         # like whole-line coverage.
