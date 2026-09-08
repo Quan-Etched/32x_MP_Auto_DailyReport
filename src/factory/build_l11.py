@@ -168,13 +168,22 @@ def _seen_before(day: str, lookback: Optional[int] = None
     a count-all yield is mostly the same rack being retried.
     """
     # Late-bound rather than a default argument: the reach is derived from
-    # pega.CONTROLLER_FROM, and a default freezes it at import, so moving the
+    # pega.HISTORY_FROM, and a default freezes it at import, so moving the
     # floor left this function reaching a distance nothing else used.
     if lookback is None:
         lookback = build_dailyexcel.NEW_INPUT_LOOKBACK
 
+    # FACTORY_PEGA=0 means no controllers, here as well as on the module
+    # tracker — build_dailyexcel._seen_before has always had this guard and
+    # these two never did. It went unnoticed while the reach was 30 days of
+    # mostly-cached listings; deepening it to the history floor on 2026-09-08
+    # turned the same path into 144 live requests inside a test suite that
+    # believed it had switched the integration off.
+    if not pega.enabled():
+        return {key: {} for key, _label, _pattern in STAGES}
+
     start = datetime.strptime(day, "%Y-%m-%d").date()
-    first = max(pega.CONTROLLER_FROM,
+    first = max(pega.HISTORY_FROM,
                 (start - timedelta(days=lookback)).strftime("%Y-%m-%d"))
     last = (start - timedelta(days=1)).strftime("%Y-%m-%d")
     return build_dailyexcel.slice_before(
@@ -184,6 +193,11 @@ def _seen_before(day: str, lookback: Optional[int] = None
 def _day(day: str, history_index: Optional[Dict[str, Any]] = None
          ) -> Optional[Dict[str, Any]]:
     """One day's L11 tab. ``index`` as in :func:`build_l10._day`."""
+    # Switched off means switched off. The call site cannot know: it guards
+    # the shared span read with pega.enabled() and then asks for the day
+    # anyway, so the guard belongs here, where the request is made.
+    if not pega.enabled():
+        return None
     try:
         listing = pega.day_suite_runs(day, host="pega5")
     except pega.PegaUnavailable:

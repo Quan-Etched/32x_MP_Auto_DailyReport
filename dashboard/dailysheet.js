@@ -1319,10 +1319,11 @@
     host.innerHTML = '';
 
     var counts = countsFor(tab, shownRows(tab));
-    var returning = 0, lookback = 10;
+    var returning = 0, lookback = 10, historyFrom = '';
     Object.keys(counts).forEach(function (key) {
       returning = Math.max(returning, counts[key].returning || 0);
       lookback = counts[key].lookback || lookback;
+      historyFrom = counts[key].historyFrom || historyFrom;
     });
 
     /* The label is what pressing it does, not what the page is doing. A
@@ -1358,12 +1359,24 @@
       ]));
     }
 
+    /* "in the previous 110 days" is a strange way to say "ever", and the
+     * number grows by one every day. Where the build tells us the date its
+     * history starts from, say that instead: it is the first run the
+     * controllers hold, so "no earlier attempt" means no earlier attempt. */
+    var reach = historyFrom
+      ? 'at any station since ' + historyFrom + ', where the controllers\u2019 '
+        + 'records begin'
+      : 'at any station in the previous ' + lookback + ' days';
+    var within = historyFrom
+      ? 'been through this station since ' + historyFrom
+      : 'been through this station within ' + lookback + ' days';
+
     host.appendChild(h('p', { class: 'cm-note' }, [
       h('strong', { text: countMode === 'new'
         ? 'Counting new input only.' : 'Counting every unit.' }),
       document.createTextNode(countMode === 'new'
-        ? ' The table is units with no earlier attempt at any station in the ' +
-          'previous ' + lookback + ' days — completely new material, so a ' +
+        ? ' The table is units with no earlier attempt ' + reach +
+          ' — completely new material, so a ' +
           'Test History cell in it holds at most the day’s own retries. ' +
           hidden + ' unit' +
           (hidden === 1 ? '' : 's') + ' with a history ' +
@@ -1376,8 +1389,8 @@
           'unit’s first visit, each one a link to that run.'
         : ' Every row is in the table and in the figures, new material and ' +
           're-runs together. That is the day’s whole workload, and it is not ' +
-          'a build yield: ' + returning + ' of these units had already been ' +
-          'through this station within ' + lookback + ' days, and the Test ' +
+          'a build yield: ' + returning + ' of these units had already ' +
+          within + ', and the Test ' +
           'History column beside each serial links every attempt it has made ' +
           'there — F1 is the first attempt and it failed, P2 the second and ' +
           'it passed. The strip runs to the end of the day the row is about, ' +

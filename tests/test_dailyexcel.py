@@ -500,6 +500,104 @@ class CarriedHistoryTest(unittest.TestCase):
         self.assertNotIn("history", cell)
 
 
+class HistoryFloorTest(unittest.TestCase):
+    """How far back a board's own past is read, as against what gets published.
+
+    Chris asked on 2026-09-07 why re-tested bonepile boards were showing as new
+    input. They were: the reach of a unit's history was the same number as the
+    reporting floor, 2026-08-01, so a board that failed MLT in July and came
+    back in September had nothing behind it and counted as fresh material.
+    Measured on the real cache that day, 29 of the 30 units MLT called new
+    input on 09-07 were July boards — the true new-input cohort was one unit,
+    and the tile read 63.3% first pass for what was a bonepile recovery rate.
+
+    The fixture is that board: one MLT failure on 07-24, back on 09-07.
+    """
+
+    JULY, SEPT = "2026-07-24", "2026-09-07"
+    DUT = "268086800000021"
+    RUNS = {JULY: ("mlt_2026.219.0-gitjul_run_aaaa", "failed"),
+            SEPT: ("mlt_2026.231.0-gitsep_run_bbbb", "passed")}
+
+    def setUp(self):
+        self.addCleanup(setattr, pega, "day_suite_runs", pega.day_suite_runs)
+        self.addCleanup(setattr, pega, "suite_run", pega.suite_run)
+        self.addCleanup(setattr, pega, "HISTORY_FROM", pega.HISTORY_FROM)
+        self.addCleanup(setattr, build_dailyexcel, "NEW_INPUT_LOOKBACK",
+                        build_dailyexcel.NEW_INPUT_LOOKBACK)
+        self.addCleanup(build_dailyexcel.forget_spans)
+
+        def listing(day, host=None):
+            if day not in self.RUNS:
+                return []
+            run_id, _status = self.RUNS[day]
+            return [{"suite_run_id": run_id, "suite_name": "MLT",
+                     "start_time": day + "T09:00:00Z"}]
+
+        def detail(run_id, host=None):
+            status = next(s for r, s in self.RUNS.values() if r == run_id)
+            return {"status": status, "test_cases": [],
+                    "participating": [{"dut_sn": self.DUT, "slot_number": 0,
+                                       "status": "Passed" if status == "passed"
+                                                 else "Failed"}]}
+
+        pega.day_suite_runs = listing
+        pega.suite_run = detail
+
+    def reach(self, history_from):
+        """The unit's history behind 09-07, with the floor set where asked."""
+        pega.HISTORY_FROM = history_from
+        build_dailyexcel.NEW_INPUT_LOOKBACK = build_dailyexcel._lookback_days()
+        build_dailyexcel.forget_spans()
+        return build_dailyexcel._seen_before(self.SEPT)
+
+    def test_the_two_floors_are_separate_numbers(self):
+        """And the history one is the deeper of the two. Equal is allowed —
+        a one-off FACTORY_PEGA_FROM pulls both back together — but the
+        reporting floor must never be the deeper one, or provenance would be
+        shallower than the runs being collected."""
+        self.assertLessEqual(pega.HISTORY_FROM, pega.CONTROLLER_FROM)
+        self.assertEqual(build_dailyexcel.DAILY_FROM, pega.CONTROLLER_FROM,
+                         "what gets published is still the reporting floor")
+        self.assertLess(pega.HISTORY_FROM, "2026-08-01",
+                        "and the history reaches into the bring-up months")
+
+    def test_the_lookback_is_derived_from_the_history_floor(self):
+        """Not from the reporting floor. This is the line that was wrong: a
+        lookback measured from 08-01 cannot see July however far the slice
+        asks to reach back."""
+        self.assertGreater(build_dailyexcel._lookback_days(), 100)
+        pega.HISTORY_FROM = "2026-08-01"
+        self.assertLess(build_dailyexcel._lookback_days(),
+                        build_dailyexcel.NEW_INPUT_LOOKBACK)
+
+    def test_a_board_last_tested_in_july_is_not_new_input_in_september(self):
+        history = self.reach("2026-05-21")
+        self.assertEqual([a["day"] for a in history["mlt"][self.DUT]],
+                         [self.JULY],
+                         "the July failure has to reach the September row")
+
+    def test_its_september_run_is_numbered_as_the_second_attempt(self):
+        """F1 has to be F1. A strip that starts at the reporting floor
+        renumbers a unit's fifth attempt as its first, and a numbering that
+        redefines its own 1 cannot be checked against anything."""
+        history = self.reach("2026-05-21")
+        strip = build_dailyexcel._numbered_history(
+            history["mlt"][self.DUT],
+            [{"day": self.SEPT, "status": "pass", "url": "u", "suite": "mlt"}])
+        self.assertEqual([(a["n"], a["status"]) for a in strip],
+                         [(1, "fail"), (2, "pass")])
+
+    def test_the_shallow_floor_is_what_called_it_new(self):
+        """The regression guard. Recoupling the two floors puts the July
+        attempt out of reach again, and the board reads as fresh material —
+        which is the bug, reproduced."""
+        history = self.reach("2026-08-01")
+        self.assertNotIn(self.DUT, history["mlt"],
+                         "with the floor at 08-01 the board looks new, which "
+                         "is precisely what Chris reported")
+
+
 if __name__ == "__main__":
     unittest.main()
 
@@ -597,10 +695,12 @@ class DerivedTabTest(NoPega, unittest.TestCase):
 
         Reaching all the way back to the controllers' first runs (05-01) was
         tried and withdrawn on 2026-09-03: the floor sets how many day-listings
-        every build walks per host *and* NEW_INPUT_LOOKBACK with it, and four
-        months of it made the tracker 73 tabs and the page slow enough to be
-        reported as broken. 08-01 is the horizon the ramp is actually reviewed
-        over; May to July is bring-up.
+        every build walks per host, and four months of it made the tracker 73
+        tabs and the page slow enough to be reported as broken. 08-01 is the
+        horizon the ramp is actually reviewed over; May to July is bring-up.
+
+        It no longer sets how far back a unit's own history is read — that came
+        off this number on 2026-09-08, see HistoryFloorTest.
 
         Still a date and not "the last N days", which is the part that must not
         regress — a window defined by its age walks away from a history defined
@@ -1039,6 +1139,74 @@ class ProvisionalCacheTest(unittest.TestCase):
         self.assertIn("complete=not stale_ok", source)
         self.assertIn("complete_only=True", source)
 
+    def test_a_finished_day_s_listing_is_actually_kept(self):
+        """The write, not just the flag — and the gap the flag hid.
+
+        `_get` only kept an answer whose `status` was a finished verdict, which
+        is a run detail's field. A day listing has no such field, so `""` was
+        read as "not final" and every finished day was fetched again on every
+        build: `day_suite_runs` says a past day is worth reading from disk and
+        the disk never had it. Found on 2026-09-08 by warming the back months
+        for the history floor — 72 days of listings fetched, none written, so
+        the dashboard box could never be handed them.
+        """
+        served = {"suite_runs": [{"suite_run_id": "r1"}], "total": 1}
+        calls = []
+
+        class FakeResponse:
+            def __enter__(self_inner):
+                return self_inner
+
+            def __exit__(self_inner, *exc):
+                return False
+
+            def read(self_inner):
+                import json as _json
+                return _json.dumps(served).encode()
+
+        def fake_urlopen(url, timeout=None):
+            calls.append(url)
+            return FakeResponse()
+
+        import urllib.request
+        self.addCleanup(setattr, urllib.request, "urlopen",
+                        urllib.request.urlopen)
+        urllib.request.urlopen = fake_urlopen
+
+        got = self.pega.day_suite_runs("2026-07-01", host="pega3")
+        self.assertEqual(len(got), 1)
+        self.assertEqual(len(calls), 1, "the first read has to go and ask")
+
+        again = self.pega.day_suite_runs("2026-07-01", host="pega3")
+        self.assertEqual(len(again), 1)
+        self.assertEqual(len(calls), 1,
+                         "and the second must come off the disk — a finished "
+                         "day's run list cannot change")
+
+    def test_a_run_still_in_flight_is_never_kept(self):
+        """The rule the listing case must not have loosened: a detail whose
+        run is still going would freeze mid-flight and never update."""
+        import urllib.request
+
+        class FakeResponse:
+            def __enter__(self_inner):
+                return self_inner
+
+            def __exit__(self_inner, *exc):
+                return False
+
+            def read(self_inner):
+                return b'{"status": "running", "participating": []}'
+
+        self.addCleanup(setattr, urllib.request, "urlopen",
+                        urllib.request.urlopen)
+        urllib.request.urlopen = lambda url, timeout=None: FakeResponse()
+        self.pega.suite_run("mlt_run_inflight", host="pega3")
+        self.assertIsNone(
+            self.pega._read_cache("/api/test_suite_run/mlt_run_inflight",
+                                  "pega3"),
+            "a running run is not a record of anything yet")
+
     def test_todays_listing_is_written_provisional_and_a_past_day_is_not(self):
         """End to end through day_suite_runs, which is where the rule lives."""
         from datetime import datetime, timezone
@@ -1058,16 +1226,23 @@ class ProvisionalCacheTest(unittest.TestCase):
         self.assertFalse(calls[0][1], "a finished day's list cannot")
 
 
-class EnrichmentTest(unittest.TestCase):
+class EnrichmentTest(NoPega, unittest.TestCase):
     """Filling the sheet's lossy failure column from pega3.
 
     The sheet is the line's record and stays so — only the two failure columns
     are touched, and only where pega3 has the unit.
+
+    FACTORY_PEGA=0 with `_pega_units` stubbed: the stub is what this class is
+    about, and the guard keeps `build_bundle` from walking the real history
+    span behind it. Without it this class alone spent 76 seconds on live
+    requests for days nobody had cached — invisible while the span was 30 days,
+    obvious once it reached the history floor.
     """
 
     def setUp(self):
         import tempfile
         from factory import build_dailyexcel as bd
+        self._pin_pega_off()
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.path = TempWorkbook(self.tmp.name).path
@@ -1328,6 +1503,15 @@ class NewInputCountTest(unittest.TestCase):
             row[index["Ev"]] = {"v": "mlt_2026.220.0-gitabc"}
             built.append(row)
         return build_dailyexcel._counts(built, columns)["E"]
+
+    def test_the_counts_say_where_the_history_starts(self):
+        """Not only how many days it is. The page used to read "no earlier
+        attempt in the previous N days", which is a fair description of a
+        30-day window and a strange way to say "ever" — and N now grows by one
+        every day. The date is the honest form of the same claim."""
+        counts = self.counts([("A", "pass", None)])
+        self.assertEqual(counts["historyFrom"], pega.HISTORY_FROM)
+        self.assertEqual(counts["lookback"], build_dailyexcel.NEW_INPUT_LOOKBACK)
 
     def test_returning_units_are_counted_out_of_the_new_tally(self):
         counts = self.counts([("A", "pass", None), ("B", "fail", None),

@@ -94,16 +94,16 @@ DERIVE_LIMIT = 5
 #:
 #: It was 08-01 — "the first day the line produced", on the grounds that
 #: earlier days are bring-up and a tab for one would file debugging as
-#: production. Asked for on 2026-09-02 to reach the whole of what the
-#: controllers hold, which is 2026-05-21 on pega3, and set to the same floor
-#: the collector walks from.
+#: production. Widened on 2026-09-02 to the whole of what the controllers hold
+#: (2026-05-21 on pega3), and withdrawn on 09-03: four months of tabs made the
+#: page slow enough to be reported as broken, and June and July are bring-up
+#: whose yields are not line performance.
 #:
-#: READ THE PRE-AUGUST TABS WITH THAT IN MIND. The rationale above was not
-#: wrong, it was overruled: June and July were bring-up, and their tabs show
-#: bring-up runs in the same shape as production ones. Their yields are not
-#: line performance and should not be quoted as such. What they are good for
-#: is a unit's own history — the Test History strip reaches through them, so a
-#: chassis first tested in June now shows its real first attempt.
+#: THE HISTORY IS NO LONGER TIED TO THIS. What the 09-02 widening was really
+#: after was a unit's own past — a chassis first tested in June showing its
+#: real first attempt — and that arrives through pega.HISTORY_FROM instead,
+#: which reaches the back months without publishing a tab for any of them. So
+#: the strip and the new-input flag see June and July; the calendar does not.
 DAILY_FROM = pega.CONTROLLER_FROM
 
 #: The stations the tracker covers, and the column pair each one fills.
@@ -172,6 +172,25 @@ NON_RELEASE = re.compile(
 #: recognised at all. The tab simply had no HTT column and said nothing about
 #: why, which is the failure mode this whole page exists to avoid.
 STATION_TOKEN = re.compile(r"(?:^|_)(mlt|htt)_", re.IGNORECASE)
+
+
+def _epoch(value: Optional[str]) -> Optional[int]:
+    """A controller's ISO timestamp as epoch seconds, or None.
+
+    Same rule as pega_collect._epoch — with and without a Z — so an attempt
+    read from a day listing and a run read from the collector sort against
+    each other rather than nearly.
+    """
+    if not value:
+        return None
+    text = str(value).replace("Z", "+00:00")
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return int(moment.timestamp())
 
 
 def station_of(run_id: str, suite: str) -> Optional[str]:
@@ -246,7 +265,10 @@ def build_bundle(
         if not _module_span["read"]:
             _module_span["read"] = True
             if pega.enabled():
-                first = max(pega.CONTROLLER_FROM, (
+                # HISTORY_FROM, not the reporting floor: the tabs start at
+                # DAILY_FROM, and a unit on the first of them still has to
+                # carry what it did before that day.
+                first = max(pega.HISTORY_FROM, (
                     datetime.strptime(DAILY_FROM, "%Y-%m-%d").date()
                     - timedelta(days=NEW_INPUT_LOOKBACK)).strftime("%Y-%m-%d"))
                 last = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -316,7 +338,7 @@ def build_bundle(
     l10_index = l11_index = None
     if days_shown and pega.enabled():
         from . import build_l10, build_l11
-        span_first = max(pega.CONTROLLER_FROM, (
+        span_first = max(pega.HISTORY_FROM, (
             datetime.strptime(days_shown[0], "%Y-%m-%d").date()
             - timedelta(days=NEW_INPUT_LOOKBACK)).strftime("%Y-%m-%d"))
         try:
@@ -1025,9 +1047,16 @@ L11_FROM = "0000-00-00"
 #:
 #: Derived from the floor rather than fixed, so it cannot walk away from the
 #: start of the data the way the collector's 90 days did.
+#:
+#: The floor it is derived from is pega.HISTORY_FROM and not the reporting
+#: window: how far back a board's own attempts are read is a question about the
+#: board, not about which days the tracker publishes. While it was
+#: CONTROLLER_FROM, 29 of the 30 units MLT called new input on 2026-09-07 were
+#: bonepile boards that had failed MLT in July — the window could not see them,
+#: so it called them fresh material.
 def _lookback_days() -> int:
     span = (datetime.now(timezone.utc).date()
-            - datetime.strptime(pega.CONTROLLER_FROM, "%Y-%m-%d").date()).days
+            - datetime.strptime(pega.HISTORY_FROM, "%Y-%m-%d").date()).days
     return max(30, span)
 
 
@@ -1102,8 +1131,15 @@ def attempt_index(host: str, keys, key_of, url_of,
                     continue
                 index[key].setdefault(part["dut"], []).append({
                     "day": day,
+                    # The clock as well as the calendar. The strips need only
+                    # the day, but a serial's own history is read as one
+                    # sequence against runs that carry a timestamp (the runs
+                    # bundle's `t`), and two attempts on one day have an order.
+                    "startTs": _epoch(entry.get("start_time")),
                     "status": part["status"],
                     "url": url_of(run_id, part["slot"]),
+                    "runId": run_id,
+                    "slot": part["slot"],
                     "suite": entry.get("suite_name") or "",
                 })
     _SPAN_CACHE[cache_key] = index
@@ -1172,7 +1208,7 @@ def _seen_before(day: str, lookback: Optional[int] = None,
     and the tests do.
     """
     # Late-bound rather than a default argument: the reach is derived from
-    # pega.CONTROLLER_FROM, and a default freezes it at import, so moving the
+    # pega.HISTORY_FROM, and a default freezes it at import, so moving the
     # floor left this function reaching a distance nothing else used.
     if lookback is None:
         lookback = NEW_INPUT_LOOKBACK
@@ -1183,7 +1219,7 @@ def _seen_before(day: str, lookback: Optional[int] = None,
         return slice_before(index, day, lookback)
 
     start = datetime.strptime(day, "%Y-%m-%d").date()
-    first = max(pega.CONTROLLER_FROM,
+    first = max(pega.HISTORY_FROM,
                 (start - timedelta(days=lookback)).strftime("%Y-%m-%d"))
     last = (start - timedelta(days=1)).strftime("%Y-%m-%d")
     return slice_before(module_index(first, last), day, lookback)
@@ -1840,6 +1876,13 @@ def _counts(rows: List[List[Dict[str, Any]]], header: List[Dict[str, Any]]) -> D
                               newRelease=fresh_release,
                               returning=returning,
                               lookback=NEW_INPUT_LOOKBACK,
+                              # Where the history actually starts, beside how
+                              # many days that is. The page said "no earlier
+                              # attempt in the previous N days", which was true
+                              # of a 30-day window and is a strange way to say
+                              # "ever" now that N reaches the first run the
+                              # controllers hold — and N grows by one a day.
+                              historyFrom=pega.HISTORY_FROM,
                               nonRelease=sorted(non_release))
     return counts
 

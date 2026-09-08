@@ -72,16 +72,56 @@ DEFAULT_BASE_URL = "http://pega3:3000"
 #: Probed 2026-09-02: pega3 answers from 2026-05-21, pega5 from 05-23, pega4
 #: from 06-12. Reaching all the way back to those first runs is what 05-01 did,
 #: and it was too expensive to keep: the floor sets the number of day-listings
-#: every build walks, per host, and it sets NEW_INPUT_LOOKBACK with it, so a
-#: date four months back made the daily tracker 73 tabs and the page slow
-#: enough to be reported as broken.
+#: every build walks, per host, and a date four months back made the daily
+#: tracker 73 tabs and the page slow enough to be reported as broken.
 #:
 #: 08-01 is the line's own reporting horizon — the ramp people actually review
 #: — and it is what was asked for on 2026-09-03 after the wider window landed.
 #: May, June and July are bring-up rather than line performance, so the history
 #: being dropped here is history nobody was reading. Set FACTORY_PEGA_FROM to
 #: reach further back for a one-off investigation; nothing else needs changing.
+#:
+#: THIS IS THE REPORTING WINDOW ONLY. It used to set the reach of a unit's own
+#: history as well — see HISTORY_FROM, which is now that second number.
 CONTROLLER_FROM = os.environ.get("FACTORY_PEGA_FROM", "2026-08-01")
+
+#: How far back a *unit's own history* is read, as against how far back the
+#: line is reported on.
+#:
+#: These were one number until 2026-09-08 and they are two questions. "Which
+#: days does the tracker publish" is about what the ramp is reviewed over, and
+#: 08-01 is the right answer: June and July are bring-up, their yields are not
+#: line performance, and a tab per day for four months made the page unusable.
+#: "Has this board been tested before, and how many times" is not about the
+#: reporting window at all — it is about the board, and it has one true answer
+#: that reaches back to the board's first ever run.
+#:
+#: Collapsing the two published a wrong number, not merely a short one. Chris
+#: asked on 09-07 why re-tested bonepile boards showed as new input; measured
+#: the same day, of the 30 units MLT called new input on 09-07, **29 had failed
+#: MLT in July** and come back — the true new-input cohort was one unit, and
+#: the tile read 63.3% first pass when what it was describing was a bonepile
+#: recovery rate. Counted over the whole of what the controllers hold: 56
+#: returning boards at MLT were being called new input and 242 of their
+#: attempts were missing from the Test History strip, plus 5 boards and 26
+#: attempts at HTT.
+#:
+#: 2026-05-21 is the earliest run on any controller. The stations start later
+#: and they start apart — MLT's own records begin 06-11, HTT's 07-16, L10's
+#: 06-12 on pega4 — so the floor is the start of the data rather than a date
+#: per station, and a station that starts earlier than we thought is covered
+#: without anyone editing this.
+#:
+#: Cheap, because the deep span is read once per build and sliced per tab
+#: (build_dailyexcel.attempt_index), a finished day's listing is immutable and
+#: cached on disk, and no tab, no chart and no yield window moves with it. The
+#: one-time cost is the cold fetch of the back months, which is paid on a
+#: laptop and rsynced to the box — see tools/pega_push.sh.
+#:
+#: Never later than the reporting floor: a one-off FACTORY_PEGA_FROM=2026-05-21
+#: must not leave provenance shallower than the runs being collected.
+HISTORY_FROM = min(os.environ.get("FACTORY_PEGA_HISTORY_FROM", "2026-05-21"),
+                   CONTROLLER_FROM)
 
 #: How long to wait on one controller call.
 #:
@@ -429,7 +469,26 @@ def _get(path: str, cache: bool = False, stale_ok: bool = False,
     if cache:
         # Only a finished run is safe to keep: one still running would freeze
         # mid-flight and never update.
-        if stale_ok or str(payload.get("status", "")).lower() not in ("running", "", "none"):
+        #
+        # WHICH ANSWER THIS IS ABOUT MATTERS. The rule was written for a run
+        # detail, where `status` is the run's own verdict, and applied to every
+        # cached answer — but a *day listing* has no top-level status, so
+        # `payload.get("status", "")` was always "" and the write was always
+        # skipped. Finished days were therefore never cached, however many
+        # times they were fetched: `day_suite_runs` reads complete_only, never
+        # hit, and went to the network for every past day on every build. On
+        # 2026-09-08 that came out as 110 listing calls per host per build over
+        # a relayed link, and — the reason it was found — a deep history warm
+        # that fetched 72 days of listings and wrote none of them, so the box
+        # could never be handed the back months at all.
+        #
+        # A listing's finality is not in its body; it is `stale_ok`, which the
+        # caller sets from whether the day has ended. So: never keep a run
+        # still in flight, and let the caller decide for an answer that carries
+        # no verdict of its own.
+        listing = isinstance(payload, dict) and "suite_runs" in payload
+        status = str(payload.get("status", "")).lower() if isinstance(payload, dict) else ""
+        if listing or stale_ok or status not in ("running", "", "none"):
             # `stale_ok` is the caller saying this answer can still change, so
             # it is exactly the condition that makes the entry provisional.
             _write_cache(path, payload, host, complete=not stale_ok)
