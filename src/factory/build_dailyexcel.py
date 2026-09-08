@@ -798,6 +798,14 @@ def _enrich_from_pega(tab: Dict[str, Any],
                 cell["v"] = "\n".join(names)
                 filled += 1
                 added += max(0, len(names) - len([n for n in was.split("\n") if n.strip()]))
+            # Marked on the line's own tab as well as on a derived one: the
+            # sheet writes CpldDiagnosticsTestCase beside a chip's own failure
+            # with nothing to separate them, and on the page they should not
+            # read as two results about the same chip.
+            marked = [n for n in (unit.get(station) or {}).get("fixture") or []
+                      if n in names]
+            if marked:
+                cell["fx"] = marked
     if filled:
         tab["enriched"] = {"rows": filled, "added": added, "source": "pega3"}
     return _add_sheet_versions(tab, units, history_index)
@@ -1426,6 +1434,11 @@ def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
             unit[station] = {
                 "status": part["status"],
                 "fail": _unit_failures(detail, part["slot"]) if part["status"] == "fail" else "",
+                # Which of those names are the fixture's rather than this
+                # chip's. Carried separately so the cell text stays exactly
+                # what the line's sheet writes, and the page can still say
+                # that one of them is not a per-chip result.
+                "fixture": _fixture_failures(detail) if part["status"] == "fail" else [],
                 "url": pega.run_url(run_id, part["slot"]),
                 "short": run_id.rsplit("_run_", 1)[-1],
                 "started": started,
@@ -1521,7 +1534,12 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]],
                     "t": got["status"],
                 }
             if got["fail"]:
-                row[index[fail_col]] = {"v": got["fail"]}
+                cell = {"v": got["fail"]}
+                marked = [n for n in got.get("fixture") or []
+                          if n in got["fail"].split("\n")]
+                if marked:
+                    cell["fx"] = marked
+                row[index[fail_col]] = cell
             row[index[link_col]] = {"v": got["short"], "h": got["url"]}
             if got.get("suite"):
                 cell = {"v": got["suite"]}
@@ -1609,6 +1627,7 @@ def _unit_failures(detail: Dict[str, Any], slot: Optional[int]) -> str:
 
     leaves: List[str] = []
     nests: List[str] = []
+    fixture = _fixture_failures(detail)
     for case in sorted(detail.get("test_cases") or [],
                        key=lambda c: c.get("start_time") or ""):
         status = str(case.get("status") or "").lower()
@@ -1627,7 +1646,66 @@ def _unit_failures(detail: Dict[str, Any], slot: Optional[int]) -> str:
         names = leaves + [n for n in nests if n not in leaves]
     else:
         names = leaves or nests
+    # The fixture's own failures last, after the unit's own. They are the
+    # unit's too — its run failed them — and they were being dropped by the
+    # slot filter, which is a rule about telling eight chips apart and has
+    # nothing to say about a test that belongs to none of them.
+    #
+    # Except on a slot the run says passed. The line's sheet writes it that way
+    # and it is the right way: on 2026-09-08 run_d973aecb, CpldDiagnosticsTestCase
+    # is on the one failing unit's row and the five passing slots' failure cells
+    # are empty. A failure printed against a unit that passed would be read as
+    # that unit's, and the callers ask for a unit's failures precisely when it
+    # failed.
+    if fixture and _slot_passed(detail, slot):
+        fixture = []
+    names = names + [n for n in fixture if n not in names]
     return "\n".join(names)
+
+
+def _slot_passed(detail: Dict[str, Any], slot: int) -> bool:
+    """Whether the run recorded this slot as a pass."""
+    for part in pega.participants(detail):
+        if part["slot"] == slot:
+            return part["status"] == "pass"
+    return False
+
+
+#: A failing test that carries no chip index: the fixture's own, not any one
+#: unit's.
+#:
+#: THE CASE THIS EXISTS FOR. On 2026-09-08 the line's sheet recorded
+#: 268494100000036 as failing SohuLlamaForwardIteratedTestCase *and*
+#: CpldDiagnosticsTestCase; this page showed only the first. The second is real
+#: — it failed in that run — but its test id has no chip index, so the slot
+#: filter above dropped it from all eight units and the sheet was ahead of the
+#: dashboard on a failure the dashboard had collected.
+#:
+#: Attributed to every unit in the run, because that is what the evidence
+#: supports: the fixture failed while these units were in it, and which chip
+#: caused it is not something the record says. The page marks them rather than
+#: letting them read as a chip's own failure — see `fixtureFailures` on the
+#: cell.
+#:
+#: Containers stay out on the same rule as everywhere else: ServerNestedTestCase
+#: is the wrapper for whatever really failed underneath, and it has no slot
+#: either. In the 75 runs of the 09-04..09-08 retest campaign it accounts for 49
+#: of the 50 slot-less failures; CpldDiagnosticsTestCase is the other one.
+def _fixture_failures(detail: Dict[str, Any]) -> List[str]:
+    out: List[str] = []
+    for case in sorted(detail.get("test_cases") or [],
+                       key=lambda c: c.get("start_time") or ""):
+        status = str(case.get("status") or "").lower()
+        if not status.startswith(("fail", "error")):
+            continue
+        if chips.chip_of(case.get("test_id") or "") is not None:
+            continue
+        name = (case.get("test_name") or "").strip()
+        if not name or rootcause.is_container(name):
+            continue
+        if name not in out:
+            out.append(name)
+    return out
 
 
 def _derived_link(run: Dict[str, Any], day: str) -> Dict[str, Any]:

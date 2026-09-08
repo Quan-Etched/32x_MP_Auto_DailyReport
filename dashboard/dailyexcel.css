@@ -563,6 +563,18 @@ a.rt-att:hover { outline: 1px solid currentColor; }
   color: var(--text-muted); cursor: help;
 }
 
+/* One of the names in a failure cell is the fixture's, not this chip's. Set
+   apart rather than hidden: it is a real failure of this unit's run, and it is
+   not evidence about this chip. */
+.fixture-mark {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  font-style: italic;
+  color: var(--text-muted);
+  cursor: help;
+}
+
 /* ---------------------------------------------------------- day calendar */
 
 /* Picking a day used to be a strip of buttons, one per day that had data.

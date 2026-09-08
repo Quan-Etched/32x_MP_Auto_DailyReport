@@ -1533,6 +1533,27 @@
 
     td.textContent = value;
 
+    /* A name in this cell that is the fixture's rather than this chip's.
+     *
+     * CpldDiagnosticsTestCase failed in run_d973aecb on 2026-09-08 with no
+     * chip index on it, which is what a fixture-level test looks like: the
+     * board failed it while eight units were in the board, and the record does
+     * not say which unit caused it. It belongs on the failing unit's row — the
+     * line's own sheet puts it there — but not looking like the chip's own
+     * result, so it is named and set apart rather than sitting in the list as
+     * though slot 3 failed it. */
+    if (cell.fx && cell.fx.length) {
+      td.appendChild(h('span', {
+        class: 'fixture-mark',
+        title: cell.fx.join(', ') + (cell.fx.length === 1 ? ' is' : ' are')
+             + ' a fixture-level failure: the run failed it with no chip index '
+             + 'on it, so it belongs to this unit\u2019s run rather than to '
+             + 'this chip'
+      }, [document.createTextNode(
+        cell.fx.length === 1 ? 'one is the fixture\u2019s'
+                             : cell.fx.length + ' are the fixture\u2019s')]));
+    }
+
     /* How many times the rack went through this stage today. L11 is retried
      * hard during bring-up — six attempts on one rack in an afternoon — and a
      * cell showing only the last verdict makes that look like one quiet

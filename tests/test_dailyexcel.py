@@ -500,6 +500,111 @@ class CarriedHistoryTest(unittest.TestCase):
         self.assertNotIn("history", cell)
 
 
+class FixtureFailureTest(unittest.TestCase):
+    """A failing test with no chip index on it.
+
+    Found by checking the line's own 09-08 retest tab against the controllers.
+    The sheet recorded 268494100000036 as failing SohuLlamaForwardIteratedTestCase
+    *and* CpldDiagnosticsTestCase; this page showed only the first. The second
+    is real — it failed in run_d973aecb — but its test id carries no chip
+    index, and the slot filter that separates eight chips inside one fixture
+    run dropped it from all eight of them. The sheet was ahead of the dashboard
+    on a failure the dashboard had already collected.
+
+    The fixture is that run, trimmed to four slots.
+    """
+
+    RUN = "htt_2026.246.0-gitf1646a0d_run_d973aecb"
+
+    def detail(self):
+        def case(name, chip, status):
+            test_id = ("{}_chip{}_x".format(self.RUN, chip) if chip is not None
+                       else "{}_x".format(self.RUN))
+            return {"test_name": name, "test_id": test_id, "status": status,
+                    "start_time": "2026-09-08T01:0{}:00Z".format(chip or 0)}
+        return {
+            "status": "failed",
+            "participating": [
+                {"dut_sn": "268494100000040", "slot_number": 0, "status": "Passed"},
+                {"dut_sn": "268494100000036", "slot_number": 3, "status": "Failed"},
+            ],
+            "test_cases": [
+                case("SohuLlamaForwardIteratedTestCase", 0, "passed"),
+                case("SohuLlamaForwardIteratedTestCase", 3, "failed"),
+                case("SohuVminTestCase", 3, "failed"),
+                # No chip index: the fixture's own, and the reason for all this.
+                case("CpldDiagnosticsTestCase", None, "failed"),
+                # Also slot-less, and still not wanted: the wrapper for
+                # whatever really failed underneath. 49 of the 50 slot-less
+                # failures in the 09-04..09-08 campaign were this one.
+                case("ServerNestedTestCase", None, "failed"),
+            ],
+        }
+
+    def test_the_failing_unit_gets_the_fixture_s_failure_too(self):
+        got = build_dailyexcel._unit_failures(self.detail(), 3).split("\n")
+        self.assertEqual(got, ["SohuLlamaForwardIteratedTestCase",
+                               "SohuVminTestCase",
+                               "CpldDiagnosticsTestCase"],
+                         "the same two names the line's sheet wrote, in order")
+
+    def test_a_slot_the_run_passed_gets_nothing(self):
+        """The sheet's rule, and the right one: in run_d973aecb the fixture
+        failure is on the one failing unit's row and the five passing slots'
+        cells are empty. A failure printed against a unit that passed would be
+        read as that unit's."""
+        self.assertEqual(build_dailyexcel._unit_failures(self.detail(), 0), "")
+
+    def test_a_container_is_still_not_a_failure_name(self):
+        self.assertNotIn("ServerNestedTestCase",
+                         build_dailyexcel._unit_failures(self.detail(), 3))
+        self.assertEqual(build_dailyexcel._fixture_failures(self.detail()),
+                         ["CpldDiagnosticsTestCase"])
+
+    def test_another_chip_s_failure_still_does_not_leak(self):
+        """The slot filter's actual job, which this must not have loosened."""
+        detail = self.detail()
+        detail["test_cases"].append(
+            {"test_name": "SohuI2cTestCase", "status": "failed",
+             "test_id": "{}_chip5_x".format(self.RUN),
+             "start_time": "2026-09-08T01:05:00Z"})
+        self.assertNotIn("SohuI2cTestCase",
+                         build_dailyexcel._unit_failures(detail, 3))
+
+    def test_the_cell_says_which_name_is_the_fixture_s(self):
+        """Carried beside the text rather than inside it: the cell has to stay
+        byte-identical to what the sheet writes, and the page still has to be
+        able to say that one of those names is not a per-chip result."""
+        import unittest.mock as mock
+
+        units = {"268494100000036": {
+            "pn": "1500027-B",
+            "htt": {"status": "fail",
+                    "fail": "SohuLlamaForwardIteratedTestCase\nCpldDiagnosticsTestCase",
+                    "fixture": ["CpldDiagnosticsTestCase"],
+                    "short": "d973aecb", "url": "u", "suite": "htt_2026.246.0"}}}
+        columns = [{"key": key, "title": title} for key, title in (
+            ("A", "Date"), ("B", "SN"), ("D", "DUT PN"),
+            ("E", "MLT Results"), ("Ev", "MLT Version"),
+            ("F", "MLT Failure Test Case"), ("G", "FI Test Link"),
+            ("H", "HTT Results"), ("Hv", "HTT Version"),
+            ("I", "HTT Failure Test Case"), ("J", "FI Test Link"),
+            ("K", "Jira"))]
+        with mock.patch.object(build_dailyexcel, "_pega_units",
+                               return_value=(units, {"mlt": set(), "htt": set()},
+                                             1, {}, {})), \
+             mock.patch.object(build_dailyexcel, "_seen_before",
+                               return_value={"mlt": {}, "htt": {}}), \
+             mock.patch.object(build_dailyexcel, "_derived_columns",
+                               return_value=columns):
+            tab = build_dailyexcel._pega_tab("2026-09-08", None)
+        keys = [column["key"] for column in tab["columns"]]
+        cell = tab["rows"][0][keys.index("I")]
+        self.assertEqual(cell["v"],
+                         "SohuLlamaForwardIteratedTestCase\nCpldDiagnosticsTestCase")
+        self.assertEqual(cell["fx"], ["CpldDiagnosticsTestCase"])
+
+
 class HistoryFloorTest(unittest.TestCase):
     """How far back a board's own past is read, as against what gets published.
 
