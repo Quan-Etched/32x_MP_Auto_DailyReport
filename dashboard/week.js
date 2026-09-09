@@ -82,10 +82,30 @@
       return sum + row.units;
     }, 0);
 
+    /* The scope, and how thin the figure over it is.
+     *
+     * The product publishes below the cohort floor now, marked — a dash was
+     * read as "not measured" on a week whose two halves were both on the page.
+     * So the tile says what it is over: the stages, and where one of them is
+     * thin, the first-time count it was taken over. */
+    var thin = totals.rolledThin || [];
+    var missing = totals.rolledMissing || [];
+    var scope = (totals.rolledOver || []).join(' × ');
+    var sub;
+    if (totals.rolledFpy == null) {
+      sub = missing.length
+        ? 'no ' + missing.join(' or ') + ' first-pass cohort this week — one '
+          + 'station is not a product of two'
+        : 'no step in the product ran this week';
+    } else if (thin.length) {
+      sub = scope + ' · thin: ' + thin.map(function (step) {
+        return step.label + ' ' + step.newUnits + ' new of ' + step.units;
+      }).join(' · ') + ' — under ' + DATA.minCohort;
+    } else {
+      sub = scope;
+    }
     el.tiles.appendChild(tile('Rolled first-pass',
-      pct(totals.rolledFpy),
-      (totals.rolledOver || []).join(' × ') ||
-        'no step had enough units to read', 'lead'));
+      pct(totals.rolledFpy) + (thin.length ? ' *' : ''), sub, 'lead'));
     el.tiles.appendChild(tile('Units tested', String(units),
       (week.rows || []).length + ' steps · ' +
       (week.units || []).length + ' unit runs'));
@@ -234,7 +254,11 @@
         h('span', { class: 'sub', text: (row.controller || '') +
           (row.readable ? ''
            : row.countsOnly ? ' · quantity only — chassis and rack level, in bring-up'
-           : ' · under ' + DATA.minCohort + ' units, no yield reported') })
+           /* The yield below IS reported — that changed when L10 and L11 asked
+            * for their numbers — and this line went on saying it was not. What
+            * is true of a thin step is that its yield is published and left
+            * out of the rolled product. */
+           : ' · under ' + DATA.minCohort + ' first-time units, not rolled') })
       ]));
       tr.appendChild(h('td', { class: 'n', text: String(row.units) }));
       tr.appendChild(h('td', { class: 'n', text: String(row.runs) }));
@@ -298,9 +322,10 @@
       (week.partial ? ', week still running' : '') +
       '. First-pass yield counts units on their first run at that step. ' +
       'Steps with fewer than ' + DATA.minCohort +
-      ' first-time units report counts only, as do L10 and L11 — chassis and ' +
-      'rack level, in bring-up, where a percentage over three units swings 33 ' +
-      'points on one of them.';
+      ' first-time units publish that yield and are marked thin rather than ' +
+      'withheld — including L10 and L11, chassis and rack level, in bring-up, ' +
+      'where a percentage over three units swings 33 points on one of them. ' +
+      'They stay out of the rolled figure.';
   }
 
   /* --------------------------------------------------------------- source */

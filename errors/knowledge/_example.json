@@ -1,0 +1,59 @@
+{
+ "_comment": [
+  "TEMPLATE -- NOT DATA. Every value below is invented to show the shape; the leading",
+  "underscore keeps the loader from reading it. Copy it, rename it to the code, and",
+  "replace everything. See SCHEMA.md for the rules each field is under.",
+  "",
+  "The one field to get right is correctiveActions[].appliedAt: it is the entire basis",
+  "of the Post-CA verdict, and no verdict is computable without it."
+ ],
+ "schemaVersion": 1,
+ "code": "TH-XXXX-0000",
+
+ "appliesTo": {
+  "cases": ["SomeTestCase"],
+  "stations": ["mlt", "htt"]
+ },
+ "owner": "someone",
+
+ "rootCauses": [
+  {
+   "id": "rc-short-kebab-name",
+   "team": "Platform",
+   "confidence": "confirmed",
+   "statement": "One or two sentences saying what actually causes this, specific enough that somebody who has never seen it could recognise it on the floor.",
+   "firstSeen": "2026-01-01",
+   "evidence": [
+    {
+     "source": "slack",
+     "url": "https://etchedai.slack.com/archives/CXXXXXXXX/pXXXXXXXXXXXXXXXX",
+     "who": "Someone",
+     "at": "2026-01-01T00:00:00-08:00",
+     "quote": "What they actually wrote. Quote or paraphrase; never infer."
+    }
+   ],
+   "correctiveActions": [
+    {
+     "id": "ca-short-kebab-name",
+     "action": "What was changed, in the imperative, specific enough to repeat.",
+     "kind": "firmware",
+     "state": "applied",
+     "appliedAt": "2026-01-08T00:00:00Z",
+     "scope": {"kind": "station", "value": "mlt"},
+     "owner": "someone",
+     "ref": "ETCH-00000",
+     "evidence": [
+      {
+       "source": "jira",
+       "url": "https://etched-ai.atlassian.net/browse/ETCH-00000",
+       "at": "2026-01-08T00:00:00-08:00"
+      }
+     ]
+    }
+   ]
+  }
+ ],
+
+ "updatedAt": "2026-01-08T00:00:00Z",
+ "updatedBy": "someone"
+}

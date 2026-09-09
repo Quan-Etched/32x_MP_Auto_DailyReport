@@ -42,6 +42,15 @@
   <div class="flow-switch" id="chart-switch" role="group"
        aria-label="Which drawing"></div>
 
+  <!-- Which window both drawings count. The week to date is the default and
+       the reason the page reads the way it does; the trailing seven days is
+       here because on a Monday morning the week is a handful of units, and
+       eleven boxes saying "no runs in the window" read as a broken dashboard
+       rather than as a young week. The run count on each pill says which it
+       is before anybody clicks. -->
+  <div class="flow-window" id="flow-window" role="group"
+       aria-label="Which window the yields cover"></div>
+
   <section class="flow-view" id="view-summary">
     <div class="flow-combined" id="combined" hidden></div>
     <div class="flow-legend" id="legend"></div>
@@ -86,6 +95,7 @@
 </div>
 
 <script src="data/pega_stations.js"></script>
+<script src="flowwindow.js"></script>
 <script src="flow.js"></script>
 <script src="flowchart.js"></script>
 <script src="tablecsv.js"></script>

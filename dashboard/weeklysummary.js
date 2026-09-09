@@ -39,6 +39,65 @@
     return seen.map(function (key) { return { key: key, label: labels[key] }; });
   }
 
+  /* The rolled cell: the product, how thin it is, and what it is over.
+   *
+   * It used to be withheld below the cohort floor, and 2026-W36 showed why
+   * that was the wrong caution — MLT 40% and HTT 78.9% both on the row, and a
+   * dash where their product belonged. A blank is not a smaller claim than a
+   * number; it is a different one, and it was read as "the week was not
+   * measured" twice in a day. So the product publishes, marked, with the two
+   * cohorts under it: 31.6% over ten units and nineteen is a fact a reader can
+   * discount for themselves, which a dash gives them no way to do.
+   *
+   * Still a dash when a half is missing. The column is called MLT × HTT, and
+   * 2026-W31's MLT-only 54.5% under that heading would be a different measure
+   * wearing the headline's name. */
+  function rolledCell(totals) {
+    var td = h('td', { class: 'n y ' + tone(totals.rolledFpy) });
+    var thin = totals.rolledThin || [];
+    var missing = totals.rolledMissing || [];
+    td.appendChild(document.createTextNode(pct(totals.rolledFpy)));
+
+    if (totals.rolledFpy == null) {
+      /* No product to publish. Which half, and why. */
+      td.title = missing.length
+        ? 'No rolled figure — ' + missing.join(' and ') + ' had no first-pass '
+          + 'cohort this week, and one station is not a product of two.'
+        : 'No rolled figure for this week.';
+      if (missing.length) {
+        td.appendChild(h('span', { class: 'sub',
+                                   text: 'no ' + missing.join('/') }));
+      }
+      return td;
+    }
+
+    if (!thin.length) {
+      td.title = (totals.rolledOver || []).join(' × ') + ', multiplied';
+      return td;
+    }
+
+    /* Published and marked, the same way a thin step's own yield is. */
+    td.className += ' thin';
+    td.appendChild(h('span', { class: 'thin-mark',
+      title: 'thin: ' + thin.map(function (step) {
+        return step.label + ' over ' + step.newUnits + ' first-time unit' +
+          (step.newUnits === 1 ? '' : 's');
+      }).join(', ') + ' — fewer than ' + DATA.minCohort +
+        ', so the product moves a long way on one unit',
+      text: '\u2009*' }));
+    td.appendChild(h('span', { class: 'sub', text: thin.map(function (step) {
+      return step.label + ' ' + step.newUnits;
+    }).join(' · ') + ' new' }));
+    td.title = 'Thin: ' + thin.map(function (step) {
+      return step.label + ' ran ' + step.units + ' unit' +
+        (step.units === 1 ? '' : 's') + ', ' + step.newUnits +
+        ' of them new to the step';
+    }).join('; ') + '. Under ' + DATA.minCohort + ' first-time units the ' +
+      'yield moves a long way on one unit, so the product publishes with its ' +
+      'cohorts rather than being quoted as though it were solid.';
+    return td;
+  }
+
   function render() {
     var cols = steps();
 
@@ -67,8 +126,7 @@
           week.endsOn.slice(5) + (week.partial ? ' · running' : '') })
       ]);
       tr.appendChild(cell);
-      tr.appendChild(h('td', { class: 'n y ' + tone((week.totals || {}).rolledFpy),
-                               text: pct((week.totals || {}).rolledFpy) }));
+      tr.appendChild(rolledCell(week.totals || {}));
 
       cols.forEach(function (col) {
         var row = by[col.key];
@@ -76,28 +134,46 @@
         if (!row) {
           td.textContent = '—';
         } else if (row.fpy == null) {
-          /* No yield published — either the stage reports quantity only, or
-             it ran too few units. The count is the honest answer to both. */
+          /* No first pass to take a yield over — either the stage reports
+             quantity only, or not one unit this week was new to it. The count
+             is the honest answer to both. */
           td.appendChild(h('span', { class: 'countonly',
                                      text: row.units + ' u' }));
           td.title = row.countsOnly
             ? 'Quantity only — chassis and rack level, in bring-up'
-            : 'Fewer than ' + DATA.minCohort + ' first-time units';
+            : 'No unit was new to this step this week — every one had run it '
+              + 'before, so there is no first pass to measure';
         } else {
           td.className = 'n y ' + tone(row.fpy);
           td.appendChild(document.createTextNode(pct(row.fpy)));
           /* A thin cohort still publishes its yield — L10 and L11 asked for
              it — but says so, because 50% of two units and 50% of two hundred
              are the same number and not the same fact. Marked on the number,
-             not instead of it. */
-          if (row.thinCohort) {
+             not instead of it.
+
+             The question is about the yield's OWN denominator, which is
+             first-time units — so `readable`, not `thinCohort`. Following
+             `thinCohort`, the size of the week's window, left MLT in 2026-W36
+             reading as a solid 40% with "90 u" under it when the 40% was four
+             units of the ten that were new: the one thin figure on the page
+             whose thinness was invisible. `thinCohort` is still honoured, so an
+             older bundle keeps the marks it had. */
+          if (row.readable === false || row.thinCohort === true) {
             td.className += ' thin';
             td.appendChild(h('span', { class: 'thin-mark',
-              title: 'fewer than ' + DATA.minCohort + ' units — the yield is '
-                   + 'published but it moves a long way on one unit',
+              title: 'fewer than ' + DATA.minCohort + ' first-time units — the '
+                   + 'yield is published but it moves a long way on one unit, '
+                   + 'and it stays out of the rolled figure',
               text: '\u2009*' }));
           }
-          td.appendChild(h('span', { class: 'sub', text: row.units + ' u' }));
+          /* The count under the number is that number's denominator, not the
+             week's traffic. The two were the same thing until repeats began to
+             outnumber new units, and then "40%" over "90 u" was two facts that
+             did not belong to each other. */
+          td.appendChild(h('span', { class: 'sub',
+            text: row.newUnits != null && row.newUnits !== row.units
+              ? row.newUnits + ' new of ' + row.units + ' u'
+              : row.units + ' u' }));
         }
         tr.appendChild(td);
       });
@@ -108,12 +184,17 @@
     });
 
     byId('caption').textContent = WEEKS.length + ' weeks. ' +
-      'A cell shows first-pass yield with the unit count under it. A * marks a ' +
-      'yield over fewer than ' + DATA.minCohort + ' units — published since ' +
-      'L10 and L11 wanted their numbers, worth reading with the count beside ' +
-      'it. Where a ' +
-      'step ran fewer than ' + DATA.minCohort + ' first-time units only the ' +
-      'count is shown, because a yield over three chassis is not a yield.';
+      'A cell shows first-pass yield over the count under it, and that count is ' +
+      'the yield\u2019s own denominator: first-pass counts a unit only on its ' +
+      'first ever run at that step, so \u201c10 new of 90 u\u201d is a yield ' +
+      'over ten. A * marks a yield over fewer than ' + DATA.minCohort +
+      ' first-time units — published since L10 and L11 wanted their numbers, ' +
+      'because a blank read as nothing having been tested, and marked because ' +
+      'it moves a long way on one unit. A grey count is a step where no unit was on its first run, so ' +
+      'there is no first pass to measure. The rolled column carries the same ' +
+      'mark for the same reason — a product is as thin as its thinnest term, ' +
+      'and the cohorts it was taken over are printed under it. A dash there ' +
+      'means one half of MLT \u00d7 HTT had no first-pass cohort at all.';
 
     byId('meta').textContent = WEEKS.length
       ? WEEKS[WEEKS.length - 1].from + ' → ' + WEEKS[0].endsOn : '';

@@ -1,0 +1,53 @@
+{
+ "_comment": [
+  "Migrated 2026-09-04 from errors/established.json, which holds this as two entries",
+  "(PcieSetupTestCase and CheckPcieTopology) and says outright that they are one thing:",
+  "the sheet calls it PcieSetupTestCase, the controllers log CheckPcieTopology.",
+  "",
+  "WHY code IS null. Neither name resolves to a single code. In errors/catalogue.json",
+  "PcieSetupTestCase carries 2 candidate codes (TH-PCIE-0008, TH-PCIE-0009) and",
+  "CheckPcieTopology carries 9. The established root cause is a statement about the",
+  "test case, not about any one of those codes, so pinning it to one would be inventing",
+  "a diagnosis. This is the case- file form doing the job it exists for.",
+  "",
+  "EVIDENCE. established.json says this was 'Reported in Slack', but no permalink was",
+  "captured at the time. Under SCHEMA.md rule 3 an unrecorded source is omitted rather",
+  "than reconstructed, so only the Jira reference is listed. If somebody finds the",
+  "thread, add it -- do not guess at it."
+ ],
+ "schemaVersion": 1,
+ "code": null,
+
+ "appliesTo": {
+  "cases": ["PcieSetupTestCase", "CheckPcieTopology"]
+ },
+
+ "rootCauses": [
+  {
+   "id": "rc-harness-topology-expectation",
+   "team": "Test",
+   "confidence": "confirmed",
+   "statement": "The PCIe setup case fails when the harness cannot enumerate the topology it expects -- a proxy that has not come up, an inventory command that returned nothing parseable, or a topology file that does not match the server being tested. None of those are the module: the discovered device count or parent/child topology not matching the expected server topology is a statement about the expectation as much as about the hardware.",
+   "evidence": [
+    {
+     "source": "jira",
+     "url": "https://etched-ai.atlassian.net/browse/ETCH-35872"
+    }
+   ],
+   "correctiveActions": [
+    {
+     "id": "ca-confirm-topology-then-rerun",
+     "action": "Confirm the expected topology for this chassis build before touching the DUT, and confirm the RPC proxy is up. Re-run; escalate only if it reproduces on a second station.",
+     "kind": "process",
+     "state": "applied",
+     "appliedAt": null,
+     "scope": {"kind": "fleet", "value": ""},
+     "ref": "ETCH-35872"
+    }
+   ]
+  }
+ ],
+
+ "updatedAt": "2026-09-04T00:00:00Z",
+ "updatedBy": "chuck"
+}

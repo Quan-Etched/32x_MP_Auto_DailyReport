@@ -420,6 +420,38 @@
 .dut-cases { font-size: 11px; max-width: 30ch; color: var(--text-secondary); }
 .dut-link { color: var(--accent-solid); font-weight: 600; }
 
+/* ---- before the collected window --------------------------------------
+   A serial's history now joins two sources: the runs bundle from the line's
+   reporting horizon, and the controllers' run index for everything before it.
+   The earlier rows are the same history and thinner evidence, so they are
+   tinted rather than separated — one timeline, with the join visible. Muted,
+   not warned about: an attempt from July is a fact about the board, not a
+   problem with it. */
+.dut-table tr.dut-early > td {
+  background: var(--hover-wash);
+  color: var(--text-secondary);
+}
+.dut-nodetail { color: var(--text-muted); font-style: italic; }
+
+/* The count in the card head, where a bonepile board's story starts. */
+.dut-early-tag {
+  font-size: 11px;
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  cursor: help;
+  white-space: nowrap;
+}
+
+.dut-note {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  max-width: 96ch;
+}
+
 /* ---- Traceability (trace.js) -------------------------------------------
    The genealogy view under the serial search. Deliberately reuses .card,
    .card-head, .cz-table and .table-wrap so it reads as part of the page rather

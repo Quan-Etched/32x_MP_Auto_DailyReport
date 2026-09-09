@@ -7,6 +7,10 @@ data/processed/
 data/logs/
 dashboard/data/*.js
 dashboard/data/releases/
+# Per-serial trace bundles, written on the box when somebody opens a serial.
+# Generated, like releases/ above, and left untracked it made every published
+# page report a dirty tree.
+dashboard/data/trace/
 !dashboard/data/.gitkeep
 
 # Python

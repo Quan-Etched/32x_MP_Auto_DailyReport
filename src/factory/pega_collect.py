@@ -84,18 +84,23 @@ NOT_PRODUCTION = re.compile(
     r"(_validation|_debug|_krish|_out_dir|_SAM|_SMOKE|_etch\d+|^DRY_?RUN|^test_)",
     re.IGNORECASE)
 
-#: How far back to walk the controllers.
+#: How far back to walk the controllers, when a caller asks for a fixed window.
 #:
-#: Ninety, which is everything they hold. Probed rather than assumed: pega3
-#: answers with runs at 30 and 45 days back, thins to a couple at 60, and
-#: returns nothing at 90, 120 or 180. Asking for 90 therefore captures the
-#: whole history and costs a handful of empty listings at the far end.
+#: The default is no longer a number: :func:`collect` walks from
+#: ``pega.CONTROLLER_FROM``, the day the data actually starts. Ninety was
+#: measured when 90 days back was 2026-05-27 and the earliest run anywhere was
+#: 05-21 — true then, and quietly false by 09-02, when the same 90 days began
+#: on 06-04 and cut a fortnight off pega3. A window defined by its age walks
+#: away from a history defined by its start.
 #:
-#: It is cheap to keep: a finished run never changes, so every day but today
-#: is served from disk after the first build. The reporting windows are much
-#: shorter and are trimmed at the point of use — the station page shows seven
-#: days — but the collected history is what lets the weekly page tell a unit's
-#: first attempt from its fourth.
+#: This constant stays for the callers that genuinely want a recent slice —
+#: the FPY summary asks for its own — and for `--days`.
+#:
+#: It is cheap to keep the whole history: a finished run never changes, so
+#: every day but today is served from disk after the first build. The reporting
+#: windows are much shorter and are trimmed at the point of use — the station
+#: page shows seven days — but the collected history is what lets the weekly
+#: page tell a unit's first attempt from its fourth.
 COLLECT_DAYS = 90
 
 #: pega verdicts -> the vocabulary the rest of the repo speaks.
@@ -126,6 +131,23 @@ def _epoch(value: Optional[str]) -> Optional[int]:
     return int(moment.timestamp())
 
 
+#: Stage key -> station key, for the controllers whose stage tables and the
+#: runs bundle spell the same stage differently.
+#:
+#: One table, because the two names have to agree everywhere or a board's
+#: history splits in two. build_l10 and build_l11 key their indices by stage
+#: ("fat", "provision"); the runs bundle, the weekly rows and the station
+#: registry key by station ("l10_fat", "l11_provision"). An L10 attempt from
+#: July filed under "fat" reads on a page as a different stage from the same
+#: chassis's August attempt under "l10_fat" — one unit, two histories, and
+#: nothing to say they are the same.
+STAGE_STATIONS: Dict[str, Dict[str, str]] = {
+    "pega4": {"fat": "l10_fat", "sft": "l10_sft",
+              "rin": "l10_rin", "2u": "l10_2u"},
+    "pega5": {"provision": "l11_provision", "test": "l11_test"},
+}
+
+
 def station_of(host: str, suite: Optional[str]) -> Optional[str]:
     """The station key for a controller's suite name.
 
@@ -139,9 +161,7 @@ def station_of(host: str, suite: Optional[str]) -> Optional[str]:
         return None
 
     if host == "pega4":
-        stage = build_l10.stage_of(name)
-        return {"fat": "l10_fat", "sft": "l10_sft",
-                "rin": "l10_rin", "2u": "l10_2u"}.get(stage)
+        return STAGE_STATIONS["pega4"].get(build_l10.stage_of(name))
 
     if host == "pega5":
         lowered = name.lower()
@@ -191,12 +211,22 @@ def _tests_for(detail: Dict[str, Any], slot: Optional[int]) -> List[Dict[str, An
     return out
 
 
-def collect(days: int = COLLECT_DAYS, hosts: Tuple[Tuple[str, str, bool], ...] = HOSTS,
+def collect(days: Optional[int] = None,
+            hosts: Tuple[Tuple[str, str, bool], ...] = HOSTS,
             progress: bool = True) -> Dict[str, Any]:
-    """Walk every controller and return a payload shaped like the EOS one."""
+    """Walk every controller and return a payload shaped like the EOS one.
+
+    ``days`` asks for that many days ending today. Left out — the default —
+    the walk starts at :data:`pega.CONTROLLER_FROM` instead, so it reaches the
+    beginning of the data rather than a fixed distance behind today.
+    """
     today = datetime.now(timezone.utc).date()
-    window = [(today - timedelta(days=offset)).strftime("%Y-%m-%d")
-              for offset in range(days - 1, -1, -1)]
+    if days is None:
+        window = pega.day_range(pega.CONTROLLER_FROM,
+                                today.strftime("%Y-%m-%d"))
+    else:
+        window = [(today - timedelta(days=offset)).strftime("%Y-%m-%d")
+                  for offset in range(days - 1, -1, -1)]
 
     records: List[Dict[str, Any]] = []
     problems: List[str] = []

@@ -1,0 +1,5463 @@
+{
+ "charts": {
+  "daily": [
+   {
+    "abort": 0,
+    "day": "2026-08-24",
+    "fail": 39,
+    "fpy": 0.4342105263157895,
+    "fpyPass": 33,
+    "fpyTotal": 76,
+    "graded": 44,
+    "pass": 5,
+    "perUnit": true,
+    "runs": 44,
+    "thin": false,
+    "units": 44
+   },
+   {
+    "abort": 0,
+    "day": "2026-08-25",
+    "fail": 0,
+    "fpy": 0.0,
+    "fpyPass": 0,
+    "fpyTotal": 7,
+    "graded": 8,
+    "pass": 8,
+    "perUnit": true,
+    "runs": 8,
+    "thin": false,
+    "units": 8
+   },
+   {
+    "abort": 0,
+    "day": "2026-08-26",
+    "fail": 8,
+    "fpy": 0.5641025641025641,
+    "fpyPass": 22,
+    "fpyTotal": 39,
+    "graded": 18,
+    "pass": 10,
+    "perUnit": true,
+    "runs": 18,
+    "thin": false,
+    "units": 18
+   },
+   {
+    "abort": 0,
+    "day": "2026-08-27",
+    "fail": 12,
+    "fpy": 0.14285714285714285,
+    "fpyPass": 1,
+    "fpyTotal": 7,
+    "graded": 24,
+    "pass": 12,
+    "perUnit": true,
+    "runs": 24,
+    "thin": false,
+    "units": 24
+   },
+   {
+    "abort": 0,
+    "day": "2026-08-28",
+    "fail": 5,
+    "fpy": 0.4444444444444444,
+    "fpyPass": 4,
+    "fpyTotal": 9,
+    "graded": 7,
+    "pass": 2,
+    "perUnit": true,
+    "runs": 7,
+    "thin": false,
+    "units": 7
+   },
+   {
+    "abort": 0,
+    "day": "2026-08-29",
+    "fail": 2,
+    "fpy": 0.0,
+    "fpyPass": 0,
+    "fpyTotal": 1,
+    "graded": 2,
+    "pass": 0,
+    "perUnit": true,
+    "runs": 2,
+    "thin": true,
+    "units": 2
+   },
+   {
+    "abort": 0,
+    "day": "2026-08-30",
+    "fail": 1,
+    "fpy": null,
+    "fpyPass": 0,
+    "fpyTotal": 0,
+    "graded": 1,
+    "pass": 0,
+    "perUnit": true,
+    "runs": 1,
+    "thin": true,
+    "units": 1
+   }
+  ],
+  "firstFailure": [
+   {
+    "area": "Llama / SaSort",
+    "cumulativeShare": 0.3333333333333333,
+    "duts": 34,
+    "fails": 39,
+    "share": 0.3333333333333333,
+    "topTest": "1985ecd5_rdqs_sweep_training_sa_sort_rampup_hbm_chip0"
+   },
+   {
+    "area": "Other",
+    "cumulativeShare": 0.5299145299145299,
+    "duts": 22,
+    "fails": 23,
+    "share": 0.19658119658119658,
+    "topTest": "f94d4f6a_validate_coldplate_temperature"
+   },
+   {
+    "area": "Provisioning",
+    "cumulativeShare": 0.6410256410256411,
+    "duts": 2,
+    "fails": 13,
+    "share": 0.1111111111111111,
+    "topTest": "549f1636_PROVISION_SOHU_1"
+   },
+   {
+    "area": "Lane Repair",
+    "cumulativeShare": 0.7264957264957265,
+    "duts": 8,
+    "fails": 10,
+    "share": 0.08547008547008547,
+    "topTest": "9df9a859_chip2_lane_repair"
+   },
+   {
+    "area": "Enumeration / BAR / I2C",
+    "cumulativeShare": 0.811965811965812,
+    "duts": 10,
+    "fails": 10,
+    "share": 0.08547008547008547,
+    "topTest": "7ad93993_vbb_dependent_tests_i2c_chip0"
+   },
+   {
+    "area": "C2C",
+    "cumulativeShare": 0.8632478632478633,
+    "duts": 3,
+    "fails": 6,
+    "share": 0.05128205128205128,
+    "topTest": "71637e6a_chip2_c2c_integrity_mac_loopback"
+   },
+   {
+    "area": "Power Virus / Thermal",
+    "cumulativeShare": 0.8974358974358975,
+    "duts": 3,
+    "fails": 4,
+    "share": 0.03418803418803419,
+    "topTest": "9df9a859_chip0_power_virus_vmin"
+   },
+   {
+    "area": "DMA",
+    "cumulativeShare": 0.9230769230769231,
+    "duts": 2,
+    "fails": 3,
+    "share": 0.02564102564102564,
+    "topTest": "45360a30_chip5_dma"
+   },
+   {
+    "area": "VFIO / VM",
+    "cumulativeShare": 0.9401709401709402,
+    "duts": 2,
+    "fails": 2,
+    "share": 0.017094017094017096,
+    "topTest": "c8a87f36_chip2_vfio_ping_application"
+   },
+   {
+    "area": "MTC Stress",
+    "cumulativeShare": 0.9572649572649573,
+    "duts": 1,
+    "fails": 2,
+    "share": 0.017094017094017096,
+    "topTest": "c260a6c1_chip4_mtc_stress"
+   },
+   {
+    "area": "RDQS Training",
+    "cumulativeShare": 0.9743589743589743,
+    "duts": 2,
+    "fails": 2,
+    "share": 0.017094017094017096,
+    "topTest": "8652ca9d_rdqs_sweep_training_rdqs_sweep_training_2000_1800_8000_chip5"
+   },
+   {
+    "area": "FLR",
+    "cumulativeShare": 0.9829059829059829,
+    "duts": 1,
+    "fails": 1,
+    "share": 0.008547008547008548,
+    "topTest": "1985ecd5_server_setup_sohu_flr_test_chip5"
+   }
+  ],
+  "pareto": [
+   {
+    "area": "Other",
+    "byStation": [
+     {
+      "duts": 22,
+      "fails": 180,
+      "label": "MLT",
+      "station": "mlt"
+     },
+     {
+      "duts": 22,
+      "fails": 23,
+      "label": "TIM",
+      "station": "tim"
+     },
+     {
+      "duts": 1,
+      "fails": 2,
+      "label": "L11 Test",
+      "station": "l11_test"
+     }
+    ],
+    "byTest": [
+     {
+      "fails": 36,
+      "test": "check_hsm_token"
+     },
+     {
+      "fails": 36,
+      "test": "assert_module_serials"
+     },
+     {
+      "fails": 36,
+      "test": "pv1_fru_verification"
+     },
+     {
+      "fails": 36,
+      "test": "require_tpm_prerequisites"
+     },
+     {
+      "fails": 36,
+      "test": "verify_tpm_state"
+     },
+     {
+      "fails": 23,
+      "test": "validate_coldplate_temperature"
+     },
+     {
+      "fails": 2,
+      "test": "FORWARD_ITERATED_SS1"
+     }
+    ],
+    "cumulativeShare": 0.14663805436337626,
+    "duts": 39,
+    "fails": 205,
+    "share": 0.14663805436337626,
+    "testCount": 7,
+    "topDuts": [
+     {
+      "dut": "268862110000022",
+      "fails": 16
+     },
+     {
+      "dut": "268862110000010",
+      "fails": 16
+     },
+     {
+      "dut": "268862110000013",
+      "fails": 16
+     },
+     {
+      "dut": "268862110000007",
+      "fails": 11
+     },
+     {
+      "dut": "268633330000011",
+      "fails": 10
+     },
+     {
+      "dut": "268633330000029",
+      "fails": 10
+     },
+     {
+      "dut": "268633330000001",
+      "fails": 10
+     },
+     {
+      "dut": "268633330000013",
+      "fails": 10
+     },
+     {
+      "dut": "268494110000008",
+      "fails": 10
+     },
+     {
+      "dut": "268494110000096",
+      "fails": 10
+     },
+     {
+      "dut": "268494110000037",
+      "fails": 10
+     },
+     {
+      "dut": "268862110000019",
+      "fails": 6
+     }
+    ],
+    "topTest": "9df9a859_chip2_check_hsm_token"
+   },
+   {
+    "area": "C2C",
+    "byStation": [
+     {
+      "duts": 22,
+      "fails": 175,
+      "label": "MLT",
+      "station": "mlt"
+     }
+    ],
+    "byTest": [
+     {
+      "fails": 37,
+      "test": "power_virus_numeric_c2c"
+     },
+     {
+      "fails": 18,
+      "test": "c2c_integrity_mac_loopback"
+     },
+     {
+      "fails": 18,
+      "test": "c2c_integrity"
+     },
+     {
+      "fails": 14,
+      "test": "c2c_throughput"
+     },
+     {
+      "fails": 13,
+      "test": "c2c_mac_loopback_linkup"
+     },
+     {
+      "fails": 13,
+      "test": "c2c_linkup"
+     },
+     {
+      "fails": 13,
+      "test": "c2c_linkup_2"
+     },
+     {
+      "fails": 13,
+      "test": "c2c_linkup_before_throughput"
+     }
+    ],
+    "cumulativeShare": 0.2718168812589413,
+    "duts": 22,
+    "fails": 175,
+    "share": 0.1251788268955651,
+    "testCount": 11,
+    "topDuts": [
+     {
+      "dut": "268633330000011",
+      "fails": 12
+     },
+     {
+      "dut": "268633330000029",
+      "fails": 12
+     },
+     {
+      "dut": "268633330000001",
+      "fails": 12
+     },
+     {
+      "dut": "268633330000013",
+      "fails": 12
+     },
+     {
+      "dut": "268862110000007",
+      "fails": 12
+     },
+     {
+      "dut": "268633330000020",
+      "fails": 11
+     },
+     {
+      "dut": "268633330000002",
+      "fails": 11
+     },
+     {
+      "dut": "268633330000037",
+      "fails": 11
+     },
+     {
+      "dut": "268633330000041",
+      "fails": 11
+     },
+     {
+      "dut": "268633330000030",
+      "fails": 11
+     },
+     {
+      "dut": "268633330000003",
+      "fails": 11
+     },
+     {
+      "dut": "268633330000009",
+      "fails": 11
+     }
+    ],
+    "topTest": "9df9a859_chip2_power_virus_numeric_c2c"
+   },
+   {
+    "area": "Llama / SaSort",
+    "byStation": [
+     {
+      "duts": 21,
+      "fails": 121,
+      "label": "MLT",
+      "station": "mlt"
+     },
+     {
+      "duts": 32,
+      "fails": 53,
+      "label": "HTT",
+      "station": "htt"
+     }
+    ],
+    "byTest": [
+     {
+      "fails": 34,
+      "test": "llama70b_tp1_forward_iterated"
+     },
+     {
+      "fails": 33,
+      "test": "llama_mtt_soldered"
+     },
+     {
+      "fails": 27,
+      "test": "sa_sort_rampup_hbm"
+     },
+     {
+      "fails": 27,
+      "test": "llama_mtt_socket"
+     },
+     {
+      "fails": 6,
+      "test": "rdqs_sweep_training_llama70b_tp1_forward_iterated_chip6"
+     },
+     {
+      "fails": 5,
+      "test": "rdqs_sweep_training_llama70b_tp1_forward_iterated_chip2"
+     },
+     {
+      "fails": 5,
+      "test": "rdqs_sweep_training_llama70b_tp1_forward_iterated_chip5"
+     },
+     {
+      "fails": 5,
+      "test": "rdqs_sweep_training_llama70b_tp1_forward_iterated_chip1"
+     }
+    ],
+    "cumulativeShare": 0.39628040057224606,
+    "duts": 50,
+    "fails": 174,
+    "share": 0.12446351931330472,
+    "testCount": 22,
+    "topDuts": [
+     {
+      "dut": "268862110000010",
+      "fails": 12
+     },
+     {
+      "dut": "268862110000013",
+      "fails": 12
+     },
+     {
+      "dut": "268862110000022",
+      "fails": 12
+     },
+     {
+      "dut": "268633330000011",
+      "fails": 8
+     },
+     {
+      "dut": "268633330000029",
+      "fails": 8
+     },
+     {
+      "dut": "268633330000001",
+      "fails": 8
+     },
+     {
+      "dut": "268633330000013",
+      "fails": 8
+     },
+     {
+      "dut": "268633330000020",
+      "fails": 7
+     },
+     {
+      "dut": "268633330000002",
+      "fails": 5
+     },
+     {
+      "dut": "268633330000041",
+      "fails": 5
+     },
+     {
+      "dut": "268633330000039",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000037",
+      "fails": 4
+     }
+    ],
+    "topTest": "9df9a859_chip2_sa_sort_rampup_hbm"
+   },
+   {
+    "area": "Attention / KV Flush",
+    "byStation": [
+     {
+      "duts": 18,
+      "fails": 126,
+      "label": "MLT",
+      "station": "mlt"
+     }
+    ],
+    "byTest": [
+     {
+      "fails": 26,
+      "test": "all_attn_tests"
+     },
+     {
+      "fails": 25,
+      "test": "all_attn_hbm_bypass_tests"
+     },
+     {
+      "fails": 25,
+      "test": "kv_flush_tests"
+     },
+     {
+      "fails": 25,
+      "test": "kv_flush_and_attention"
+     },
+     {
+      "fails": 25,
+      "test": "kv_flush_and_attention_interleaved"
+     }
+    ],
+    "cumulativeShare": 0.4864091559370529,
+    "duts": 18,
+    "fails": 126,
+    "share": 0.09012875536480687,
+    "testCount": 5,
+    "topDuts": [
+     {
+      "dut": "268862110000010",
+      "fails": 15
+     },
+     {
+      "dut": "268862110000022",
+      "fails": 15
+     },
+     {
+      "dut": "268633330000011",
+      "fails": 10
+     },
+     {
+      "dut": "268633330000029",
+      "fails": 10
+     },
+     {
+      "dut": "268633330000001",
+      "fails": 10
+     },
+     {
+      "dut": "268633330000013",
+      "fails": 10
+     },
+     {
+      "dut": "268633330000039",
+      "fails": 5
+     },
+     {
+      "dut": "268633330000020",
+      "fails": 5
+     },
+     {
+      "dut": "268633330000002",
+      "fails": 5
+     },
+     {
+      "dut": "268633330000037",
+      "fails": 5
+     },
+     {
+      "dut": "268633330000041",
+      "fails": 5
+     },
+     {
+      "dut": "268633330000030",
+      "fails": 5
+     }
+    ],
+    "topTest": "all_attn_tests"
+   },
+   {
+    "area": "Power Virus / Thermal",
+    "byStation": [
+     {
+      "duts": 23,
+      "fails": 119,
+      "label": "MLT",
+      "station": "mlt"
+     },
+     {
+      "duts": 2,
+      "fails": 2,
+      "label": "HTT",
+      "station": "htt"
+     },
+     {
+      "duts": 1,
+      "fails": 2,
+      "label": "L11 Test",
+      "station": "l11_test"
+     }
+    ],
+    "byTest": [
+     {
+      "fails": 34,
+      "test": "power_virus_numeric_sau"
+     },
+     {
+      "fails": 34,
+      "test": "power_virus_thermal"
+     },
+     {
+      "fails": 33,
+      "test": "power_virus_numeric_sa"
+     },
+     {
+      "fails": 18,
+      "test": "power_virus_vmin"
+     },
+     {
+      "fails": 2,
+      "test": "POWER_VIRUS_SS1"
+     },
+     {
+      "fails": 1,
+      "test": "rdqs_sweep_training_power_virus_vmin_chip5"
+     },
+     {
+      "fails": 1,
+      "test": "rdqs_sweep_training_power_virus_vmin_chip7"
+     }
+    ],
+    "cumulativeShare": 0.5743919885550787,
+    "duts": 26,
+    "fails": 123,
+    "share": 0.08798283261802575,
+    "testCount": 7,
+    "topDuts": [
+     {
+      "dut": "268862110000010",
+      "fails": 9
+     },
+     {
+      "dut": "268862110000013",
+      "fails": 9
+     },
+     {
+      "dut": "268862110000022",
+      "fails": 9
+     },
+     {
+      "dut": "268633330000011",
+      "fails": 8
+     },
+     {
+      "dut": "268633330000029",
+      "fails": 8
+     },
+     {
+      "dut": "268633330000001",
+      "fails": 8
+     },
+     {
+      "dut": "268633330000013",
+      "fails": 8
+     },
+     {
+      "dut": "268494110000008",
+      "fails": 6
+     },
+     {
+      "dut": "268494110000096",
+      "fails": 6
+     },
+     {
+      "dut": "268494110000037",
+      "fails": 6
+     },
+     {
+      "dut": "268633330000041",
+      "fails": 5
+     },
+     {
+      "dut": "268633330000039",
+      "fails": 4
+     }
+    ],
+    "topTest": "9df9a859_chip0_power_virus_vmin"
+   },
+   {
+    "area": "PMBIST",
+    "byStation": [
+     {
+      "duts": 17,
+      "fails": 92,
+      "label": "MLT",
+      "station": "mlt"
+     }
+    ],
+    "byTest": [
+     {
+      "fails": 23,
+      "test": "pmbist_xmc_4bk"
+     },
+     {
+      "fails": 23,
+      "test": "pmbist_ymc_32_2bk"
+     },
+     {
+      "fails": 23,
+      "test": "pmbist_ymc_44_2bk"
+     },
+     {
+      "fails": 23,
+      "test": "pmbist_interleave_16bk"
+     }
+    ],
+    "cumulativeShare": 0.6402002861230329,
+    "duts": 17,
+    "fails": 92,
+    "share": 0.06580829756795423,
+    "testCount": 4,
+    "topDuts": [
+     {
+      "dut": "268862110000022",
+      "fails": 12
+     },
+     {
+      "dut": "268633330000011",
+      "fails": 8
+     },
+     {
+      "dut": "268633330000029",
+      "fails": 8
+     },
+     {
+      "dut": "268633330000001",
+      "fails": 8
+     },
+     {
+      "dut": "268633330000013",
+      "fails": 8
+     },
+     {
+      "dut": "268633330000039",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000020",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000002",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000037",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000041",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000030",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000003",
+      "fails": 4
+     }
+    ],
+    "topTest": "9df9a859_chip2_pmbist_xmc_4bk"
+   },
+   {
+    "area": "Provisioning",
+    "byStation": [
+     {
+      "duts": 22,
+      "fails": 59,
+      "label": "MLT",
+      "station": "mlt"
+     },
+     {
+      "duts": 2,
+      "fails": 31,
+      "label": "L11 Provision",
+      "station": "l11_provision"
+     }
+    ],
+    "byTest": [
+     {
+      "fails": 36,
+      "test": "provision_tpm"
+     },
+     {
+      "fails": 23,
+      "test": "ready_to_provision"
+     },
+     {
+      "fails": 5,
+      "test": "PROVISION_SOHU_2"
+     },
+     {
+      "fails": 5,
+      "test": "PROVISION_SOHU_4"
+     },
+     {
+      "fails": 5,
+      "test": "PROVISION_REDUNDANT_RMS"
+     },
+     {
+      "fails": 4,
+      "test": "PROVISION_SOHU_3"
+     },
+     {
+      "fails": 3,
+      "test": "PROVISION_SOHU_1"
+     },
+     {
+      "fails": 2,
+      "test": "PROVISION_PRIMARY_RMS"
+     }
+    ],
+    "cumulativeShare": 0.7045779685264664,
+    "duts": 24,
+    "fails": 90,
+    "share": 0.06437768240343347,
+    "testCount": 13,
+    "topDuts": [
+     {
+      "dut": "268633780001",
+      "fails": 25
+     },
+     {
+      "dut": "266447170002",
+      "fails": 6
+     },
+     {
+      "dut": "268633330000011",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000029",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000001",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000013",
+      "fails": 4
+     },
+     {
+      "dut": "268862110000007",
+      "fails": 4
+     },
+     {
+      "dut": "268862110000010",
+      "fails": 4
+     },
+     {
+      "dut": "268862110000013",
+      "fails": 4
+     },
+     {
+      "dut": "268862110000022",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000039",
+      "fails": 2
+     },
+     {
+      "dut": "268633330000020",
+      "fails": 2
+     }
+    ],
+    "topTest": "9df9a859_chip2_ready_to_provision"
+   },
+   {
+    "area": "SA Screening",
+    "byStation": [
+     {
+      "duts": 17,
+      "fails": 54,
+      "label": "MLT",
+      "station": "mlt"
+     }
+    ],
+    "byTest": [
+     {
+      "fails": 27,
+      "test": "sa_column_screen_soldered"
+     },
+     {
+      "fails": 27,
+      "test": "sa_column_screen_socket"
+     }
+    ],
+    "cumulativeShare": 0.7432045779685265,
+    "duts": 17,
+    "fails": 54,
+    "share": 0.03862660944206009,
+    "testCount": 2,
+    "topDuts": [
+     {
+      "dut": "268862110000010",
+      "fails": 6
+     },
+     {
+      "dut": "268862110000013",
+      "fails": 6
+     },
+     {
+      "dut": "268862110000022",
+      "fails": 6
+     },
+     {
+      "dut": "268633330000011",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000029",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000001",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000013",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000039",
+      "fails": 2
+     },
+     {
+      "dut": "268633330000020",
+      "fails": 2
+     },
+     {
+      "dut": "268633330000002",
+      "fails": 2
+     },
+     {
+      "dut": "268633330000037",
+      "fails": 2
+     },
+     {
+      "dut": "268633330000041",
+      "fails": 2
+     }
+    ],
+    "topTest": "9df9a859_chip2_sa_column_screen_soldered"
+   },
+   {
+    "area": "Chip ID / eFuse / Bin",
+    "byStation": [
+     {
+      "duts": 17,
+      "fails": 49,
+      "label": "MLT",
+      "station": "mlt"
+     }
+    ],
+    "byTest": [
+     {
+      "fails": 27,
+      "test": "chip_bin"
+     },
+     {
+      "fails": 12,
+      "test": "efuse_test"
+     },
+     {
+      "fails": 10,
+      "test": "chip_id"
+     }
+    ],
+    "cumulativeShare": 0.7782546494992847,
+    "duts": 17,
+    "fails": 49,
+    "share": 0.035050071530758224,
+    "testCount": 3,
+    "topDuts": [
+     {
+      "dut": "268633330000011",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000029",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000001",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000013",
+      "fails": 4
+     },
+     {
+      "dut": "268633330000020",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000002",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000037",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000041",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000003",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000009",
+      "fails": 3
+     },
+     {
+      "dut": "268862110000010",
+      "fails": 3
+     },
+     {
+      "dut": "268862110000013",
+      "fails": 3
+     }
+    ],
+    "topTest": "9df9a859_chip2_chip_bin"
+   },
+   {
+    "area": "VFIO / VM",
+    "byStation": [
+     {
+      "duts": 19,
+      "fails": 45,
+      "label": "MLT",
+      "station": "mlt"
+     }
+    ],
+    "byTest": [
+     {
+      "fails": 13,
+      "test": "chip_reachable"
+     },
+     {
+      "fails": 12,
+      "test": "vfio_ping_application"
+     },
+     {
+      "fails": 10,
+      "test": "vfio_ping_boot"
+     },
+     {
+      "fails": 2,
+      "test": "vbb_dependent_tests_vm_chip0"
+     },
+     {
+      "fails": 2,
+      "test": "vbb_dependent_tests_vm_chip1"
+     },
+     {
+      "fails": 1,
+      "test": "vbb_dependent_tests_vm_chip2"
+     },
+     {
+      "fails": 1,
+      "test": "vbb_dependent_tests_vm_chip3"
+     },
+     {
+      "fails": 1,
+      "test": "vbb_dependent_tests_vm_chip4"
+     }
+    ],
+    "cumulativeShare": 0.8104434907010014,
+    "duts": 19,
+    "fails": 45,
+    "share": 0.032188841201716736,
+    "testCount": 11,
+    "topDuts": [
+     {
+      "dut": "268633330000011",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000020",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000029",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000001",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000013",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000002",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000037",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000041",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000003",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000009",
+      "fails": 3
+     },
+     {
+      "dut": "268862110000022",
+      "fails": 2
+     },
+     {
+      "dut": "268862110000010",
+      "fails": 2
+     }
+    ],
+    "topTest": "7ad93993_vbb_dependent_tests_vm_chip0"
+   },
+   {
+    "area": "DMA",
+    "byStation": [
+     {
+      "duts": 18,
+      "fails": 28,
+      "label": "MLT",
+      "station": "mlt"
+     }
+    ],
+    "byTest": [
+     {
+      "fails": 28,
+      "test": "dma"
+     }
+    ],
+    "cumulativeShare": 0.8304721030042919,
+    "duts": 18,
+    "fails": 28,
+    "share": 0.020028612303290415,
+    "testCount": 1,
+    "topDuts": [
+     {
+      "dut": "268862110000010",
+      "fails": 3
+     },
+     {
+      "dut": "268862110000013",
+      "fails": 3
+     },
+     {
+      "dut": "268862110000022",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000011",
+      "fails": 2
+     },
+     {
+      "dut": "268633330000029",
+      "fails": 2
+     },
+     {
+      "dut": "268633330000001",
+      "fails": 2
+     },
+     {
+      "dut": "268633330000013",
+      "fails": 2
+     },
+     {
+      "dut": "268633330000039",
+      "fails": 1
+     },
+     {
+      "dut": "268633330000020",
+      "fails": 1
+     },
+     {
+      "dut": "268633330000002",
+      "fails": 1
+     },
+     {
+      "dut": "268633330000037",
+      "fails": 1
+     },
+     {
+      "dut": "268633330000041",
+      "fails": 1
+     }
+    ],
+    "topTest": "9df9a859_chip2_dma"
+   },
+   {
+    "area": "Weight Load",
+    "byStation": [
+     {
+      "duts": 17,
+      "fails": 27,
+      "label": "MLT",
+      "station": "mlt"
+     }
+    ],
+    "byTest": [
+     {
+      "fails": 27,
+      "test": "weight_load"
+     }
+    ],
+    "cumulativeShare": 0.8497854077253219,
+    "duts": 17,
+    "fails": 27,
+    "share": 0.019313304721030045,
+    "testCount": 1,
+    "topDuts": [
+     {
+      "dut": "268862110000010",
+      "fails": 3
+     },
+     {
+      "dut": "268862110000013",
+      "fails": 3
+     },
+     {
+      "dut": "268862110000022",
+      "fails": 3
+     },
+     {
+      "dut": "268633330000011",
+      "fails": 2
+     },
+     {
+      "dut": "268633330000029",
+      "fails": 2
+     },
+     {
+      "dut": "268633330000001",
+      "fails": 2
+     },
+     {
+      "dut": "268633330000013",
+      "fails": 2
+     },
+     {
+      "dut": "268633330000039",
+      "fails": 1
+     },
+     {
+      "dut": "268633330000020",
+      "fails": 1
+     },
+     {
+      "dut": "268633330000002",
+      "fails": 1
+     },
+     {
+      "dut": "268633330000037",
+      "fails": 1
+     },
+     {
+      "dut": "268633330000041",
+      "fails": 1
+     }
+    ],
+    "topTest": "9df9a859_chip2_weight_load"
+   }
+  ],
+  "releases": [
+   {
+    "abort": 0,
+    "fail": 0,
+    "firstDay": "2026-08-27",
+    "fpy": null,
+    "fpyPass": 0,
+    "fpyTotal": 0,
+    "graded": 1,
+    "lastDay": "2026-08-27",
+    "pass": 1,
+    "release": "CHECK_vbb_setup_validate_token_PROD",
+    "runs": 1,
+    "thin": true,
+    "versions": [
+     "CHECK_vbb_setup_validate_token_PROD"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 4,
+    "firstDay": "2026-08-28",
+    "fpy": 0.0,
+    "fpyPass": 0,
+    "fpyTotal": 1,
+    "graded": 4,
+    "lastDay": "2026-08-29",
+    "pass": 0,
+    "release": "L11_RIN_Stress_SS1",
+    "runs": 4,
+    "thin": true,
+    "versions": [
+     "L11_RIN_Stress_SS1"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 1,
+    "firstDay": "2026-08-30",
+    "fpy": null,
+    "fpyPass": 0,
+    "fpyTotal": 0,
+    "graded": 1,
+    "lastDay": "2026-08-30",
+    "pass": 0,
+    "release": "aidanh_L11_provisioning",
+    "runs": 1,
+    "thin": true,
+    "versions": [
+     "aidanh_L11_provisioning"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 0,
+    "firstDay": "2026-08-30",
+    "fpy": null,
+    "fpyPass": 0,
+    "fpyTotal": 0,
+    "graded": 1,
+    "lastDay": "2026-08-30",
+    "pass": 1,
+    "release": "aidanh_L11_provisioning_cdu",
+    "runs": 1,
+    "thin": true,
+    "versions": [
+     "aidanh_L11_provisioning_cdu"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 0,
+    "firstDay": "2026-08-30",
+    "fpy": null,
+    "fpyPass": 0,
+    "fpyTotal": 0,
+    "graded": 1,
+    "lastDay": "2026-08-30",
+    "pass": 1,
+    "release": "aidanh_L11_provisioning_msw",
+    "runs": 1,
+    "thin": true,
+    "versions": [
+     "aidanh_L11_provisioning_msw"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 1,
+    "firstDay": "2026-08-30",
+    "fpy": null,
+    "fpyPass": 0,
+    "fpyTotal": 0,
+    "graded": 1,
+    "lastDay": "2026-08-30",
+    "pass": 0,
+    "release": "aidanh_L11_provisioning_pdu_cdu",
+    "runs": 1,
+    "thin": true,
+    "versions": [
+     "aidanh_L11_provisioning_pdu_cdu"
+    ]
+   },
+   {
+    "abort": 1,
+    "fail": 4,
+    "firstDay": "2026-08-29",
+    "fpy": 0.0,
+    "fpyPass": 0,
+    "fpyTotal": 1,
+    "graded": 5,
+    "lastDay": "2026-08-29",
+    "pass": 0,
+    "release": "aidanh_L11_provisioning_rms_only_ha",
+    "runs": 5,
+    "thin": true,
+    "versions": [
+     "aidanh_L11_provisioning_rms_only_ha"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 3,
+    "firstDay": "2026-08-30",
+    "fpy": null,
+    "fpyPass": 0,
+    "fpyTotal": 0,
+    "graded": 3,
+    "lastDay": "2026-08-30",
+    "pass": 0,
+    "release": "aidanh_L11_provisioning_ss",
+    "runs": 3,
+    "thin": true,
+    "versions": [
+     "aidanh_L11_provisioning_ss"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 1,
+    "firstDay": "2026-08-30",
+    "fpy": null,
+    "fpyPass": 0,
+    "fpyTotal": 0,
+    "graded": 1,
+    "lastDay": "2026-08-30",
+    "pass": 0,
+    "release": "aidanh_L11_provisioning_ss_2_4",
+    "runs": 1,
+    "thin": true,
+    "versions": [
+     "aidanh_L11_provisioning_ss_2_4"
+    ]
+   },
+   {
+    "abort": 7,
+    "fail": 16,
+    "firstDay": "2026-08-25",
+    "fpy": 0.043478260869565216,
+    "fpyPass": 1,
+    "fpyTotal": 23,
+    "graded": 36,
+    "lastDay": "2026-08-27",
+    "pass": 13,
+    "release": "baking",
+    "runs": 36,
+    "thin": false,
+    "versions": [
+     "baking"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 29,
+    "firstDay": "2026-08-24",
+    "fpy": 0.12121212121212122,
+    "fpyPass": 4,
+    "fpyTotal": 33,
+    "graded": 33,
+    "lastDay": "2026-08-24",
+    "pass": 4,
+    "release": "htt_2026.236.0-git3a5aa77b",
+    "runs": 33,
+    "thin": false,
+    "versions": [
+     "htt_2026.236.0-git3a5aa77b"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 7,
+    "firstDay": "2026-08-26",
+    "fpy": 0.7857142857142857,
+    "fpyPass": 11,
+    "fpyTotal": 14,
+    "graded": 22,
+    "lastDay": "2026-08-28",
+    "pass": 15,
+    "release": "htt_2026.237.0-git6db51951",
+    "runs": 22,
+    "thin": false,
+    "versions": [
+     "htt_2026.237.0-git6db51951"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 1,
+    "firstDay": "2026-08-24",
+    "fpy": null,
+    "fpyPass": 0,
+    "fpyTotal": 0,
+    "graded": 3,
+    "lastDay": "2026-08-25",
+    "pass": 2,
+    "release": "kamil_L11_provisioning_rms_only",
+    "runs": 3,
+    "thin": true,
+    "versions": [
+     "kamil_L11_provisioning_rms_only"
+    ]
+   },
+   {
+    "abort": 1,
+    "fail": 0,
+    "firstDay": "2026-08-25",
+    "fpy": null,
+    "fpyPass": 0,
+    "fpyTotal": 0,
+    "graded": 2,
+    "lastDay": "2026-08-25",
+    "pass": 1,
+    "release": "kamil_L11_provisioning_sohu_servers_only",
+    "runs": 2,
+    "thin": true,
+    "versions": [
+     "kamil_L11_provisioning_sohu_servers_only"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 1,
+    "firstDay": "2026-08-25",
+    "fpy": null,
+    "fpyPass": 0,
+    "fpyTotal": 0,
+    "graded": 4,
+    "lastDay": "2026-08-26",
+    "pass": 3,
+    "release": "kamil_L11_provisioning_ss2_bmc_reflash",
+    "runs": 4,
+    "thin": true,
+    "versions": [
+     "kamil_L11_provisioning_ss2_bmc_reflash"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 19,
+    "firstDay": "2026-08-24",
+    "fpy": 0.6744186046511628,
+    "fpyPass": 29,
+    "fpyTotal": 43,
+    "graded": 51,
+    "lastDay": "2026-08-24",
+    "pass": 32,
+    "release": "mlt_2026.236.0-git3a5aa77b",
+    "runs": 51,
+    "thin": false,
+    "versions": [
+     "mlt_2026.236.0-git3a5aa77b"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 6,
+    "firstDay": "2026-08-26",
+    "fpy": 0.7058823529411765,
+    "fpyPass": 12,
+    "fpyTotal": 17,
+    "graded": 18,
+    "lastDay": "2026-08-26",
+    "pass": 12,
+    "release": "mlt_2026.237.0-git6db51951",
+    "runs": 18,
+    "thin": false,
+    "versions": [
+     "mlt_2026.237.0-git6db51951"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 4,
+    "firstDay": "2026-08-28",
+    "fpy": 0.3333333333333333,
+    "fpyPass": 2,
+    "fpyTotal": 6,
+    "graded": 6,
+    "lastDay": "2026-08-28",
+    "pass": 2,
+    "release": "mlt_2026.239.0-git91921713",
+    "runs": 6,
+    "thin": false,
+    "versions": [
+     "mlt_2026.239.0-git91921713"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 7,
+    "firstDay": "2026-08-27",
+    "fpy": null,
+    "fpyPass": 0,
+    "fpyTotal": 0,
+    "graded": 8,
+    "lastDay": "2026-08-27",
+    "pass": 1,
+    "release": "mlt_2026.239.1-git91921713-Debug_Jack",
+    "runs": 8,
+    "thin": true,
+    "versions": [
+     "mlt_2026.239.1-git91921713-Debug_Jack"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 7,
+    "firstDay": "2026-08-27",
+    "fpy": null,
+    "fpyPass": 0,
+    "fpyTotal": 0,
+    "graded": 8,
+    "lastDay": "2026-08-27",
+    "pass": 1,
+    "release": "mlt_2026.239.2-git91921713-debug2",
+    "runs": 8,
+    "thin": true,
+    "versions": [
+     "mlt_2026.239.2-git91921713-debug2"
+    ]
+   },
+   {
+    "abort": 0,
+    "fail": 0,
+    "firstDay": "2026-08-27",
+    "fpy": 1.0,
+    "fpyPass": 1,
+    "fpyTotal": 1,
+    "graded": 1,
+    "lastDay": "2026-08-27",
+    "pass": 1,
+    "release": "vbb_setup_provisioning_ftdi",
+    "runs": 1,
+    "thin": true,
+    "versions": [
+     "vbb_setup_provisioning_ftdi"
+    ]
+   }
+  ],
+  "runs": 210
+ },
+ "context": {
+  "build": {
+   "commit": "e26c4ff",
+   "commitUrl": "https://github.com/etched-ai/factory_data_analysis/commit/e26c4ff",
+   "commitsSinceRelease": 60,
+   "dirty": true,
+   "release": "v0.5",
+   "releaseUrl": "https://github.com/etched-ai/factory_data_analysis/releases/tag/v0.5",
+   "repo": "https://github.com/etched-ai/factory_data_analysis"
+  },
+  "excluded": [
+   "vbb_provision"
+  ],
+  "generatedAt": "2026-09-05T10:11:38+00:00",
+  "historyDays": 90,
+  "minCohort": 20,
+  "source": {
+   "label": "pega2, pega6, pega3, pega4, pega5 (ESVM)",
+   "note": "straight from the station controllers \u2014 one row per unit",
+   "url": "http://pega3:3000"
+  }
+ },
+ "endsOn": "2026-08-30",
+ "external": [
+  {
+   "ageDays": 9,
+   "asOf": "2026-08-21",
+   "key": "wst",
+   "label": "WST",
+   "measured": false,
+   "note": "Wafer sort. Average across the two lots. Carried forward: no new figure since 2026-08-21.",
+   "source": "Annas Javed, Slack \u2014 2 lots completed",
+   "state": "carried",
+   "yield": 0.325
+  },
+  {
+   "ageDays": 16,
+   "asOf": "2026-08-14",
+   "key": "ft",
+   "label": "FT",
+   "measured": false,
+   "note": "Final test. Carried forward: no new figure since 2026-08-14.",
+   "source": "Sigurd, reported in #production-test-eng",
+   "state": "carried",
+   "yield": 0.843
+  }
+ ],
+ "from": "2026-08-24",
+ "hasDetail": true,
+ "misflow": {
+  "failed": 1,
+  "httGraded": 55,
+  "total": 1,
+  "units": [
+   {
+    "day": "2026-08-24",
+    "dut": "268633330000041",
+    "htt": "fail",
+    "httRun": "721b6e59#slot2",
+    "httUrl": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_721b6e59?slot_number=2",
+    "kind": "failed",
+    "suite": "htt_2026.236.0-git3a5aa77b"
+   }
+  ],
+  "unproven": 0
+ },
+ "partial": false,
+ "rows": [
+  {
+   "bonepile": null,
+   "controller": "pega6",
+   "countsOnly": false,
+   "finalYield": 0.5652173913043478,
+   "firstPassUnits": 1,
+   "fpy": 0.043478260869565216,
+   "key": "tim",
+   "label": "TIM",
+   "measured": true,
+   "newUnits": 23,
+   "passedUnits": 13,
+   "readable": true,
+   "retestNote": null,
+   "retestRatio": 0.5652173913043478,
+   "retestUnits": 13,
+   "runs": 36,
+   "thinCohort": false,
+   "topFailures": [
+    {
+     "area": "Other",
+     "name": "validate_coldplate_temperature",
+     "runs": 23
+    }
+   ],
+   "units": 23,
+   "yieldReadable": true
+  },
+  {
+   "bonepile": {
+    "differentRelease": 1,
+    "firstPassFailed": 26,
+    "recovered": 4,
+    "recoveryRate": 0.15384615384615385,
+    "sameRelease": 3,
+    "stillOut": 22
+   },
+   "controller": "pega3",
+   "countsOnly": false,
+   "finalYield": 0.6811594202898551,
+   "firstPassUnits": 43,
+   "fpy": 0.6515151515151515,
+   "key": "mlt",
+   "label": "MLT",
+   "measured": true,
+   "newUnits": 66,
+   "passedUnits": 47,
+   "readable": true,
+   "retestNote": null,
+   "retestRatio": 0.2318840579710145,
+   "retestUnits": 16,
+   "runs": 91,
+   "thinCohort": false,
+   "topFailures": [
+    {
+     "area": "Power Virus / Thermal",
+     "name": "SohuPowerVirusTestCase",
+     "runs": 104
+    },
+    {
+     "area": "PMBIST",
+     "name": "SohuPmbistTestCase",
+     "runs": 92
+    },
+    {
+     "area": "Other",
+     "name": "TpmStateTestCase",
+     "runs": 72
+    },
+    {
+     "area": "C2C",
+     "name": "C2cLinkupTestCase",
+     "runs": 64
+    },
+    {
+     "area": "Llama / SaSort",
+     "name": "SohuLlamaMttTestCase",
+     "runs": 60
+    }
+   ],
+   "units": 69,
+   "yieldReadable": true
+  },
+  {
+   "bonepile": {
+    "differentRelease": 4,
+    "firstPassFailed": 32,
+    "recovered": 4,
+    "recoveryRate": 0.125,
+    "sameRelease": 0,
+    "stillOut": 28
+   },
+   "controller": "pega3",
+   "countsOnly": false,
+   "finalYield": 0.40425531914893614,
+   "firstPassUnits": 15,
+   "fpy": 0.3191489361702128,
+   "key": "htt",
+   "label": "HTT",
+   "measured": true,
+   "newUnits": 47,
+   "passedUnits": 19,
+   "readable": true,
+   "retestNote": null,
+   "retestRatio": 0.1702127659574468,
+   "retestUnits": 8,
+   "runs": 55,
+   "thinCohort": false,
+   "topFailures": [
+    {
+     "area": "Llama / SaSort",
+     "name": "SohuLlamaForwardIteratedTestCase",
+     "runs": 36
+    },
+    {
+     "area": "Llama / SaSort",
+     "name": "SaSortRampupHbmSingleChipTestCase",
+     "runs": 13
+    },
+    {
+     "area": "Llama / SaSort",
+     "name": "SohuLlamaInferenceMaxTestCase",
+     "runs": 4
+    },
+    {
+     "area": "RDQS Training",
+     "name": "SohuRdqsSweepTrainingTestCase",
+     "runs": 4
+    },
+    {
+     "area": "Other",
+     "name": "CheckFirmwareVersionTestCase",
+     "runs": 2
+    }
+   ],
+   "units": 47,
+   "yieldReadable": true
+  },
+  {
+   "bonepile": null,
+   "controller": "pega5",
+   "countsOnly": false,
+   "finalYield": 1.0,
+   "firstPassUnits": null,
+   "fpy": 0.0,
+   "key": "l11_provision",
+   "label": "L11 Provision",
+   "measured": true,
+   "newUnits": 1,
+   "passedUnits": 2,
+   "readable": false,
+   "retestNote": null,
+   "retestRatio": 1.0,
+   "retestUnits": 2,
+   "runs": 22,
+   "thinCohort": true,
+   "topFailures": [
+    {
+     "area": "Provisioning",
+     "name": "ProvisionComputeServer",
+     "runs": 18
+    },
+    {
+     "area": "Provisioning",
+     "name": "ProvisionRedundantRms",
+     "runs": 5
+    },
+    {
+     "area": "Provisioning",
+     "name": "ProvisionCdu",
+     "runs": 4
+    },
+    {
+     "area": "Provisioning",
+     "name": "ProvisionPdu",
+     "runs": 2
+    },
+    {
+     "area": "Provisioning",
+     "name": "ProvisionPrimaryRms",
+     "runs": 2
+    }
+   ],
+   "units": 2,
+   "yieldReadable": false
+  },
+  {
+   "bonepile": null,
+   "controller": "pega5",
+   "countsOnly": false,
+   "finalYield": 0.0,
+   "firstPassUnits": null,
+   "fpy": 0.0,
+   "key": "l11_test",
+   "label": "L11 Test",
+   "measured": true,
+   "newUnits": 1,
+   "passedUnits": 0,
+   "readable": false,
+   "retestNote": null,
+   "retestRatio": 1.0,
+   "retestUnits": 1,
+   "runs": 4,
+   "thinCohort": true,
+   "topFailures": [
+    {
+     "area": "Other",
+     "name": "L10TestCase",
+     "runs": 2
+    },
+    {
+     "area": "Power Virus / Thermal",
+     "name": "SohuPowerVirusMultiChipTestCase",
+     "runs": 2
+    }
+   ],
+   "units": 1,
+   "yieldReadable": false
+  }
+ ],
+ "to": "2026-08-30",
+ "totals": {
+  "excludedThin": [
+   {
+    "label": "L11 Provision",
+    "newUnits": 1,
+    "units": 2
+   },
+   {
+    "label": "L11 Test",
+    "newUnits": 1,
+    "units": 1
+   }
+  ],
+  "minCohort": 20,
+  "rolledFpy": 0.2079303675048356,
+  "rolledOver": [
+   "MLT",
+   "HTT"
+  ],
+  "runs": 208,
+  "stations": 5,
+  "units": 142
+ },
+ "units": [
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268524730000014",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_5e4a605a?slot_number=7"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268524730000019",
+   "failures": [
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_5e4a605a?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268524760000015",
+   "failures": [
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_6c32fee9?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000002",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_721b6e59?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000004",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_9f4c2568?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000005",
+   "failures": [
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_5e4a605a?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000006",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_6c32fee9?slot_number=7"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000007",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_6c32fee9?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000008",
+   "failures": [
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_9f4c2568?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000010",
+   "failures": [
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_9f4c2568?slot_number=7"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000012",
+   "failures": [
+    "SohuHotReloadFirmwareUpdateTestCase",
+    "SohuFlrTestCase",
+    "CheckFirmwareVersionTestCase",
+    "SohuRdqsSweepTrainingTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SetPllGlitchFreqTestCase",
+    "SohuLlamaInferenceMaxTestCase",
+    "SohuResetTestCase",
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_6c32fee9?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000015",
+   "failures": [],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_6c32fee9?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000016",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_9f4c2568?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000017",
+   "failures": [
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_9f4c2568?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000018",
+   "failures": [
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_1985ecd5?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000019",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_6c32fee9?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000020",
+   "failures": [
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_721b6e59?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000021",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_9f4c2568?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000022",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_5e4a605a?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000024",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_9f4c2568?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000026",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_5e4a605a?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000027",
+   "failures": [
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_9f4c2568?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000031",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_5e4a605a?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000032",
+   "failures": [],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_1985ecd5?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000033",
+   "failures": [
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_1985ecd5?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000034",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_5e4a605a?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000035",
+   "failures": [],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_1985ecd5?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000036",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_6c32fee9?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000037",
+   "failures": [],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_721b6e59?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000040",
+   "failures": [
+    "SohuFlrTestCase",
+    "CheckFirmwareVersionTestCase",
+    "SohuRdqsSweepTrainingTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SetPllGlitchFreqTestCase",
+    "SohuLlamaInferenceMaxTestCase",
+    "SohuResetTestCase",
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_1985ecd5?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000041",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_721b6e59?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000042",
+   "failures": [
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_1985ecd5?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000043",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.236.0-git3a5aa77b",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.236.0-git3a5aa77b_run_6c32fee9?slot_number=0"
+  },
+  {
+   "attempt": 27,
+   "controller": "pega5",
+   "day": "2026-08-24",
+   "dut": "266447170002",
+   "failures": [],
+   "release": "kamil_L11_provisioning_rms_only",
+   "station": "l11_provision",
+   "status": "pass",
+   "url": "http://pega5:3000/suite_run/kamil_L11_provisioning_rms_only_run_620e5aa3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268524730000014",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_c8a87f36?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268524730000019",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_c8a87f36?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268524760000015",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_2fc9c3d2?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000001",
+   "failures": [
+    "SohuI2cTestCase",
+    "SohuVmTestCase",
+    "SohuHotReloadFirmwareUpdateTestCase",
+    "SohuVfioPingTestCase",
+    "SohuChipIdTestCase",
+    "SohuFlrTestCase",
+    "CheckFirmwareVersionTestCase",
+    "DetectBoardDvfsProfileTestCase",
+    "ClearFlashInitConfigTestCase",
+    "SohuEfuseTestCase",
+    "SohuPdTestCase",
+    "SohuDtsTestCase",
+    "SohuGpioTestCase",
+    "SohuPcieLaneMarginTestCase",
+    "C2cLinkupTestCase",
+    "C2cIntegrityTestCase",
+    "C2cPrbsLoopbackTestCase",
+    "C2cThroughputTestCase",
+    "SohuHbmDeviceIdTestCase",
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_7ad93993?slot_number=3"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000001",
+   "failures": [
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_b7b2d160?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000002",
+   "failures": [
+    "SohuI2cTestCase",
+    "SohuVmTestCase",
+    "SohuHotReloadFirmwareUpdateTestCase",
+    "SohuVfioPingTestCase",
+    "SohuChipIdTestCase",
+    "SohuFlrTestCase",
+    "CheckFirmwareVersionTestCase",
+    "DetectBoardDvfsProfileTestCase",
+    "ClearFlashInitConfigTestCase",
+    "SohuEfuseTestCase",
+    "SohuPdTestCase",
+    "SohuDtsTestCase",
+    "SohuGpioTestCase",
+    "SohuPcieLaneMarginTestCase",
+    "C2cLinkupTestCase",
+    "C2cIntegrityTestCase",
+    "C2cPrbsLoopbackTestCase",
+    "C2cThroughputTestCase",
+    "SohuHbmDeviceIdTestCase",
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_7ad93993?slot_number=5"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000002",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_b7b2d160?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000003",
+   "failures": [
+    "SohuI2cTestCase",
+    "SohuVmTestCase",
+    "SohuHotReloadFirmwareUpdateTestCase",
+    "SohuVfioPingTestCase",
+    "SohuChipIdTestCase",
+    "SohuFlrTestCase",
+    "CheckFirmwareVersionTestCase",
+    "DetectBoardDvfsProfileTestCase",
+    "ClearFlashInitConfigTestCase",
+    "SohuEfuseTestCase",
+    "SohuPdTestCase",
+    "SohuDtsTestCase",
+    "SohuGpioTestCase",
+    "SohuPcieLaneMarginTestCase",
+    "C2cLinkupTestCase",
+    "C2cIntegrityTestCase",
+    "C2cPrbsLoopbackTestCase",
+    "C2cThroughputTestCase",
+    "SohuHbmDeviceIdTestCase",
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_45360a30?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000004",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_45360a30?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000005",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_c8a87f36?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000006",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_2fc9c3d2?slot_number=7"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000007",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_2fc9c3d2?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000008",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_45360a30?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000009",
+   "failures": [
+    "SohuI2cTestCase",
+    "SohuVmTestCase",
+    "SohuHotReloadFirmwareUpdateTestCase",
+    "SohuVfioPingTestCase",
+    "SohuChipIdTestCase",
+    "SohuFlrTestCase",
+    "CheckFirmwareVersionTestCase",
+    "DetectBoardDvfsProfileTestCase",
+    "ClearFlashInitConfigTestCase",
+    "SohuEfuseTestCase",
+    "SohuPdTestCase",
+    "SohuDtsTestCase",
+    "SohuGpioTestCase",
+    "SohuPcieLaneMarginTestCase",
+    "C2cLinkupTestCase",
+    "C2cIntegrityTestCase",
+    "C2cPrbsLoopbackTestCase",
+    "C2cThroughputTestCase",
+    "SohuHbmDeviceIdTestCase",
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_45360a30?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000010",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_45360a30?slot_number=7"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000011",
+   "failures": [
+    "SohuI2cTestCase",
+    "SohuVmTestCase",
+    "SohuHotReloadFirmwareUpdateTestCase",
+    "SohuVfioPingTestCase",
+    "SohuChipIdTestCase",
+    "SohuFlrTestCase",
+    "CheckFirmwareVersionTestCase",
+    "DetectBoardDvfsProfileTestCase",
+    "ClearFlashInitConfigTestCase",
+    "SohuEfuseTestCase",
+    "SohuPdTestCase",
+    "SohuDtsTestCase",
+    "SohuGpioTestCase",
+    "SohuPcieLaneMarginTestCase",
+    "C2cLinkupTestCase",
+    "C2cIntegrityTestCase",
+    "C2cPrbsLoopbackTestCase",
+    "C2cThroughputTestCase",
+    "SohuHbmDeviceIdTestCase",
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_7ad93993?slot_number=0"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000011",
+   "failures": [
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_b7b2d160?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000012",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_2fc9c3d2?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000013",
+   "failures": [
+    "SohuI2cTestCase",
+    "SohuVmTestCase",
+    "SohuHotReloadFirmwareUpdateTestCase",
+    "SohuVfioPingTestCase",
+    "SohuChipIdTestCase",
+    "SohuFlrTestCase",
+    "CheckFirmwareVersionTestCase",
+    "DetectBoardDvfsProfileTestCase",
+    "ClearFlashInitConfigTestCase",
+    "SohuEfuseTestCase",
+    "SohuPdTestCase",
+    "SohuDtsTestCase",
+    "SohuGpioTestCase",
+    "SohuPcieLaneMarginTestCase",
+    "C2cLinkupTestCase",
+    "C2cIntegrityTestCase",
+    "C2cPrbsLoopbackTestCase",
+    "C2cThroughputTestCase",
+    "SohuHbmDeviceIdTestCase",
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_7ad93993?slot_number=4"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000013",
+   "failures": [
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_b7b2d160?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000015",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_2fc9c3d2?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000016",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_45360a30?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000017",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_db4dc595?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000018",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_9df9a859?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000019",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_2fc9c3d2?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000020",
+   "failures": [
+    "SohuI2cTestCase",
+    "SohuVmTestCase",
+    "SohuHotReloadFirmwareUpdateTestCase",
+    "SohuVfioPingTestCase",
+    "SohuChipIdTestCase",
+    "SohuFlrTestCase",
+    "CheckFirmwareVersionTestCase",
+    "DetectBoardDvfsProfileTestCase",
+    "ClearFlashInitConfigTestCase",
+    "SohuEfuseTestCase",
+    "SohuPdTestCase",
+    "SohuDtsTestCase",
+    "SohuGpioTestCase",
+    "SohuPcieLaneMarginTestCase",
+    "C2cLinkupTestCase",
+    "C2cIntegrityTestCase",
+    "C2cPrbsLoopbackTestCase",
+    "C2cThroughputTestCase",
+    "SohuHbmDeviceIdTestCase",
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_7ad93993?slot_number=1"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000020",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_b7b2d160?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000021",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_db4dc595?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000022",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_c8a87f36?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000024",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_db4dc595?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000025",
+   "failures": [
+    "SohuDmaTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_45360a30?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000026",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_c8a87f36?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000027",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_45360a30?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000028",
+   "failures": [
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_9df9a859?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000029",
+   "failures": [
+    "SohuI2cTestCase",
+    "SohuVmTestCase",
+    "SohuHotReloadFirmwareUpdateTestCase",
+    "SohuVfioPingTestCase",
+    "SohuChipIdTestCase",
+    "SohuFlrTestCase",
+    "CheckFirmwareVersionTestCase",
+    "DetectBoardDvfsProfileTestCase",
+    "ClearFlashInitConfigTestCase",
+    "SohuEfuseTestCase",
+    "SohuPdTestCase",
+    "SohuDtsTestCase",
+    "SohuGpioTestCase",
+    "SohuPcieLaneMarginTestCase",
+    "C2cLinkupTestCase",
+    "C2cIntegrityTestCase",
+    "C2cPrbsLoopbackTestCase",
+    "C2cThroughputTestCase",
+    "SohuHbmDeviceIdTestCase",
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_7ad93993?slot_number=2"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000029",
+   "failures": [
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_b7b2d160?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000030",
+   "failures": [
+    "SohuVfioPingTestCase",
+    "DetectBoardDvfsProfileTestCase",
+    "ClearFlashInitConfigTestCase",
+    "SohuEfuseTestCase",
+    "SohuPdTestCase",
+    "SohuDtsTestCase",
+    "SohuGpioTestCase",
+    "SohuPcieLaneMarginTestCase",
+    "C2cLinkupTestCase",
+    "C2cIntegrityTestCase",
+    "C2cPrbsLoopbackTestCase",
+    "C2cThroughputTestCase",
+    "SohuHbmDeviceIdTestCase",
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_c8a87f36?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000031",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_c8a87f36?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000032",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_9df9a859?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000033",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_9df9a859?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000034",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_c8a87f36?slot_number=7"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000035",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_9df9a859?slot_number=7"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000036",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_2fc9c3d2?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000037",
+   "failures": [
+    "SohuI2cTestCase",
+    "SohuVmTestCase",
+    "SohuHotReloadFirmwareUpdateTestCase",
+    "SohuVfioPingTestCase",
+    "SohuChipIdTestCase",
+    "SohuFlrTestCase",
+    "CheckFirmwareVersionTestCase",
+    "DetectBoardDvfsProfileTestCase",
+    "ClearFlashInitConfigTestCase",
+    "SohuEfuseTestCase",
+    "SohuPdTestCase",
+    "SohuDtsTestCase",
+    "SohuGpioTestCase",
+    "SohuPcieLaneMarginTestCase",
+    "C2cLinkupTestCase",
+    "C2cIntegrityTestCase",
+    "C2cPrbsLoopbackTestCase",
+    "C2cThroughputTestCase",
+    "SohuHbmDeviceIdTestCase",
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_7ad93993?slot_number=6"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000037",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_b7b2d160?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000039",
+   "failures": [
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_9df9a859?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000040",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_9df9a859?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000041",
+   "failures": [
+    "SohuI2cTestCase",
+    "SohuVmTestCase",
+    "SohuHotReloadFirmwareUpdateTestCase",
+    "SohuVfioPingTestCase",
+    "SohuChipIdTestCase",
+    "SohuFlrTestCase",
+    "CheckFirmwareVersionTestCase",
+    "DetectBoardDvfsProfileTestCase",
+    "ClearFlashInitConfigTestCase",
+    "SohuEfuseTestCase",
+    "SohuPdTestCase",
+    "SohuDtsTestCase",
+    "SohuGpioTestCase",
+    "SohuPcieLaneMarginTestCase",
+    "C2cLinkupTestCase",
+    "C2cIntegrityTestCase",
+    "C2cPrbsLoopbackTestCase",
+    "C2cThroughputTestCase",
+    "SohuHbmDeviceIdTestCase",
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_7ad93993?slot_number=7"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000041",
+   "failures": [
+    "SohuPowerVirusThermalTestCase"
+   ],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_b7b2d160?slot_number=7"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000042",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_9df9a859?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-24",
+   "dut": "268633330000043",
+   "failures": [],
+   "release": "mlt_2026.236.0-git3a5aa77b",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.236.0-git3a5aa77b_run_2fc9c3d2?slot_number=0"
+  },
+  {
+   "attempt": 28,
+   "controller": "pega5",
+   "day": "2026-08-25",
+   "dut": "266447170002",
+   "failures": [
+    "ProvisionComputeServer"
+   ],
+   "release": "kamil_L11_provisioning_sohu_servers_only",
+   "station": "l11_provision",
+   "status": "error",
+   "url": "http://pega5:3000/suite_run/kamil_L11_provisioning_sohu_servers_only_run_549f1636"
+  },
+  {
+   "attempt": 29,
+   "controller": "pega5",
+   "day": "2026-08-25",
+   "dut": "266447170002",
+   "failures": [],
+   "release": "kamil_L11_provisioning_sohu_servers_only",
+   "station": "l11_provision",
+   "status": "pass",
+   "url": "http://pega5:3000/suite_run/kamil_L11_provisioning_sohu_servers_only_run_ffa406b9"
+  },
+  {
+   "attempt": 30,
+   "controller": "pega5",
+   "day": "2026-08-25",
+   "dut": "266447170002",
+   "failures": [
+    "ProvisionRedundantRms"
+   ],
+   "release": "kamil_L11_provisioning_rms_only",
+   "station": "l11_provision",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/kamil_L11_provisioning_rms_only_run_3dce6d8f"
+  },
+  {
+   "attempt": 31,
+   "controller": "pega5",
+   "day": "2026-08-25",
+   "dut": "266447170002",
+   "failures": [],
+   "release": "kamil_L11_provisioning_rms_only",
+   "station": "l11_provision",
+   "status": "pass",
+   "url": "http://pega5:3000/suite_run/kamil_L11_provisioning_rms_only_run_f3975227"
+  },
+  {
+   "attempt": 32,
+   "controller": "pega5",
+   "day": "2026-08-25",
+   "dut": "266447170002",
+   "failures": [],
+   "release": "kamil_L11_provisioning_ss2_bmc_reflash",
+   "station": "l11_provision",
+   "status": "pass",
+   "url": "http://pega5:3000/suite_run/kamil_L11_provisioning_ss2_bmc_reflash_run_570ea2e8"
+  },
+  {
+   "attempt": 33,
+   "controller": "pega5",
+   "day": "2026-08-25",
+   "dut": "266447170002",
+   "failures": [],
+   "release": "kamil_L11_provisioning_ss2_bmc_reflash",
+   "station": "l11_provision",
+   "status": "pass",
+   "url": "http://pega5:3000/suite_run/kamil_L11_provisioning_ss2_bmc_reflash_run_5ad2ab60"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000002",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "error",
+   "url": "http://pega6:3000/suite_run/baking_run_78673419?slot_number=4"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000002",
+   "failures": [],
+   "release": "baking",
+   "station": "tim",
+   "status": "pass",
+   "url": "http://pega6:3000/suite_run/baking_run_b02355c4?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000010",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "error",
+   "url": "http://pega6:3000/suite_run/baking_run_c6e950c8?slot_number=1"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000010",
+   "failures": [],
+   "release": "baking",
+   "station": "tim",
+   "status": "pass",
+   "url": "http://pega6:3000/suite_run/baking_run_be0d442e?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000011",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "error",
+   "url": "http://pega6:3000/suite_run/baking_run_1277f0c6?slot_number=6"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000011",
+   "failures": [],
+   "release": "baking",
+   "station": "tim",
+   "status": "pass",
+   "url": "http://pega6:3000/suite_run/baking_run_ad347d53?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000018",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "error",
+   "url": "http://pega6:3000/suite_run/baking_run_0b516261?slot_number=3"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000018",
+   "failures": [],
+   "release": "baking",
+   "station": "tim",
+   "status": "pass",
+   "url": "http://pega6:3000/suite_run/baking_run_0862bcb2?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000021",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "error",
+   "url": "http://pega6:3000/suite_run/baking_run_55020a0a?slot_number=2"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000021",
+   "failures": [],
+   "release": "baking",
+   "station": "tim",
+   "status": "pass",
+   "url": "http://pega6:3000/suite_run/baking_run_55049434?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000022",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "error",
+   "url": "http://pega6:3000/suite_run/baking_run_f94d4f6a?slot_number=0"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000022",
+   "failures": [],
+   "release": "baking",
+   "station": "tim",
+   "status": "pass",
+   "url": "http://pega6:3000/suite_run/baking_run_0c92ca0a?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000024",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "error",
+   "url": "http://pega6:3000/suite_run/baking_run_e515a571?slot_number=5"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega6",
+   "day": "2026-08-25",
+   "dut": "268862110000024",
+   "failures": [],
+   "release": "baking",
+   "station": "tim",
+   "status": "pass",
+   "url": "http://pega6:3000/suite_run/baking_run_0dfd8f6f?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000002",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_df9d6dc1?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000005",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_c25d5db7?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000008",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_c25d5db7?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000009",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_c25d5db7?slot_number=7"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000011",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_df9d6dc1?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000014",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_c25d5db7?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000016",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_c25d5db7?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000017",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_c25d5db7?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000018",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_df9d6dc1?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000020",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_c25d5db7?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000021",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_df9d6dc1?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000024",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_c25d5db7?slot_number=5"
+  },
+  {
+   "attempt": 34,
+   "controller": "pega5",
+   "day": "2026-08-26",
+   "dut": "266447170002",
+   "failures": [
+    "ProvisionComputeServer"
+   ],
+   "release": "kamil_L11_provisioning_ss2_bmc_reflash",
+   "station": "l11_provision",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/kamil_L11_provisioning_ss2_bmc_reflash_run_e959e491"
+  },
+  {
+   "attempt": 35,
+   "controller": "pega5",
+   "day": "2026-08-26",
+   "dut": "266447170002",
+   "failures": [],
+   "release": "kamil_L11_provisioning_ss2_bmc_reflash",
+   "station": "l11_provision",
+   "status": "pass",
+   "url": "http://pega5:3000/suite_run/kamil_L11_provisioning_ss2_bmc_reflash_run_c7701fb0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000002",
+   "failures": [],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_745fa95b?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000005",
+   "failures": [],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_71637e6a?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000007",
+   "failures": [
+    "C2cIntegrityTestCase",
+    "SohuPowerVirusTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_71637e6a?slot_number=2"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000007",
+   "failures": [
+    "C2cIntegrityTestCase",
+    "SohuPowerVirusTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_745fa95b?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000008",
+   "failures": [],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_c260a6c1?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000009",
+   "failures": [],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_71637e6a?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000010",
+   "failures": [
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_c260a6c1?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000011",
+   "failures": [],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_c260a6c1?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000013",
+   "failures": [
+    "SohuDmaTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_c260a6c1?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000014",
+   "failures": [],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_71637e6a?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000016",
+   "failures": [],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_71637e6a?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000017",
+   "failures": [],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_71637e6a?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000018",
+   "failures": [],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_c260a6c1?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000019",
+   "failures": [
+    "SohuVfioPingTestCase",
+    "DetectBoardDvfsProfileTestCase",
+    "ClearFlashInitConfigTestCase",
+    "SohuEfuseTestCase",
+    "SohuPdTestCase",
+    "SohuDtsTestCase",
+    "SohuGpioTestCase",
+    "SohuPcieLaneMarginTestCase",
+    "C2cLinkupTestCase",
+    "C2cIntegrityTestCase",
+    "C2cPrbsLoopbackTestCase",
+    "C2cThroughputTestCase",
+    "SohuHbmDeviceIdTestCase",
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_c260a6c1?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000020",
+   "failures": [],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_71637e6a?slot_number=7"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000021",
+   "failures": [],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_c260a6c1?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000022",
+   "failures": [
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "AssertReadyToProvisionTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_c260a6c1?slot_number=7"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-26",
+   "dut": "268862110000024",
+   "failures": [],
+   "release": "mlt_2026.237.0-git6db51951",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.237.0-git6db51951_run_71637e6a?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-26",
+   "dut": "268862110000005",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_21fdda40?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-26",
+   "dut": "268862110000007",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_89ef9ffa?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-26",
+   "dut": "268862110000008",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_f0d71278?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-26",
+   "dut": "268862110000009",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_4a48625e?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-26",
+   "dut": "268862110000013",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_a28dbbb1?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-26",
+   "dut": "268862110000014",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_5bfccc42?slot_number=7"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-26",
+   "dut": "268862110000016",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_f7a2a9f7?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-26",
+   "dut": "268862110000017",
+   "failures": [],
+   "release": "baking",
+   "station": "tim",
+   "status": "pass",
+   "url": "http://pega6:3000/suite_run/baking_run_94711a02?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-26",
+   "dut": "268862110000019",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_3fcfb4be?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-26",
+   "dut": "268862110000020",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_53e5b5f5?slot_number=6"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268524730000019",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_8652ca9d?slot_number=0"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268633330000005",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_8652ca9d?slot_number=4"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268633330000008",
+   "failures": [
+    "SohuRdqsSweepTrainingTestCase",
+    "SohuLlamaInferenceMaxTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_8652ca9d?slot_number=7"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268633330000010",
+   "failures": [
+    "SohuRdqsSweepTrainingTestCase",
+    "SohuLlamaInferenceMaxTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuVminTestCase"
+   ],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_8652ca9d?slot_number=5"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268633330000017",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_8652ca9d?slot_number=2"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268633330000020",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_8652ca9d?slot_number=6"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268633330000027",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_8652ca9d?slot_number=1"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268633330000042",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_8652ca9d?slot_number=3"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268494110000008",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuVfioProxyPingTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.239.1-git91921713-Debug_Jack",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.1-git91921713-Debug_Jack_run_21114d74?slot_number=4"
+  },
+  {
+   "attempt": 3,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268494110000008",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuVfioProxyPingTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.239.2-git91921713-debug2",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.2-git91921713-debug2_run_502b7be7?slot_number=4"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268494110000037",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuVfioProxyPingTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.239.1-git91921713-Debug_Jack",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.1-git91921713-Debug_Jack_run_21114d74?slot_number=7"
+  },
+  {
+   "attempt": 3,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268494110000037",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuVfioProxyPingTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.239.2-git91921713-debug2",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.2-git91921713-debug2_run_502b7be7?slot_number=7"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268494110000096",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuVfioProxyPingTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.239.1-git91921713-Debug_Jack",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.1-git91921713-Debug_Jack_run_21114d74?slot_number=6"
+  },
+  {
+   "attempt": 3,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268494110000096",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuVfioProxyPingTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.239.2-git91921713-debug2",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.2-git91921713-debug2_run_502b7be7?slot_number=6"
+  },
+  {
+   "attempt": 3,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268862110000007",
+   "failures": [
+    "C2cIntegrityTestCase",
+    "SohuPowerVirusTestCase"
+   ],
+   "release": "mlt_2026.239.1-git91921713-Debug_Jack",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.1-git91921713-Debug_Jack_run_21114d74?slot_number=5"
+  },
+  {
+   "attempt": 4,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268862110000007",
+   "failures": [
+    "C2cIntegrityTestCase",
+    "SohuPowerVirusTestCase"
+   ],
+   "release": "mlt_2026.239.2-git91921713-debug2",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.2-git91921713-debug2_run_502b7be7?slot_number=5"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268862110000010",
+   "failures": [
+    "C2cIntegrityTestCase",
+    "C2cThroughputTestCase",
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "SohuVfioProxyPingTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.239.1-git91921713-Debug_Jack",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.1-git91921713-Debug_Jack_run_21114d74?slot_number=2"
+  },
+  {
+   "attempt": 3,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268862110000010",
+   "failures": [
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "SohuVfioProxyPingTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.239.2-git91921713-debug2",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.2-git91921713-debug2_run_502b7be7?slot_number=2"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268862110000013",
+   "failures": [
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "SohuVfioProxyPingTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.239.1-git91921713-Debug_Jack",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.1-git91921713-Debug_Jack_run_21114d74?slot_number=3"
+  },
+  {
+   "attempt": 3,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268862110000013",
+   "failures": [
+    "SohuDmaTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "SohuVfioProxyPingTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.239.2-git91921713-debug2",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.2-git91921713-debug2_run_502b7be7?slot_number=3"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268862110000019",
+   "failures": [],
+   "release": "mlt_2026.239.1-git91921713-Debug_Jack",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.1-git91921713-Debug_Jack_run_21114d74?slot_number=1"
+  },
+  {
+   "attempt": 3,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268862110000019",
+   "failures": [],
+   "release": "mlt_2026.239.2-git91921713-debug2",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.2-git91921713-debug2_run_502b7be7?slot_number=1"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268862110000022",
+   "failures": [
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "SohuVfioProxyPingTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.239.1-git91921713-Debug_Jack",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.1-git91921713-Debug_Jack_run_21114d74?slot_number=0"
+  },
+  {
+   "attempt": 3,
+   "controller": "pega3",
+   "day": "2026-08-27",
+   "dut": "268862110000022",
+   "failures": [
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "SohuVfioProxyPingTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.239.2-git91921713-debug2",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.2-git91921713-debug2_run_502b7be7?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-27",
+   "dut": "268862110000001",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_604a0f7a?slot_number=0"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega6",
+   "day": "2026-08-27",
+   "dut": "268862110000001",
+   "failures": [],
+   "release": "baking",
+   "station": "tim",
+   "status": "pass",
+   "url": "http://pega6:3000/suite_run/baking_run_1bc43619?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-27",
+   "dut": "268862110000006",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_fb011fba?slot_number=5"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega6",
+   "day": "2026-08-27",
+   "dut": "268862110000006",
+   "failures": [],
+   "release": "baking",
+   "station": "tim",
+   "status": "pass",
+   "url": "http://pega6:3000/suite_run/baking_run_86ca1bda?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-27",
+   "dut": "268862110000015",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_9a7f28e4?slot_number=1"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega6",
+   "day": "2026-08-27",
+   "dut": "268862110000015",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_c3cd37b4?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-27",
+   "dut": "268862110000023",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_845a4725?slot_number=2"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega6",
+   "day": "2026-08-27",
+   "dut": "268862110000023",
+   "failures": [],
+   "release": "baking",
+   "station": "tim",
+   "status": "pass",
+   "url": "http://pega6:3000/suite_run/baking_run_748841b1?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-27",
+   "dut": "268862110000025",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_38459a3d?slot_number=3"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega6",
+   "day": "2026-08-27",
+   "dut": "268862110000025",
+   "failures": [],
+   "release": "baking",
+   "station": "tim",
+   "status": "pass",
+   "url": "http://pega6:3000/suite_run/baking_run_5917a954?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega6",
+   "day": "2026-08-27",
+   "dut": "268862110000026",
+   "failures": [
+    "validate_coldplate_temperature"
+   ],
+   "release": "baking",
+   "station": "tim",
+   "status": "fail",
+   "url": "http://pega6:3000/suite_run/baking_run_cbe79a85?slot_number=4"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega6",
+   "day": "2026-08-27",
+   "dut": "268862110000026",
+   "failures": [],
+   "release": "baking",
+   "station": "tim",
+   "status": "pass",
+   "url": "http://pega6:3000/suite_run/baking_run_1c061f1e?slot_number=4"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-28",
+   "dut": "268862110000001",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_98e2eee9?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-28",
+   "dut": "268862110000026",
+   "failures": [],
+   "release": "htt_2026.237.0-git6db51951",
+   "station": "htt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/htt_2026.237.0-git6db51951_run_98e2eee9?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega5",
+   "day": "2026-08-28",
+   "dut": "266447170002",
+   "failures": [],
+   "release": "L11_RIN_Stress_SS1",
+   "station": "l11_test",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/L11_RIN_Stress_SS1_run_67405f41"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega5",
+   "day": "2026-08-28",
+   "dut": "266447170002",
+   "failures": [
+    "SohuPowerVirusMultiChipTestCase",
+    "L10TestCase"
+   ],
+   "release": "L11_RIN_Stress_SS1",
+   "station": "l11_test",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/L11_RIN_Stress_SS1_run_0f7e93da"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-28",
+   "dut": "268862110000001",
+   "failures": [],
+   "release": "mlt_2026.239.0-git91921713",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.0-git91921713_run_b0b555df?slot_number=5"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-28",
+   "dut": "268862110000006",
+   "failures": [
+    "SohuLaneRepairTestCase",
+    "SohuPmbistTestCase",
+    "SohuMtcStressTestCase",
+    "SohuDmaTestCase",
+    "SohuSauPllPhaseAlignmentTestCase",
+    "RunAllAttnHbmBypassTestsSingleChipTestCase",
+    "RunKvFlushTestsSingleChipTestCase",
+    "RunAllAttnTestsSingleChipTestCase",
+    "KvFlushAndAttentionSingleChipTestCase",
+    "KvFlushAndAttentionInterleavedSingleChipTestCase",
+    "SaSortRampupHbmSingleChipTestCase",
+    "SohuSaScreeningTestCase",
+    "SohuWeightLoadTestCase",
+    "SohuLlamaForwardIteratedTestCase",
+    "SohuLlamaMttTestCase",
+    "SohuPowerVirusTestCase",
+    "SohuPowerVirusThermalTestCase",
+    "SohuChipBinTestCase",
+    "SohuVfioProxyPingTestCase",
+    "CheckHsmTokenTestCase",
+    "AssertModuleSerialsTestCase",
+    "Pv1FruVerificationTestCase",
+    "TpmStateTestCase",
+    "ProvisionTpmTestCase"
+   ],
+   "release": "mlt_2026.239.0-git91921713",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.0-git91921713_run_b0b555df?slot_number=6"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-28",
+   "dut": "268862110000015",
+   "failures": [
+    "SohuLlamaForwardIteratedTestCase"
+   ],
+   "release": "mlt_2026.239.0-git91921713",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.0-git91921713_run_b0b555df?slot_number=1"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-28",
+   "dut": "268862110000023",
+   "failures": [
+    "RunAllAttnTestsSingleChipTestCase",
+    "SohuPowerVirusTestCase"
+   ],
+   "release": "mlt_2026.239.0-git91921713",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.0-git91921713_run_b0b555df?slot_number=2"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-28",
+   "dut": "268862110000025",
+   "failures": [
+    "C2cLinkupTestCase",
+    "C2cIntegrityTestCase",
+    "C2cThroughputTestCase"
+   ],
+   "release": "mlt_2026.239.0-git91921713",
+   "station": "mlt",
+   "status": "fail",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.0-git91921713_run_b0b555df?slot_number=0"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega3",
+   "day": "2026-08-28",
+   "dut": "268862110000026",
+   "failures": [],
+   "release": "mlt_2026.239.0-git91921713",
+   "station": "mlt",
+   "status": "pass",
+   "url": "http://pega3:3000/suite_run/mlt_2026.239.0-git91921713_run_b0b555df?slot_number=3"
+  },
+  {
+   "attempt": 1,
+   "controller": "pega5",
+   "day": "2026-08-29",
+   "dut": "268633780001",
+   "failures": [],
+   "release": "aidanh_L11_provisioning_rms_only_ha",
+   "station": "l11_provision",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/aidanh_L11_provisioning_rms_only_ha_run_2fcf21c7"
+  },
+  {
+   "attempt": 2,
+   "controller": "pega5",
+   "day": "2026-08-29",
+   "dut": "268633780001",
+   "failures": [
+    "ProvisionPrimaryRms",
+    "ProvisionRedundantRms"
+   ],
+   "release": "aidanh_L11_provisioning_rms_only_ha",
+   "station": "l11_provision",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/aidanh_L11_provisioning_rms_only_ha_run_1b7844dc"
+  },
+  {
+   "attempt": 3,
+   "controller": "pega5",
+   "day": "2026-08-29",
+   "dut": "268633780001",
+   "failures": [
+    "ProvisionRedundantRms"
+   ],
+   "release": "aidanh_L11_provisioning_rms_only_ha",
+   "station": "l11_provision",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/aidanh_L11_provisioning_rms_only_ha_run_f1ea1204"
+  },
+  {
+   "attempt": 4,
+   "controller": "pega5",
+   "day": "2026-08-29",
+   "dut": "268633780001",
+   "failures": [
+    "ProvisionPrimaryRms",
+    "ProvisionRedundantRms"
+   ],
+   "release": "aidanh_L11_provisioning_rms_only_ha",
+   "station": "l11_provision",
+   "status": "error",
+   "url": "http://pega5:3000/suite_run/aidanh_L11_provisioning_rms_only_ha_run_39171edb"
+  },
+  {
+   "attempt": 5,
+   "controller": "pega5",
+   "day": "2026-08-29",
+   "dut": "268633780001",
+   "failures": [
+    "ProvisionRedundantRms"
+   ],
+   "release": "aidanh_L11_provisioning_rms_only_ha",
+   "station": "l11_provision",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/aidanh_L11_provisioning_rms_only_ha_run_9d9f2256"
+  },
+  {
+   "attempt": 3,
+   "controller": "pega5",
+   "day": "2026-08-29",
+   "dut": "266447170002",
+   "failures": [],
+   "release": "L11_RIN_Stress_SS1",
+   "station": "l11_test",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/L11_RIN_Stress_SS1_run_fee7c563"
+  },
+  {
+   "attempt": 4,
+   "controller": "pega5",
+   "day": "2026-08-29",
+   "dut": "266447170002",
+   "failures": [
+    "SohuPowerVirusMultiChipTestCase",
+    "L10TestCase"
+   ],
+   "release": "L11_RIN_Stress_SS1",
+   "station": "l11_test",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/L11_RIN_Stress_SS1_run_3694262f"
+  },
+  {
+   "attempt": 6,
+   "controller": "pega5",
+   "day": "2026-08-30",
+   "dut": "268633780001",
+   "failures": [],
+   "release": "aidanh_L11_provisioning_msw",
+   "station": "l11_provision",
+   "status": "pass",
+   "url": "http://pega5:3000/suite_run/aidanh_L11_provisioning_msw_run_01ba44d9"
+  },
+  {
+   "attempt": 7,
+   "controller": "pega5",
+   "day": "2026-08-30",
+   "dut": "268633780001",
+   "failures": [
+    "ProvisionPdu",
+    "ProvisionCdu"
+   ],
+   "release": "aidanh_L11_provisioning",
+   "station": "l11_provision",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/aidanh_L11_provisioning_run_03e7b779"
+  },
+  {
+   "attempt": 8,
+   "controller": "pega5",
+   "day": "2026-08-30",
+   "dut": "268633780001",
+   "failures": [
+    "ProvisionCdu"
+   ],
+   "release": "aidanh_L11_provisioning_pdu_cdu",
+   "station": "l11_provision",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/aidanh_L11_provisioning_pdu_cdu_run_7a1836f8"
+  },
+  {
+   "attempt": 9,
+   "controller": "pega5",
+   "day": "2026-08-30",
+   "dut": "268633780001",
+   "failures": [],
+   "release": "aidanh_L11_provisioning_cdu",
+   "station": "l11_provision",
+   "status": "pass",
+   "url": "http://pega5:3000/suite_run/aidanh_L11_provisioning_cdu_run_3fd1074e"
+  },
+  {
+   "attempt": 10,
+   "controller": "pega5",
+   "day": "2026-08-30",
+   "dut": "268633780001",
+   "failures": [
+    "ProvisionComputeServer"
+   ],
+   "release": "aidanh_L11_provisioning_ss",
+   "station": "l11_provision",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/aidanh_L11_provisioning_ss_run_fe9da948"
+  },
+  {
+   "attempt": 11,
+   "controller": "pega5",
+   "day": "2026-08-30",
+   "dut": "268633780001",
+   "failures": [
+    "ProvisionComputeServer"
+   ],
+   "release": "aidanh_L11_provisioning_ss",
+   "station": "l11_provision",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/aidanh_L11_provisioning_ss_run_e86250de"
+  },
+  {
+   "attempt": 12,
+   "controller": "pega5",
+   "day": "2026-08-30",
+   "dut": "268633780001",
+   "failures": [
+    "ProvisionComputeServer"
+   ],
+   "release": "aidanh_L11_provisioning_ss",
+   "station": "l11_provision",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/aidanh_L11_provisioning_ss_run_88ddada4"
+  },
+  {
+   "attempt": 13,
+   "controller": "pega5",
+   "day": "2026-08-30",
+   "dut": "268633780001",
+   "failures": [
+    "ProvisionComputeServer"
+   ],
+   "release": "aidanh_L11_provisioning_ss_2_4",
+   "station": "l11_provision",
+   "status": "fail",
+   "url": "http://pega5:3000/suite_run/aidanh_L11_provisioning_ss_2_4_run_1d6477fd"
+  }
+ ],
+ "week": "2026-W35"
+}

@@ -6,6 +6,7 @@
   <title>Customize — pick a range and stations, take the CSV</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="stations.css">
+  <link rel="stylesheet" href="colfilter.css">
   <link rel="stylesheet" href="customize.css">
 </head>
 <body>
@@ -73,22 +74,17 @@
       <div class="checks" id="stations"></div>
     </section>
 
-    <!-- Session 3. The four outcomes a unit can have at a station, plus Fail,
-         which is not a fifth one — it is Retest Pass and Bonepile together, and
-         ticking it ticks both. Defined once in src/factory/outcomes.py and
-         mirrored in customize.js; tests/test_outcomes.py holds them to the same
-         answer on the same window. -->
-    <section class="card full" style="margin-top:16px">
-      <div class="card-head">
-        <div>
-          <h2>3 · Result type</h2>
-          <p class="sub" id="types-sub"></p>
-        </div>
-      </div>
-      <div class="checks" id="types"></div>
-    </section>
+    <!-- Result used to be section 3: five tickboxes, chosen before the table
+         existed, that decided which rows were ever computed. It is a column in
+         the table now — sortable, and filterable from its own heading like the
+         daily tracker's — because that is the same choice made where its effect
+         can be seen. Picking "Bonepile" from a menu that says how many bonepile
+         rows there are beats picking it from a checkbox that cannot. The four
+         outcomes are still defined once in src/factory/outcomes.py and mirrored
+         in customize.js, with tests/test_outcomes.py holding the two to the
+         same answer. -->
 
-    <!-- The gate. Sections 1 to 3 are the question; everything below is the
+    <!-- The gate. Sections 1 and 2 are the question; everything below is the
          answer, and it is not computed until asked for — which is also when the
          8.6 MB half of the bundle is fetched. #bigdata carries the progress bar,
          the estimate and the raw-data download. -->
@@ -100,7 +96,7 @@
     <section class="card full" style="margin-top:16px">
       <div class="card-head">
         <div>
-          <h2>4 · Take it</h2>
+          <h2>3 · Take it</h2>
           <p class="sub" id="take-sub"></p>
         </div>
         <span class="spacer"></span>
@@ -125,7 +121,7 @@
     <section class="card full" style="margin-top:16px" id="errors">
       <div class="card-head">
         <div>
-          <h2>5 · Error codes</h2>
+          <h2>4 · Error codes</h2>
           <p class="sub" id="err-sub"></p>
         </div>
         <span class="spacer"></span>
@@ -170,7 +166,7 @@
     <section class="card full" style="margin-top:16px" id="charts">
       <div class="card-head">
         <div>
-          <h2>6 · Yield and failures</h2>
+          <h2>5 · Yield and failures</h2>
           <p class="sub" id="cc-sub"></p>
         </div>
       </div>
@@ -285,6 +281,11 @@
      testNames, 8.6 MB — is fetched by bigdata.js when something
      actually needs it, with a progress bar and an estimate. -->
 <script src="data/runs_pega_light.js"></script>
+<!-- A board's attempts from before the collected window (176 KB), so a serial
+     search reaches its first ever test rather than the reporting horizon. Small
+     enough to load with the page: it carries no per-test detail, which is what
+     makes the runs bundle 6.6 MB. -->
+<script src="data/unit_history.js"></script>
 <script src="bigdata.js"></script>
 <script src="data/errors.js"></script>
 <script src="charts.js"></script>
@@ -294,6 +295,7 @@
      consumer loaded later than that misses it and draws every station until
      the reader happens to touch a checkbox. -->
 <script src="errors.js"></script>
+<script src="colfilter.js"></script>
 <script src="customcharts.js"></script>
 <script src="customize.js"></script>
 <script src="dutsearch.js"></script>

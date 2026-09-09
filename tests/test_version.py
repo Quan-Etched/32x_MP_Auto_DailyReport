@@ -34,18 +34,100 @@ class WebUrlTest(unittest.TestCase):
         self.assertIsNone(version.web_url(""))
 
 
+class DirtyTest(unittest.TestCase):
+    """Whether a published page came from a real commit.
+
+    The flag had been on for every page the box ever published, which is the
+    same as being off. `git describe --dirty` counts any tracked difference,
+    and the deploy excludes `data/` and `dashboard/data/` on purpose — the
+    box's collected history and its generated bundles are its own. Three files
+    committed here and never sent (two reconciliation CSVs and the line's
+    workbook) therefore read on the box as a modified tree for ever.
+
+    So the question is asked of the files the deploy actually carries.
+    """
+
+    def setUp(self):
+        import subprocess
+        import tempfile
+        from pathlib import Path
+        from factory import config
+
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.addCleanup(setattr, config, "REPO_ROOT", config.REPO_ROOT)
+        config.REPO_ROOT = self.root
+
+        def git(*args):
+            subprocess.run(("git",) + args, cwd=str(self.root), check=True,
+                           capture_output=True)
+
+        git("init", "-q")
+        git("config", "user.email", "test@example.com")
+        git("config", "user.name", "Test")
+        (self.root / "src").mkdir()
+        (self.root / "src" / "app.py").write_text("x = 1\n", encoding="utf-8")
+        for path in ("data", "dashboard/data"):
+            (self.root / path).mkdir(parents=True)
+            (self.root / path / "kept.csv").write_text("a\n", encoding="utf-8")
+        git("add", "-A")
+        git("-c", "commit.gpgsign=false", "commit", "-qm", "first")
+
+    def test_a_clean_checkout_is_clean(self):
+        """`is False`, not merely falsey. A clean tree prints nothing, and
+        reading that as "git could not say" published `dirty: null` — which an
+        assertFalse would have called a pass."""
+        self.assertIs(version._dirty(), False)
+
+    def test_a_file_the_deploy_never_sends_does_not_dirty_the_tree(self):
+        """Deleted, which is exactly how it looks on the box: committed here,
+        excluded from the rsync, so absent there."""
+        (self.root / "dashboard" / "data" / "kept.csv").unlink()
+        (self.root / "data" / "kept.csv").write_text("b\n", encoding="utf-8")
+        self.assertIs(version._dirty(), False,
+                      "an excluded path is excluded on purpose")
+
+    def test_a_modified_source_file_does(self):
+        (self.root / "src" / "app.py").write_text("x = 2\n", encoding="utf-8")
+        self.assertTrue(version._dirty(),
+                        "this is the case the flag exists for")
+
+    def test_an_untracked_file_is_not_a_modified_source(self):
+        """The box writes several by design — its trace bundles, its own dated
+        exports — and none of them is code that came from no commit."""
+        (self.root / "src" / "scratch.txt").write_text("hi\n", encoding="utf-8")
+        self.assertIs(version._dirty(), False)
+
+    def test_the_exclusions_match_what_the_deploy_excludes(self):
+        """Two lists, one meaning. If deploy.sh stops sending a path and this
+        does not know, every page goes back to reporting a dirty tree."""
+        from pathlib import Path
+        script = (Path(__file__).resolve().parents[1]
+                  / "tools" / "deploy.sh").read_text(encoding="utf-8")
+        for path in version.NOT_DEPLOYED:
+            self.assertIn("--exclude '{}/'".format(path), script,
+                          "{} is not excluded by the deploy".format(path))
+
+
 class DescribeTest(unittest.TestCase):
     def test_it_describes_this_checkout_without_raising(self):
         got = version.describe()
         for field in ("release", "commit", "dirty", "repo", "commitUrl"):
             self.assertIn(field, got)
-        self.assertIsInstance(got["dirty"], bool)
+        self.assertIsInstance(got["dirty"], bool,
+                              "a page renders this; null is not an answer")
         self.assertIsInstance(got["commitsSinceRelease"], int)
 
     def test_a_tree_without_git_still_builds(self):
         # A copy shipped without history must publish a page, not fail one.
-        self.addCleanup(setattr, version, "_git", version._git)
-        version._git = lambda *args: None
+        #
+        # `_git_output` is the one place git is asked — `_git` is a thin
+        # wrapper over it — so that is the seam to close. Stubbing the wrapper
+        # alone left the dirty check talking to the real repository, which
+        # answered about this checkout instead of about the one under test.
+        self.addCleanup(setattr, version, "_git_output", version._git_output)
+        version._git_output = lambda *args: None
         got = version.describe()
         self.assertIsNone(got["commit"])
         self.assertIsNone(got["release"])
@@ -53,8 +135,9 @@ class DescribeTest(unittest.TestCase):
         self.assertFalse(got["dirty"])
 
     def test_commit_url_needs_both_a_remote_and_a_commit(self):
-        self.addCleanup(setattr, version, "_git", version._git)
-        version._git = lambda *args: "abc1234" if args[0] == "rev-parse" else None
+        self.addCleanup(setattr, version, "_git_output", version._git_output)
+        version._git_output = (
+            lambda *args: "abc1234" if args[0] == "rev-parse" else None)
         self.assertIsNone(version.describe()["commitUrl"])
 
 

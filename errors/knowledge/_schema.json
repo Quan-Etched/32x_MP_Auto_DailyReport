@@ -1,0 +1,124 @@
+{
+ "_comment": [
+  "The knowledge-file contract, in the form src/factory/errorkb.py validates against.",
+  "SCHEMA.md beside this file is authoritative for the prose rules and the reasoning;",
+  "this file is deliberately a small declarative subset, not JSON Schema, because the",
+  "repo is stdlib-only and a ~80-line validator can read this directly.",
+  "",
+  "Field spec keys:",
+  "  type      str | int | bool | list | obj  (a trailing '?' means null is allowed)",
+  "  required  true when the KEY must be present. A required key whose type ends in",
+  "            '?' must still be present -- explicitly null, never omitted.",
+  "  enum      the complete set of permitted values",
+  "  pattern   a Python re fullmatch applied to a string value",
+  "  min       minimum length for a list or a stripped string",
+  "  of        the spec each list element is checked against",
+  "  unique    for a list of objects, the field that must be unique within the file",
+  "",
+  "Files whose name starts with '_' are not data and are never loaded."
+ ],
+ "schemaVersion": 1,
+
+ "filename": {
+  "codeForm": "^(?P<code>[A-Z]{2,4}-[A-Z0-9]+-[0-9]{4})\\.json$",
+  "caseForm": "^case-(?P<case>[A-Za-z][A-Za-z0-9_]*)\\.json$",
+  "ignorePrefix": "_",
+  "_comment": [
+   "The code in the filename must equal the `code` field. A caseForm file must have",
+   "code: null and must name that case in appliesTo.cases.",
+   "codeForm is the BASE code -- any -S<x>Q<y> suffix is stripped, the same key",
+   "32x-error-code's base_and_flags() resolves to."
+  ]
+ },
+
+ "root": {
+  "_comment":      {"type": "list", "required": false, "of": {"type": "str"}},
+  "schemaVersion": {"type": "int",  "required": true,  "enum": [1]},
+  "code":          {"type": "str?", "required": true,
+                    "pattern": "[A-Z]{2,4}-[A-Z0-9]+-[0-9]{4}"},
+  "appliesTo":     {"type": "obj",  "required": true,  "of": "appliesTo"},
+  "owner":         {"type": "str",  "required": false},
+  "rootCauses":    {"type": "list", "required": true,  "min": 0,
+                    "of": "rootCause", "unique": "id"},
+  "updatedAt":     {"type": "str",  "required": true,  "format": "iso8601"},
+  "updatedBy":     {"type": "str",  "required": true,  "min": 1}
+ },
+
+ "appliesTo": {
+  "cases":    {"type": "list", "required": true,  "min": 1, "of": {"type": "str", "min": 1}},
+  "stations": {"type": "list", "required": false, "of": {"type": "str", "min": 1},
+               "_comment": "station keys as registered in src/factory/stations.py"}
+ },
+
+ "rootCause": {
+  "id":         {"type": "str",  "required": true, "pattern": "[a-z0-9]+(-[a-z0-9]+)*"},
+  "team":       {"type": "str",  "required": true,
+                 "enum": ["Test", "Infra", "Firmware", "Platform"]},
+  "confidence": {"type": "str",  "required": true,
+                 "enum": ["suspected", "confirmed"]},
+  "statement":  {"type": "str",  "required": true, "min": 1},
+  "firstSeen":  {"type": "str",  "required": false, "format": "date"},
+  "evidence":   {"type": "list", "required": true, "min": 1, "of": "evidence"},
+  "correctiveActions": {"type": "list", "required": true, "min": 0,
+                        "of": "correctiveAction", "unique": "id"}
+ },
+
+ "correctiveAction": {
+  "id":     {"type": "str", "required": true, "pattern": "[a-z0-9]+(-[a-z0-9]+)*"},
+  "action": {"type": "str", "required": true, "min": 1},
+  "kind":   {"type": "str", "required": true,
+             "enum": ["process", "rework", "firmware", "fixture", "software", "none"]},
+  "state":  {"type": "str", "required": true,
+             "enum": ["proposed", "applied", "reverted"]},
+  "appliedAt": {"type": "str?", "required": true, "format": "iso8601",
+                "_comment": [
+                 "The entire basis of the Post-CA verdict. null is permitted and",
+                 "honest -- it yields verdict 'not-evaluable'. Omitting the key is an",
+                 "error, because an absent key cannot be told from a forgotten one."
+                ]},
+  "scope":  {"type": "obj", "required": true, "of": "scope"},
+  "owner":  {"type": "str", "required": false},
+  "ref":    {"type": "str", "required": false, "pattern": "[A-Z]+-[0-9]+"},
+  "evidence": {"type": "list", "required": false, "of": "evidence"}
+ },
+
+ "scope": {
+  "kind":  {"type": "str", "required": true,
+            "enum": ["fleet", "station", "build", "dut"]},
+  "value": {"type": "str", "required": true,
+            "_comment": [
+             "Empty string when kind is fleet. A dut value is a SERIAL and is always",
+             "a JSON string -- several serials carry leading zeros and a numeric read",
+             "silently drops them (see src/shopfloor/yamlout.py)."
+            ]}
+ },
+
+ "evidence": {
+  "source": {"type": "str", "required": true,
+             "enum": ["slack", "jira", "fi", "drive", "log", "run", "doc"]},
+  "url":    {"type": "str", "required": true, "min": 1},
+  "who":    {"type": "str", "required": false},
+  "at":     {"type": "str", "required": false, "format": "iso8601"},
+  "quote":  {"type": "str", "required": false,
+             "_comment": [
+              "What a human actually wrote at the source. Quote or paraphrase; never",
+              "infer. A field not stated at the source is omitted, not guessed."
+             ]}
+ },
+
+ "postCA": {
+  "_comment": [
+   "NOT a field in any knowledge file. Recorded here so the contract is in one place.",
+   "Computed in src/factory/postca.py from appliedAt against the occurrence stream,",
+   "scoped by the action's scope. Rates, not counts: raw counts fall whenever the line",
+   "slows down, which would score every fix as effective during a quiet week."
+  ],
+  "constants": {
+   "BEFORE_DAYS": 14,
+   "MIN_RUNS_AFTER": 20,
+   "EFFECTIVE_AT_OR_BELOW": 0.2,
+   "PARTIAL_AT_OR_BELOW": 0.6
+  },
+  "verdicts": ["not-evaluable", "insufficient", "ineffective", "partial", "effective"]
+ }
+}

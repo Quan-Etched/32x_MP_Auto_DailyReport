@@ -36,11 +36,73 @@
    * the half that keeps it fixed.) */
   var T = window.__FACTORY_TRACE__ || null;
   var BUNDLE_URL = 'data/trace.js';
-  var loadState = T ? 'ready' : 'idle';   // idle | loading | ready | failed
+  var loadState = T ? 'ready' : 'idle';   // idle | loading | ready
   var loadError = '';
 
   var host = document.getElementById('trace');
   if (!host) return;
+
+  /* Fetch, preferring the cache, but never trusting a cached FAILURE.
+   *
+   * These files are large and immutable for the life of a snapshot, so
+   * `force-cache` is right for the happy path — it is what stops a reader
+   * re-downloading the bundle on every search. What it also does, and what
+   * cost somebody an afternoon, is reuse a stored *error* with the same
+   * enthusiasm and no expiry: one 404 — from a moment when the trace bundle
+   * had not been published yet, or a connection that dropped mid-flight — and
+   * that reader gets "HTTP 404" for ever, for a file that is sitting on the
+   * server returning 200 to everyone else. Nothing on the page clears it,
+   * because `force-cache` never revalidates; only a hard reload does, and
+   * nobody guesses that.
+   *
+   * Reported on 2026-09-03 for 268633790001, whose file was present, 200, and
+   * byte-identical to the 743 others that worked.
+   *
+   * So: try the cache, and on any failure go once to the network with
+   * `reload`, which bypasses the cached copy entirely. A genuinely missing
+   * file fails twice and reports honestly; a stale cached failure heals itself
+   * and the reader never learns it happened. */
+  /* The bundle names its side files relative to ITSELF.
+   *
+   * build_trace.py writes `unitPath: "trace/{sn}.json"` and
+   * `yamlPath: "trace/{sn}.yaml"`, meaning "beside data/trace.js" — which is
+   * where they are on disk. But `fetch()` and an `href` resolve a relative
+   * path against the PAGE, and the page is /customize.html, so both asked for
+   * /trace/<sn>.json and got a 404 while /data/trace/<sn>.json sat there
+   * returning 200. Every serial, every reader, for as long as the panel has
+   * existed — reported on 2026-09-03 for 268633790001 and reproduced in a
+   * fresh browser with an empty cache.
+   *
+   * Resolving against the bundle rather than the page is also what the
+   * offline harness does (tests/trace_dom_test.js builds the same paths from
+   * the bundle's own directory), so this makes the two agree. */
+  var BUNDLE_DIR = BUNDLE_URL.replace(/[^/]*$/, '');
+
+  function beside(path) {
+    /* Leave anything already absolute alone — a future bundle served from a
+       CDN would name its files properly and must not be prefixed. */
+    if (!path || path.charAt(0) === '/' || path.indexOf('://') !== -1) {
+      return path;
+    }
+    return BUNDLE_DIR + path;
+  }
+
+  function fetchTwice(url, onOk, onFail) {
+    function attempt(mode, andThen) {
+      fetch(url, { cache: mode })
+        .then(function (res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res;
+        })
+        .then(onOk)
+        .catch(andThen);
+    }
+    attempt('force-cache', function () {
+      attempt('reload', function (err) {
+        onFail(String((err && err.message) || err));
+      });
+    });
+  }
 
   /* Read lazily, never cached at load: this module runs BEFORE the 9.5 MB run
    * bundle so the tree paints in seconds instead of minutes, and the controller
@@ -114,25 +176,51 @@
    * page renders a single unit at a time, and a complete sweep is 191 of them.
    * Already-loaded units are skipped, so walking a tree costs one fetch. */
   var unitsLoaded = {};
+
+  /* Requests already in flight, unit -> the callbacks waiting on them.
+   *
+   * Without this, two calls for the same unit each went to the network,
+   * because `unitsLoaded` is only set once a response has come back. The page
+   * calls tick() from more than one place — the hash changed, the serial box
+   * changed, the search button — and any two of them landing together meant
+   * duplicate fetches racing. Harmless when they all succeed; not harmless
+   * otherwise, because the LAST one to land decides what is drawn, so a late
+   * failure painted "Could not load the genealogy" over a tree that had
+   * already loaded correctly a moment earlier. */
+  var unitsInFlight = {};
+
   function ensureUnit(unit, then, fail) {
     if (!unit || unitsLoaded[unit] || (T.nodes && !T.index)) { then(); return; }
     if (T.nodes && T.nodes[unit] && (T.nodes[unit].k || []).length) { then(); return; }
     if (!T.unitPath) { then(); return; }
-    fetch(T.unitPath.replace('{sn}', encodeURIComponent(unit)),
-          { cache: 'force-cache' })
-      .then(function (res) {
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        return res.json();
-      })
-      .then(function (payload) {
-        T.nodes = T.nodes || {};
-        Object.keys(payload.nodes || {}).forEach(function (sn) {
-          T.nodes[sn] = payload.nodes[sn];
+
+    if (unitsInFlight[unit]) {
+      unitsInFlight[unit].push({ then: then, fail: fail });
+      return;
+    }
+    unitsInFlight[unit] = [{ then: then, fail: fail }];
+
+    function settle(which, arg) {
+      var pending = unitsInFlight[unit] || [];
+      delete unitsInFlight[unit];
+      pending.forEach(function (cb) {
+        /* One caller throwing must not strand the others. */
+        try { cb[which](arg); } catch (e) { /* ignore */ }
+      });
+    }
+
+    fetchTwice(beside(T.unitPath.replace('{sn}', encodeURIComponent(unit))),
+      function (res) {
+        return res.json().then(function (payload) {
+          T.nodes = T.nodes || {};
+          Object.keys(payload.nodes || {}).forEach(function (sn) {
+            T.nodes[sn] = payload.nodes[sn];
+          });
+          unitsLoaded[unit] = true;
+          settle('then');
         });
-        unitsLoaded[unit] = true;
-        then();
-      })
-      .catch(function (err) { fail(String((err && err.message) || err)); });
+      },
+      function (why) { settle('fail', why); });
   }
 
   /* Up from a serial to the unit it belongs to. Guarded against a cycle: the
@@ -298,7 +386,7 @@
     var units = T.yamlUnits || [];
     if (!T.yamlPath || units.indexOf(unit) < 0) return null;
     return h('a', { class: 'view-toggle', download: unit + '.yaml',
-                    href: T.yamlPath.replace('{sn}', encodeURIComponent(unit)),
+                    href: beside(T.yamlPath.replace('{sn}', encodeURIComponent(unit))),
                     text: 'Download ' + unit + '.yaml' });
   }
 
@@ -471,27 +559,45 @@
     return '';
   }
 
-  /* Fetch the bundle the first time a serial is actually being shown. */
+  /* Fetch the bundle the first time a serial is actually being shown.
+   *
+   * Callers that arrive mid-flight are queued rather than dropped. They used
+   * to be discarded — `return` with the callback unheld — so searching a
+   * second serial while the first was still fetching left the panel blank
+   * with nothing pending and nothing to say. Rare before, and less rare now
+   * that a failure can be retried. */
+  var waiting = [];
   function ensureBundle(then) {
     if (loadState === 'ready') { then(); return; }
+    waiting.push(then);
     if (loadState === 'loading') return;
     loadState = 'loading';
     paintLoading();
-    fetch(BUNDLE_URL, { cache: 'force-cache' }).then(function (res) {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.text();
-    }).then(function (text) {
-      var open = text.indexOf('{');
-      T = JSON.parse(text.slice(open).replace(/;\s*$/, ''));
-      window.__FACTORY_TRACE__ = T;
-      loadState = 'ready';
-      then();
-    }).catch(function (err) {
+    fetchTwice(BUNDLE_URL, function (res) {
+      return res.text().then(function (text) {
+        var open = text.indexOf('{');
+        T = JSON.parse(text.slice(open).replace(/;\s*$/, ''));
+        window.__FACTORY_TRACE__ = T;
+        loadState = 'ready';
+        var pending = waiting.splice(0);
+        pending.forEach(function (fn) {
+          /* One caller throwing must not strand the others. */
+          try { fn(); } catch (e) { /* ignore */ }
+        });
+      });
+    }, function (why) {
       /* A 404 is the ordinary case on a copy published before anyone ran
        * `make sfis-dashboard`, and it is not an error worth shouting about --
        * the rest of the page is unaffected. Anything else is worth saying. */
-      loadState = 'failed';
-      loadError = String((err && err.message) || err);
+      /* `idle`, not `failed`: the next serial somebody searches should try
+       * again. `failed` was terminal for the life of the page, so one bad
+       * moment — a dropped connection, a publish that had not reached the
+       * trace files yet — left the panel dead until a reload, and every
+       * search afterwards silently did nothing. tick() only runs on a
+       * deliberate action, so retrying there cannot spin. */
+      loadState = 'idle';
+      loadError = why;
+      waiting.length = 0;
       host.innerHTML = '';
       if (loadError.indexOf('404') < 0) {
         host.appendChild(h('p', { class: 'trace-empty', text:
@@ -516,7 +622,6 @@
   function tick() {
     var sn = current();
     if (!sn) { if (loadState !== 'loading') host.innerHTML = ''; return; }
-    if (loadState === 'failed') return;
     ensureBundle(function () {
       var unit = unitOf(sn);
       if (!unit) { render(sn); return; }   // not in the index: render says so

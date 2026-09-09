@@ -251,6 +251,15 @@
 
 .sheet-table thead th:last-child { border-right: 0; }
 
+/* This header is dark in both themes (--sheet-head-bg), so the filter arrow
+   needs a light wash rather than the theme's own — which is near-black in
+   light mode and would vanish here. colfilter.css carries the neutral default
+   for every other table. */
+.sheet-table thead .col-filter:hover,
+.sheet-table thead .col-filter:focus-visible {
+  background: rgba(255, 255, 255, 0.14);
+}
+
 /* The build a column ran, under its heading rather than trailing it. Lighter
    and monospaced, because it is a machine name being quoted, not a title. */
 .col-build,
@@ -414,134 +423,8 @@ span.jira-key { color: var(--text-secondary); }
 
 .col-name { overflow-wrap: anywhere; }
 
-/* The dropdown arrow. Always present so the heading does not reflow on hover,
-   but dim until the column is worth acting on. */
-.col-filter {
-  flex: none;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  opacity: 0.45;
-  font-size: 9px;
-  line-height: 1;
-  padding: 3px 2px;
-  cursor: pointer;
-  border-radius: 3px;
-}
-
-.col-filter:hover,
-.col-filter:focus-visible { opacity: 1; background: rgba(255, 255, 255, 0.14); }
-
-.sheet-table thead th.is-filtered .col-filter { opacity: 1; }
-.sheet-table thead th.is-filtered { box-shadow: inset 0 -3px 0 var(--accent-solid); }
-.sheet-table thead th.is-sorted .col-filter { opacity: 0.9; }
-
-.filter-menu {
-  position: fixed;
-  z-index: 40;
-  /* Wide enough for a whole suite name. These are the strings the reader is
-     choosing between — mlt_validation_2026.225.0-gitb937ca2c against
-     mlt_2026.220.0-git2f1c2f23 — and they differ in the middle, so a truncated
-     list is a list you cannot choose from. */
-  min-width: 300px;
-  max-width: min(460px, calc(100vw - 24px));
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  /* An explicit opaque surface, not var(--card, var(--bg)): neither token
-     exists on this page, so the whole declaration was invalid and the panel
-     rendered transparent with the table legible straight through it. */
-  background: var(--surface-1);
-  color: var(--text-primary);
-  border: 1px solid var(--text-muted);
-  border-radius: var(--radius);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.18);
-}
-
-/* Which column this menu belongs to. The panel floats over a dense table, and
-   without the name it is not obvious what is about to be filtered. */
-.fm-head {
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--text-primary);
-  padding-bottom: 2px;
-  border-bottom: 1px solid var(--border);
-}
-
-.fm-sorts { display: flex; gap: 6px; }
-
-.filter-menu button {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-secondary);
-  border-radius: 5px;
-  padding: 4px 8px;
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.filter-menu button:hover { background: var(--hover-wash); color: var(--text-primary); }
-.filter-menu .fm-sort { flex: 1; }
-.filter-menu .fm-sort.on { border-color: var(--accent-solid); color: var(--accent-solid); }
-
-.fm-search {
-  font: inherit;
-  font-size: 12px;
-  padding: 6px 8px;
-  border-radius: 5px;
-  border: 1px solid var(--border);
-  background: var(--page);
-  color: var(--text-primary);
-}
-
-.fm-list {
-  max-height: 300px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  padding: 4px 0;
-}
-
-.fm-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 5px 6px;
-  font-size: 12px;
-  cursor: pointer;
-  border-radius: 4px;
-}
-
-.fm-row input { margin-top: 2px; flex: none; }
-
-.fm-row:hover { background: var(--hover-wash); }
-.fm-row.blank .fm-value { color: var(--text-muted); font-style: italic; }
-
-.fm-value {
-  flex: 1;
-  /* Wrap rather than clip: the tail of a suite name is the part that names the
-     build. */
-  overflow-wrap: anywhere;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-  line-height: 1.35;
-  color: var(--text-primary);
-}
-
-.fm-count {
-  flex: none;
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-}
-
-.fm-actions { display: flex; align-items: center; gap: 6px; }
-.fm-gap { flex: 1; }
-.filter-menu .fm-apply { border-color: var(--accent-solid); color: var(--accent-solid); }
+/* The column filter menu moved to colfilter.css — the customize page
+   uses the same panel. Loaded by dailyexcel.html alongside this file. */
 
 /* A filtered table that does not say so is a table someone will screenshot
    and quote as the day's total. */
@@ -609,8 +492,12 @@ span.jira-key { color: var(--text-secondary); }
    column in both count modes, and this column holds what varies — the
    attempts that unit already made at this station. Blank on a first visit. */
 .sheet-table th.col-history { min-width: 150px; }
-.sheet-table td.history { white-space: nowrap; vertical-align: middle; }
-.rt-line { display: block; }
+/* Wraps rather than runs off. The strip carries every attempt now, first to
+   last, and a rack retried nineteen times in a month is a real row — pinned
+   to a width the chips flow onto a second line instead of pushing the
+   verdict columns off the screen. */
+.sheet-table td.history { vertical-align: middle; max-width: 260px; }
+.rt-line { display: block; line-height: 1.7; }
 .rt-line + .rt-line { margin-top: 2px; }
 .rt-station { font-size: 10px; color: var(--text-muted); margin-right: 4px;
               letter-spacing: 0.03em; }
@@ -674,6 +561,18 @@ a.rt-att:hover { outline: 1px solid currentColor; }
 .tries {
   margin-left: 5px; font-size: 11px; font-variant-numeric: tabular-nums;
   color: var(--text-muted); cursor: help;
+}
+
+/* One of the names in a failure cell is the fixture's, not this chip's. Set
+   apart rather than hidden: it is a real failure of this unit's run, and it is
+   not evidence about this chip. */
+.fixture-mark {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  font-style: italic;
+  color: var(--text-muted);
+  cursor: help;
 }
 
 /* ---------------------------------------------------------- day calendar */

@@ -368,6 +368,24 @@ def cmd_build(args: argparse.Namespace) -> int:
         except Exception as exc:                          # noqa: BLE001
             print("Controller run table skipped ({})".format(exc))
 
+        # What that table cannot reach: every attempt before the collected
+        # window, per serial, so a serial search on customize.html finds a
+        # board's first ever test rather than its first test since 08-01.
+        # Small and separate on purpose — see build_unit_history.
+        from . import build_unit_history
+        try:
+            history_bundle = build_unit_history.build_bundle()
+        except Exception as exc:                          # noqa: BLE001
+            print("Unit history skipped ({})".format(exc))
+        else:
+            history_path = build_unit_history.write_bundle(history_bundle)
+            print("Unit history ({:.0f} KB, {} units, {} attempts before {}) "
+                  "-> {}".format(
+                      history_path.stat().st_size / 1024,
+                      history_bundle["counts"]["units"],
+                      history_bundle["counts"]["attempts"],
+                      history_bundle["window"]["from"], history_path))
+
     stations_path = build_stations.write_bundle(stations_bundle)
     print("Stations bundle ({:.0f} KB) -> {}".format(
         stations_path.stat().st_size / 1024, stations_path))

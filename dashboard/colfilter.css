@@ -1,0 +1,142 @@
+/* The Excel-style column menu: a dropdown arrow in a table heading, and the
+   panel it opens — sort, search, tick the values to keep.
+   ---------------------------------------------------------------------------
+   SHARED, because two pages now offer it: the daily tracker's sheet tables
+   (dailysheet.js) and the customize page's preview (colfilter.js). It lived in
+   dailyexcel.css until 2026-09-03; the customize page needed the same panel,
+   and a second copy is a second thing to restyle and forget. The table-specific
+   selectors below are keyed on `.is-filtered` / `.is-sorted` rather than on one
+   page's table class, so a third table costs nothing. */
+
+/* The dropdown arrow. Always present so the heading does not reflow on hover,
+   but dim until the column is worth acting on. */
+.col-filter {
+  flex: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.45;
+  font-size: 9px;
+  line-height: 1;
+  padding: 3px 2px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+/* The wash is the theme's, not a fixed white one: a fixed white only shows up
+   against a dark heading, and the customize page's headings are light. The
+   daily tracker's sticky sheet header IS dark and overrides this in
+   dailyexcel.css, next to the background it is washing over. */
+.col-filter:hover,
+.col-filter:focus-visible { opacity: 1; background: var(--hover-wash); }
+
+thead th.is-filtered .col-filter { opacity: 1; }
+thead th.is-filtered { box-shadow: inset 0 -3px 0 var(--accent-solid); }
+thead th.is-sorted .col-filter { opacity: 0.9; }
+
+.filter-menu {
+  position: fixed;
+  z-index: 40;
+  /* Wide enough for a whole suite name. These are the strings the reader is
+     choosing between — mlt_validation_2026.225.0-gitb937ca2c against
+     mlt_2026.220.0-git2f1c2f23 — and they differ in the middle, so a truncated
+     list is a list you cannot choose from. */
+  min-width: 300px;
+  max-width: min(460px, calc(100vw - 24px));
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* An explicit opaque surface, not var(--card, var(--bg)): neither token
+     exists on this page, so the whole declaration was invalid and the panel
+     rendered transparent with the table legible straight through it. */
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border: 1px solid var(--text-muted);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.18);
+}
+
+/* Which column this menu belongs to. The panel floats over a dense table, and
+   without the name it is not obvious what is about to be filtered. */
+.fm-head {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text-primary);
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.fm-sorts { display: flex; gap: 6px; }
+
+.filter-menu button {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 5px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.filter-menu button:hover { background: var(--hover-wash); color: var(--text-primary); }
+.filter-menu .fm-sort { flex: 1; }
+.filter-menu .fm-sort.on { border-color: var(--accent-solid); color: var(--accent-solid); }
+
+.fm-search {
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--page);
+  color: var(--text-primary);
+}
+
+.fm-list {
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 4px 0;
+}
+
+.fm-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.fm-row input { margin-top: 2px; flex: none; }
+
+.fm-row:hover { background: var(--hover-wash); }
+.fm-row.blank .fm-value { color: var(--text-muted); font-style: italic; }
+
+.fm-value {
+  flex: 1;
+  /* Wrap rather than clip: the tail of a suite name is the part that names the
+     build. */
+  overflow-wrap: anywhere;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-primary);
+}
+
+.fm-count {
+  flex: none;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+.fm-actions { display: flex; align-items: center; gap: 6px; }
+.fm-gap { flex: 1; }
+.filter-menu .fm-apply { border-color: var(--accent-solid); color: var(--accent-solid); }

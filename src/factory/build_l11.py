@@ -142,7 +142,23 @@ def _columns() -> List[Dict[str, Any]]:
     return columns
 
 
-def _seen_before(day: str, lookback: int = build_dailyexcel.NEW_INPUT_LOOKBACK
+def stage_index(first: str, last: str
+                ) -> Dict[str, Dict[str, List[Dict[str, str]]]]:
+    """Every attempt each stage made over a whole span, read once.
+
+    The per-tab walk this replaces re-read the same runs for every day the
+    tracker published — affordable only while the history reached 30 days and
+    the tracker began in August. Over the controllers' full retention it was
+    tens of seconds per tab.
+    """
+    return build_dailyexcel.attempt_index(
+        "pega5", [key for key, _l, _p in STAGES],
+        lambda entry: stage_of(entry.get("suite_name")),
+        lambda run_id, slot: pega.run_url(run_id, slot, host="pega5"),
+        first, last)
+
+
+def _seen_before(day: str, lookback: Optional[int] = None
                  ) -> Dict[str, Dict[str, List[Dict[str, str]]]]:
     """Every attempt each L11 stage made on a rack before ``day``.
 
@@ -151,37 +167,37 @@ def _seen_before(day: str, lookback: int = build_dailyexcel.NEW_INPUT_LOOKBACK
     L11 has run two racks all month, so almost every row is a returning one and
     a count-all yield is mostly the same rack being retried.
     """
-    seen: Dict[str, Dict[str, List[Dict[str, str]]]] = {
-        key: {} for key, _l, _p in STAGES}
+    # Late-bound rather than a default argument: the reach is derived from
+    # pega.HISTORY_FROM, and a default freezes it at import, so moving the
+    # floor left this function reaching a distance nothing else used.
+    if lookback is None:
+        lookback = build_dailyexcel.NEW_INPUT_LOOKBACK
+
+    # FACTORY_PEGA=0 means no controllers, here as well as on the module
+    # tracker — build_dailyexcel._seen_before has always had this guard and
+    # these two never did. It went unnoticed while the reach was 30 days of
+    # mostly-cached listings; deepening it to the history floor on 2026-09-08
+    # turned the same path into 144 live requests inside a test suite that
+    # believed it had switched the integration off.
+    if not pega.enabled():
+        return {key: {} for key, _label, _pattern in STAGES}
+
     start = datetime.strptime(day, "%Y-%m-%d").date()
-    for offset in range(lookback, 0, -1):
-        past = (start - timedelta(days=offset)).strftime("%Y-%m-%d")
-        try:
-            listing = pega.day_suite_runs(past, host="pega5")
-        except pega.PegaUnavailable:
-            continue
-        for entry in sorted(listing, key=lambda e: e.get("start_time") or ""):
-            stage = stage_of(entry.get("suite_name"))
-            if not stage:
-                continue
-            run_id = entry.get("suite_run_id") or ""
-            try:
-                detail = pega.suite_run(run_id, host="pega5")
-            except pega.PegaUnavailable:
-                continue
-            for part in pega.participants(detail):
-                if part["status"] not in ("pass", "fail"):
-                    continue
-                seen[stage].setdefault(part["dut"], []).append({
-                    "day": past,
-                    "status": part["status"],
-                    "url": pega.run_url(run_id, part["slot"], host="pega5"),
-                    "suite": entry.get("suite_name") or "",
-                })
-    return seen
+    first = max(pega.HISTORY_FROM,
+                (start - timedelta(days=lookback)).strftime("%Y-%m-%d"))
+    last = (start - timedelta(days=1)).strftime("%Y-%m-%d")
+    return build_dailyexcel.slice_before(
+        stage_index(first, last), day, lookback)
 
 
-def _day(day: str) -> Optional[Dict[str, Any]]:
+def _day(day: str, history_index: Optional[Dict[str, Any]] = None
+         ) -> Optional[Dict[str, Any]]:
+    """One day's L11 tab. ``index`` as in :func:`build_l10._day`."""
+    # Switched off means switched off. The call site cannot know: it guards
+    # the shared span read with pega.enabled() and then asks for the day
+    # anyway, so the guard belongs here, where the request is made.
+    if not pega.enabled():
+        return None
     try:
         listing = pega.day_suite_runs(day, host="pega5")
     except pega.PegaUnavailable:
@@ -218,6 +234,21 @@ def _day(day: str) -> Optional[Dict[str, Any]]:
             attempts_of.setdefault(part["dut"], {}).setdefault(stage, 0)
             attempts_of[part["dut"]][stage] += 1
 
+            # The same attempts again, with their verdicts and links, for the
+            # Test History strip. The count above is every run including the
+            # aborts; the strip is only what returned a verdict, so the two
+            # are kept apart rather than derived from each other.
+            if part["status"] in ("pass", "fail"):
+                unit.setdefault(stage + build_dailyexcel.ATTEMPTS_KEY,
+                                []).append({
+                                    "day": day,
+                                    "status": part["status"],
+                                    "url": pega.run_url(run_id, part["slot"],
+                                                        host="pega5"),
+                                    "suite": entry.get("suite_name") or "",
+                                    "started": started,
+                                })
+
             previous = unit.get(stage)
             if previous and previous["started"] >= started:
                 continue
@@ -239,7 +270,9 @@ def _day(day: str) -> Optional[Dict[str, Any]]:
                   for k, _l, _p in STAGES if k in unit)
         return (not bad, dut)
 
-    history = _seen_before(day)
+    history = (build_dailyexcel.slice_before(
+                   history_index, day, build_dailyexcel.NEW_INPUT_LOOKBACK)
+               if history_index is not None else _seen_before(day))
 
     rows = []
     for dut, unit in sorted(units.items(), key=sort_key):
@@ -249,12 +282,18 @@ def _day(day: str) -> Optional[Dict[str, Any]]:
         for key, _label, _pattern in STAGES:
             if key not in unit:
                 continue
-            attempts = (history.get(key) or {}).get(dut) or []
-            if attempts:
-                station = STATION_OF[key]
-                serial.setdefault("seen", {})[station] = attempts[-1]["day"]
+            station = STATION_OF[key]
+            past = (history.get(key) or {}).get(dut) or []
+            today = build_dailyexcel._day_attempts(unit, key)
+            # New input is still decided on the days before this one; the
+            # strip is what carries today. It matters most here — L11 retries
+            # a rack six times in an afternoon, and a strip that stopped at
+            # yesterday said nothing about any of them.
+            if past:
+                serial.setdefault("seen", {})[station] = past[-1]["day"]
+            if past or len(today) > 1:
                 serial.setdefault("history", {})[station] = \
-                    build_dailyexcel._trim_history(attempts)
+                    build_dailyexcel._numbered_history(past, today)
         serial["new"] = "seen" not in serial
         row[index["B"]] = serial
         if unit.get("pn"):

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Hourly controller-cache push, laptop -> dashboard host.
+
+  Fires at :50, ten minutes before the box's own :05 rebuild, so what the box
+  builds from is the cache this just delivered rather than the one before it.
+
+  This exists because the box cannot read pega3/4/5 — 46 bytes a second over a
+  DERP relay, against 0.09s from here. It is a workaround for a network fault.
+  Remove it when infra gives the box a direct path; docs/deploy.md says what to
+  ask for.
+
+  Install:   make schedule-pega-push-install
+  Status:    make schedule-pega-push-status
+  Remove:    make schedule-pega-push-uninstall
+
+  __REPO__ is replaced with the repository path at install time.
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.etched.factory-pega-push</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__REPO__/tools/pega_push.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO__</string>
+
+    <!-- Every hour, at :50. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Minute</key>
+        <integer>50</integer>
+    </dict>
+
+    <!-- Not RunAtLoad: installing this should not fire a push in the middle of
+         whatever else is running. The next :50 is soon enough. -->
+
+    <!-- If the Mac was asleep at :50, run as soon as it wakes. -->
+    <key>StartInterval</key>
+    <integer>3600</integer>
+
+    <key>StandardOutPath</key>
+    <string>__REPO__/data/logs/pega_push.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__REPO__/data/logs/pega_push.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <key>LowPriorityIO</key>
+    <true/>
+</dict>
+</plist>

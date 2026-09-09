@@ -309,10 +309,25 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def end_headers(self) -> None:
-        # The bundles are rewritten under the browser's feet by an update; a
-        # cached metrics.js would show yesterday's numbers after the reload.
-        if self.path.startswith("/data/"):
-            self.send_header("Cache-Control", "no-cache")
+        # Nothing this server hands out is worth caching, and a stale copy of
+        # any of it is expensive to diagnose.
+        #
+        # It used to be /data/ only, on the reasoning that the bundles are what
+        # an update rewrites under the browser's feet. True, and not the whole
+        # risk: the pages and their scripts are rewritten by *editing them*,
+        # which happens far more often. Both halves of that went wrong in one
+        # afternoon — a fixed customize.js that the browser would not fetch, so
+        # the station picker stayed empty and looked unfixed; then a weekly page
+        # whose three June rows were a cached bundle while the file on disk had
+        # all twelve weeks. Each cost more time to find than caching a 30 KB
+        # file on localhost could ever save.
+        #
+        # `no-cache` and not `no-store`: revalidation is allowed, so an
+        # unchanged 9 MB runs bundle still comes back 304 rather than being
+        # re-sent. The published site does not need this — publish.sh stamps
+        # every asset URL with a hash of its content, so a changed file is a
+        # changed URL there.
+        self.send_header("Cache-Control", "no-cache")
         super().end_headers()
 
     def log_message(self, fmt: str, *args: Any) -> None:

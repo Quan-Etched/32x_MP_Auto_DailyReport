@@ -92,10 +92,19 @@ DERIVE_LIMIT = 5
 #: days and nothing older. A calendar that shows a month has to be able to
 #: answer for the month.
 #:
-#: 08-01 is the same floor the station page uses: the first day the line
-#: produced. Before it there is bring-up, and a tracker tab for a day the line
-#: was still being built would be a day of debugging filed as production.
-DAILY_FROM = "2026-08-01"
+#: It was 08-01 — "the first day the line produced", on the grounds that
+#: earlier days are bring-up and a tab for one would file debugging as
+#: production. Widened on 2026-09-02 to the whole of what the controllers hold
+#: (2026-05-21 on pega3), and withdrawn on 09-03: four months of tabs made the
+#: page slow enough to be reported as broken, and June and July are bring-up
+#: whose yields are not line performance.
+#:
+#: THE HISTORY IS NO LONGER TIED TO THIS. What the 09-02 widening was really
+#: after was a unit's own past — a chassis first tested in June showing its
+#: real first attempt — and that arrives through pega.HISTORY_FROM instead,
+#: which reaches the back months without publishing a tab for any of them. So
+#: the strip and the new-input flag see June and July; the calendar does not.
+DAILY_FROM = pega.CONTROLLER_FROM
 
 #: The stations the tracker covers, and the column pair each one fills.
 DERIVED_STATIONS = (("mlt", "E", "F", "G"), ("htt", "H", "I", "J"))
@@ -165,6 +174,25 @@ NON_RELEASE = re.compile(
 STATION_TOKEN = re.compile(r"(?:^|_)(mlt|htt)_", re.IGNORECASE)
 
 
+def _epoch(value: Optional[str]) -> Optional[int]:
+    """A controller's ISO timestamp as epoch seconds, or None.
+
+    Same rule as pega_collect._epoch — with and without a Z — so an attempt
+    read from a day listing and a run read from the collector sort against
+    each other rather than nearly.
+    """
+    if not value:
+        return None
+    text = str(value).replace("Z", "+00:00")
+    try:
+        moment = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return int(moment.timestamp())
+
+
 def station_of(run_id: str, suite: str) -> Optional[str]:
     """``mlt`` / ``htt`` for a pega3 suite, or None if it is neither."""
     for text in (suite or "", run_id or ""):
@@ -227,6 +255,29 @@ def build_bundle(
     known_duts = _known_duts(payload or {})
     warnings: List[str] = []
     tabs = []
+
+    # The module line's history, read once for the whole build rather than once
+    # per tab — see attempt_index. Lazy: a workbook-only build, or one with the
+    # controllers switched off, must not pay for a span it will not read.
+    _module_span: Dict[str, Any] = {"index": None, "read": False}
+
+    def module_history() -> Optional[Dict[str, Any]]:
+        if not _module_span["read"]:
+            _module_span["read"] = True
+            if pega.enabled():
+                # HISTORY_FROM, not the reporting floor: the tabs start at
+                # DAILY_FROM, and a unit on the first of them still has to
+                # carry what it did before that day.
+                first = max(pega.HISTORY_FROM, (
+                    datetime.strptime(DAILY_FROM, "%Y-%m-%d").date()
+                    - timedelta(days=NEW_INPUT_LOOKBACK)).strftime("%Y-%m-%d"))
+                last = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                try:
+                    _module_span["index"] = module_index(first, last)
+                except Exception:                         # noqa: BLE001
+                    _module_span["index"] = None
+        return _module_span["index"]
+
     for name in book.sheet_names():
         match = TAB_PATTERN.match(name)
         if not match:
@@ -236,7 +287,7 @@ def build_bundle(
         # lossy — one name where a unit failed eight tests. Fill it from pega3,
         # which is the system the line was reading when it typed the one.
         if enrich:
-            tab = _enrich_from_pega(tab)
+            tab = _enrich_from_pega(tab, module_history())
         # Whether or not pega3 answered, the sheet's own heading is split onto
         # two lines, so every tab in the strip has the same shape and switching
         # between them does not move the columns.
@@ -262,7 +313,7 @@ def build_bundle(
         for day in candidates:
             newest_real = next((tab for tab in reversed(tabs)
                                 if not tab.get("derived")), None)
-            built = (_pega_tab(day, newest_real)
+            built = (_pega_tab(day, newest_real, module_history())
                      if pega.enabled() else None)
             if built is None:
                 # pega3 unreachable: fall back to what EOS alone can say, which
@@ -280,13 +331,32 @@ def build_bundle(
     #
     # L10 alongside the module stages, and L11 under that. Three tables, three
     # subjects: a module, a chassis, a rack. One row cannot carry all three.
+    # Each controller's history read once for the whole run of tabs, not once
+    # per tab. See attempt_index: per tab it is tens of seconds each, and the
+    # tracker now publishes every day the controllers hold.
+    days_shown = sorted(tab["day"] for tab in tabs if tab.get("day"))
+    l10_index = l11_index = None
+    if days_shown and pega.enabled():
+        from . import build_l10, build_l11
+        span_first = max(pega.HISTORY_FROM, (
+            datetime.strptime(days_shown[0], "%Y-%m-%d").date()
+            - timedelta(days=NEW_INPUT_LOOKBACK)).strftime("%Y-%m-%d"))
+        try:
+            l10_index = build_l10.stage_index(span_first, days_shown[-1])
+        except Exception:                                 # noqa: BLE001
+            l10_index = None
+        try:
+            l11_index = build_l11.stage_index(span_first, days_shown[-1])
+        except Exception:                                 # noqa: BLE001
+            l11_index = None
+
     for tab in tabs:
         if tab.get("day") and tab["day"] >= L10_FROM:
-            l10_tab = _l10_for(tab["day"])
+            l10_tab = _l10_for(tab["day"], l10_index)
             if l10_tab:
                 tab["l10"] = l10_tab
         if tab.get("day") and tab["day"] >= L11_FROM:
-            l11_tab = _l11_for(tab["day"])
+            l11_tab = _l11_for(tab["day"], l11_index)
             if l11_tab:
                 tab["l11"] = l11_tab
         _serial_heading(tab)
@@ -411,7 +481,8 @@ def _candidate_days(payload: Dict[str, Any]) -> set:
     return days
 
 
-def _l10_for(day: str) -> Optional[Dict[str, Any]]:
+def _l10_for(day: str, index: Optional[Dict[str, Any]] = None
+             ) -> Optional[Dict[str, Any]]:
     """That day's L10 stages, built by the L10 tracker's own code.
 
     Imported rather than reimplemented: the stage matching, the pega4 host and
@@ -421,12 +492,13 @@ def _l10_for(day: str) -> Optional[Dict[str, Any]]:
     from . import build_l10
 
     try:
-        return build_l10._day(day)
+        return build_l10._day(day, index)
     except Exception:                                     # noqa: BLE001
         return None
 
 
-def _l11_for(day: str) -> Optional[Dict[str, Any]]:
+def _l11_for(day: str, index: Optional[Dict[str, Any]] = None
+             ) -> Optional[Dict[str, Any]]:
     """That day's L11 stages, built by the L11 tracker's own code.
 
     Same arrangement as [_l10_for]: the stage matching, the pega5 host and the
@@ -435,7 +507,7 @@ def _l11_for(day: str) -> Optional[Dict[str, Any]]:
     from . import build_l11
 
     try:
-        return build_l11._day(day)
+        return build_l11._day(day, index)
     except Exception:                                     # noqa: BLE001
         return None
 
@@ -670,7 +742,9 @@ def _version_sub(names: List[Optional[str]]) -> Optional[str]:
     return "{} versions in this column".format(len(distinct))
 
 
-def _enrich_from_pega(tab: Dict[str, Any]) -> Dict[str, Any]:
+def _enrich_from_pega(tab: Dict[str, Any],
+                      history_index: Optional[Dict[str, Any]] = None
+                      ) -> Dict[str, Any]:
     """Fill the sheet's failure columns with every failure pega3 recorded.
 
     The sheet's own columns are kept wherever they carry something pega3 cannot:
@@ -724,13 +798,23 @@ def _enrich_from_pega(tab: Dict[str, Any]) -> Dict[str, Any]:
                 cell["v"] = "\n".join(names)
                 filled += 1
                 added += max(0, len(names) - len([n for n in was.split("\n") if n.strip()]))
+            # Marked on the line's own tab as well as on a derived one: the
+            # sheet writes CpldDiagnosticsTestCase beside a chip's own failure
+            # with nothing to separate them, and on the page they should not
+            # read as two results about the same chip.
+            marked = [n for n in (unit.get(station) or {}).get("fixture") or []
+                      if n in names]
+            if marked:
+                cell["fx"] = marked
     if filled:
         tab["enriched"] = {"rows": filled, "added": added, "source": "pega3"}
-    return _add_sheet_versions(tab, units)
+    return _add_sheet_versions(tab, units, history_index)
 
 
 def _add_sheet_versions(tab: Dict[str, Any],
-                        units: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+                        units: Dict[str, Dict[str, Any]],
+                        history_index: Optional[Dict[str, Any]] = None
+                        ) -> Dict[str, Any]:
     """Give a hand-kept tab the per-unit version column too.
 
     The sheet has no such column — it writes one build in the heading — so this
@@ -747,7 +831,8 @@ def _add_sheet_versions(tab: Dict[str, Any],
     # The line's own tabs get the same new-input marking as the rebuilt ones.
     # Without it every unit on 08-11 and 08-12 reads as fresh material, and the
     # two halves of the strip would answer the toggle differently.
-    history = _seen_before(tab["day"]) if tab.get("day") else {}
+    history = (_seen_before(tab["day"], index=history_index)
+               if tab.get("day") else {})
     for row in tab["rows"]:
         dut = (row[at["B"]].get("v") or "").strip()
         unit = units.get(dut) or {}
@@ -761,9 +846,12 @@ def _add_sheet_versions(tab: Dict[str, Any],
             # with "P1 08-20" beside it says something a blank cell alone
             # cannot.
             past = history.get(station, {}).get(dut) or []
+            today = _day_attempts(unit, station)
             if past:
                 serial.setdefault("seen", {})[station] = past[-1]["day"]
-                serial.setdefault("history", {})[station] = _trim_history(past)
+            if past or len(today) > 1:
+                serial.setdefault("history", {})[station] = \
+                    _numbered_history(past, today)
         serial["new"] = "seen" not in serial
 
     # What the sheet leaves out, and whether it is the re-runs.
@@ -952,15 +1040,169 @@ L11_FROM = "0000-00-00"
 #: how far the Test History column reaches back. Splitting them would let the
 #: table show an attempt that the tile beside it had already ruled out of
 #: scope.
-NEW_INPUT_LOOKBACK = 30
+#:
+#: It was 30, then everything the controllers hold, asked for on 2026-09-02.
+#: The reason is the strip: at 30 days "F1" meant the unit's first attempt *in
+#: the last 30 days*, which for a chassis first tested in June is not its first
+#: attempt at all, and a numbering that quietly redefines its own 1 cannot be
+#: checked against anything. Now F1 is F1.
+#:
+#: It moves the new-input yield with it, deliberately and in the strict
+#: direction: a unit the line saw in June is a returning unit, and used to be
+#: counted as fresh material. Fewer rows are new input than before and the
+#: number is smaller — that is the definition being applied honestly, not a
+#: regression.
+#:
+#: Derived from the floor rather than fixed, so it cannot walk away from the
+#: start of the data the way the collector's 90 days did.
+#:
+#: The floor it is derived from is pega.HISTORY_FROM and not the reporting
+#: window: how far back a board's own attempts are read is a question about the
+#: board, not about which days the tracker publishes. While it was
+#: CONTROLLER_FROM, 29 of the 30 units MLT called new input on 2026-09-07 were
+#: bonepile boards that had failed MLT in July — the window could not see them,
+#: so it called them fresh material.
+def _lookback_days() -> int:
+    span = (datetime.now(timezone.utc).date()
+            - datetime.strptime(pega.HISTORY_FROM, "%Y-%m-%d").date()).days
+    return max(30, span)
 
 
-#: How many prior attempts a returning serial carries. Enough to show a
-#: campaign, bounded so a unit re-run twenty times does not carry the tab.
-HISTORY_LIMIT = 8
+NEW_INPUT_LOOKBACK = _lookback_days()
 
 
-def _seen_before(day: str, lookback: int = NEW_INPUT_LOOKBACK
+#: Suffix for the per-station list of the day's own attempts, kept on the unit
+#: beside its verdict — same shape as the ``":release"`` key above it. A list,
+#: not a count: the Test History strip ends on the day's last attempt, and to
+#: draw it each attempt needs its verdict and its link, not a tally.
+ATTEMPTS_KEY = ":attempts"
+
+
+#: Spans already read, so a process that builds more than one bundle pays for
+#: each span once. A build does; so does the test suite, and there it was the
+#: difference between a suite that runs in three minutes and one that does not
+#: finish — every ``build_bundle`` was re-reading the same months.
+#:
+#: Keyed on the two fetchers as well as the span. The tests replace them, and
+#: two different stubs are two different answers to the same three dates; the
+#: function objects rather than their ids, because an id is reused once the
+#: object it named is collected.
+_SPAN_CACHE: Dict[Any, Dict[str, Dict[str, List[Dict[str, str]]]]] = {}
+
+
+def forget_spans() -> None:
+    """Drop the memo. For a caller that has changed what the controllers say."""
+    _SPAN_CACHE.clear()
+
+
+def attempt_index(host: str, keys, key_of, url_of,
+                  first: str, last: str
+                  ) -> Dict[str, Dict[str, List[Dict[str, str]]]]:
+    """Every attempt each station made over a whole span, in one pass.
+
+    ``{station: {dut: [{day, status, url, suite}, …]}}``, each unit's list in
+    time order.
+
+    WHY A SPAN AND NOT A DAY. This used to be walked per tab: for each day the
+    tracker published, re-read the previous N days of listings and every run
+    detail in them. That is the same work over and over — 104 tabs each
+    re-reading the same runs — and it was affordable only because N was 30 and
+    the tracker began on 08-01. Measured at the full span it is 45 seconds per
+    tab warm, about 78 minutes for one build. Read once and sliced per tab, it
+    is a few seconds in total.
+
+    Callers pass ``key_of`` and ``url_of`` because the three trackers differ
+    only in how a suite name maps to a station and how a run turns into a link.
+    """
+    cache_key = (host, first, last, tuple(keys),
+                 pega.day_suite_runs, pega.suite_run)
+    if cache_key in _SPAN_CACHE:
+        return _SPAN_CACHE[cache_key]
+
+    index: Dict[str, Dict[str, List[Dict[str, str]]]] = {key: {} for key in keys}
+    for day in pega.day_range(first, last):
+        try:
+            listing = pega.day_suite_runs(day, host=host)
+        except pega.PegaUnavailable:
+            continue
+        for entry in sorted(listing, key=lambda e: e.get("start_time") or ""):
+            key = key_of(entry)
+            if not key or key not in index:
+                continue
+            run_id = entry.get("suite_run_id") or ""
+            try:
+                detail = pega.suite_run(run_id, host=host)
+            except pega.PegaUnavailable:
+                continue
+            for part in pega.participants(detail):
+                if part["status"] not in ("pass", "fail"):
+                    continue
+                index[key].setdefault(part["dut"], []).append({
+                    "day": day,
+                    # The clock as well as the calendar. The strips need only
+                    # the day, but a serial's own history is read as one
+                    # sequence against runs that carry a timestamp (the runs
+                    # bundle's `t`), and two attempts on one day have an order.
+                    "startTs": _epoch(entry.get("start_time")),
+                    "status": part["status"],
+                    "url": url_of(run_id, part["slot"]),
+                    "runId": run_id,
+                    "slot": part["slot"],
+                    "suite": entry.get("suite_name") or "",
+                })
+    _SPAN_CACHE[cache_key] = index
+    return index
+
+
+def slice_before(index: Dict[str, Dict[str, List[Dict[str, str]]]],
+                 day: str, lookback: int
+                 ) -> Dict[str, Dict[str, List[Dict[str, str]]]]:
+    """The part of an index that lies before ``day``, within ``lookback``.
+
+    Strictly before: the row's own day is the row, not its history.
+    """
+    floor = (datetime.strptime(day, "%Y-%m-%d").date()
+             - timedelta(days=lookback)).strftime("%Y-%m-%d")
+    out: Dict[str, Dict[str, List[Dict[str, str]]]] = {}
+    for key, duts in index.items():
+        kept: Dict[str, List[Dict[str, str]]] = {}
+        for dut, attempts in duts.items():
+            got = [a for a in attempts if floor <= a["day"] < day]
+            if got:
+                kept[dut] = got
+        out[key] = kept
+    return out
+
+
+#: The stations the module tracker indexes, and how a pega3 run maps onto one.
+MODULE_STATIONS = ("mlt", "htt")
+
+
+def _module_station(entry: Dict[str, Any]) -> Optional[str]:
+    """Which module station a pega3 run belongs to, if any.
+
+    Engineering runs are not line units and never belonged in a unit's
+    history: a ``_krish`` debug bundle in the strip would number a real
+    attempt as the unit's fifth when the line only put it through four.
+    """
+    run_id = entry.get("suite_run_id") or ""
+    suite = entry.get("suite_name") or ""
+    if ENGINEERING.search(run_id) or ENGINEERING.search(suite):
+        return None
+    return station_of(run_id, suite)
+
+
+def module_index(first: str, last: str
+                 ) -> Dict[str, Dict[str, List[Dict[str, str]]]]:
+    """:func:`attempt_index` for the module line."""
+    return attempt_index(
+        "pega3", MODULE_STATIONS, _module_station,
+        lambda run_id, slot: pega.run_url(run_id, slot),
+        first, last)
+
+
+def _seen_before(day: str, lookback: Optional[int] = None,
+                 index: Optional[Dict[str, Dict[str, List[Dict[str, str]]]]] = None
                  ) -> Dict[str, Dict[str, List[Dict[str, str]]]]:
     """Every attempt each station made on a serial before ``day``.
 
@@ -968,40 +1210,27 @@ def _seen_before(day: str, lookback: int = NEW_INPUT_LOOKBACK
     would say a unit is a returning one; the attempts say what happened on
     each visit and link to it, which is what makes "F1 P2" on the row
     checkable rather than a claim.
+
+    ``index`` is a span read once by the caller — see :func:`attempt_index`.
+    Without one this reads the span itself, which is what a standalone call
+    and the tests do.
     """
+    # Late-bound rather than a default argument: the reach is derived from
+    # pega.HISTORY_FROM, and a default freezes it at import, so moving the
+    # floor left this function reaching a distance nothing else used.
+    if lookback is None:
+        lookback = NEW_INPUT_LOOKBACK
+
     if not pega.enabled():
         return {"mlt": {}, "htt": {}}
+    if index is not None:
+        return slice_before(index, day, lookback)
 
-    seen: Dict[str, Dict[str, List[Dict[str, str]]]] = {"mlt": {}, "htt": {}}
     start = datetime.strptime(day, "%Y-%m-%d").date()
-    for offset in range(lookback, 0, -1):
-        past = (start - timedelta(days=offset)).strftime("%Y-%m-%d")
-        try:
-            listing = pega.day_suite_runs(past, host="pega3")
-        except pega.PegaUnavailable:
-            continue
-        for entry in sorted(listing, key=lambda e: e.get("start_time") or ""):
-            run_id = entry.get("suite_run_id") or ""
-            suite = entry.get("suite_name") or ""
-            station = station_of(run_id, suite)
-            if not station:
-                continue
-            if ENGINEERING.search(run_id) or ENGINEERING.search(suite):
-                continue
-            try:
-                detail = pega.suite_run(run_id, host="pega3")
-            except pega.PegaUnavailable:
-                continue
-            for part in pega.participants(detail):
-                if part["status"] not in ("pass", "fail"):
-                    continue
-                seen[station].setdefault(part["dut"], []).append({
-                    "day": past,
-                    "status": part["status"],
-                    "url": pega.run_url(run_id, part["slot"]),
-                    "suite": suite,
-                })
-    return seen
+    first = max(pega.HISTORY_FROM,
+                (start - timedelta(days=lookback)).strftime("%Y-%m-%d"))
+    last = (start - timedelta(days=1)).strftime("%Y-%m-%d")
+    return slice_before(module_index(first, last), day, lookback)
 
 
 #: A unit at HTT that should not be there, and which of the two kinds it is.
@@ -1060,14 +1289,46 @@ def misflow_for(units: Dict[str, Dict[str, Any]],
     return out
 
 
-def _trim_history(past: List[Dict[str, str]]) -> List[Dict[str, Any]]:
-    """The last few attempts, numbered from the unit's first.
+def _day_attempts(unit: Dict[str, Any], station: str) -> List[Dict[str, str]]:
+    """What this unit did at this station on the row's own day, oldest first.
 
-    Numbered before trimming: "F7" has to mean the seventh attempt, not the
-    seventh of the ones that fit.
+    Collected as the runs arrive rather than read back in order, because the
+    controllers do not return a day's listing in time order. The sort key is
+    dropped on the way out so a today attempt carries the same four fields a
+    prior-day one does and the strip stays one kind of thing.
     """
-    numbered = [dict(item, n=index + 1) for index, item in enumerate(past)]
-    return numbered[-HISTORY_LIMIT:]
+    attempts = sorted(unit.get(station + ATTEMPTS_KEY) or [],
+                      key=lambda attempt: attempt.get("started") or "")
+    return [{key: value for key, value in attempt.items() if key != "started"}
+            for attempt in attempts]
+
+
+def _numbered_history(past: List[Dict[str, str]],
+                      today: Optional[List[Dict[str, str]]] = None
+                      ) -> List[Dict[str, Any]]:
+    """Every attempt this unit made at the station, numbered from its first.
+
+    ``past`` is the prior days from :func:`_seen_before` and ``today`` is the
+    row's own day, both oldest first. They go in one strip because that is how
+    the strip is read — as this unit's story at this station, in order.
+
+    Ending it on the day before was actively misleading. 268645440002 on the
+    09-01 L10 tab read ``F2 F3 F4 F5 F6 F7 F8 F9  08-31`` beside a verdict of
+    Passed: nine failures, no pass anywhere in the part of the row people
+    actually look at, and the unit had in fact passed FAT that afternoon on
+    its tenth try. The verdict column had it right and nobody reads the
+    verdict column when the strip beside it is shouting. Now the strip ends
+    where the day ends — ``F1 … F9 P10`` — and it agrees with the cell it sits
+    next to.
+
+    Not trimmed, either. It used to keep the last eight, which is what cost
+    that row its ``F1``: the numbering is only trustworthy if the reader can
+    see it start, and "why does this unit have no first attempt" is a worse
+    thing to leave on the page than a wide cell. The widest real case in the
+    last month is nineteen chips (267694410002 at L10 2U); the cell wraps.
+    """
+    return [dict(attempt, n=index + 1)
+            for index, attempt in enumerate(list(past) + list(today or []))]
 
 
 def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
@@ -1149,6 +1410,19 @@ def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
                         "started": started,
                     }
 
+            # Every attempt of the day, not only the one that wins the row.
+            # The row keeps the last; the Test History strip beside it keeps
+            # all of them, which is the difference between "passed" and
+            # "failed twice and then passed".
+            if part["status"] in ("pass", "fail"):
+                unit.setdefault(station + ATTEMPTS_KEY, []).append({
+                    "day": day,
+                    "status": part["status"],
+                    "url": pega.run_url(run_id, part["slot"]),
+                    "suite": suite,
+                    "started": started,
+                })
+
             # A unit retested the same day gets one row, not one per attempt —
             # the sheet has one row per unit. The row is the *latest* attempt:
             # keeping whichever run happened to be processed last made the
@@ -1160,6 +1434,11 @@ def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
             unit[station] = {
                 "status": part["status"],
                 "fail": _unit_failures(detail, part["slot"]) if part["status"] == "fail" else "",
+                # Which of those names are the fixture's rather than this
+                # chip's. Carried separately so the cell text stays exactly
+                # what the line's sheet writes, and the page can still say
+                # that one of them is not a per-chip result.
+                "fixture": _fixture_failures(detail) if part["status"] == "fail" else [],
                 "url": pega.run_url(run_id, part["slot"]),
                 "short": run_id.rsplit("_run_", 1)[-1],
                 "started": started,
@@ -1173,7 +1452,9 @@ def _pega_units(day: str) -> Optional[Tuple[Dict[str, Dict[str, Any]],
     return units, versions, runs_seen, excluded, debug_builds
 
 
-def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def _pega_tab(day: str, template: Optional[Dict[str, Any]],
+              history_index: Optional[Dict[str, Any]] = None
+              ) -> Optional[Dict[str, Any]]:
     """A day's tracker rebuilt from pega3 — the sheet's own source.
 
     pega3 assigns the slots, so it knows all eight DUT serials, the part number,
@@ -1199,7 +1480,7 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
         bad = any((unit.get(s) or {}).get("status") == "fail" for s in ("mlt", "htt"))
         return (bad, dut)
 
-    history = _seen_before(day)
+    history = _seen_before(day, index=history_index)
 
     rows = []
     for dut, unit in sorted(units.items(), key=sort_key):
@@ -1226,9 +1507,17 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
         # now carries its own history, which is the whole point of the column.
         for station, _result, _fail, _link in DERIVED_STATIONS:
             past = history.get(station, {}).get(dut) or []
+            today = _day_attempts(unit, station)
+            # "seen" and "new" stay prior-days-only, deliberately: they decide
+            # which rows Count new keeps, and a unit is fresh material or not
+            # by what it did *before* today. Only the strip grows.
             if past:
                 serial.setdefault("seen", {})[station] = past[-1]["day"]
-                serial.setdefault("history", {})[station] = _trim_history(past)
+            # One attempt and nothing behind it is not a history — the verdict
+            # column already says it. Two is: it is a retest.
+            if past or len(today) > 1:
+                serial.setdefault("history", {})[station] = \
+                    _numbered_history(past, today)
         serial["new"] = "seen" not in serial
         row[index["B"]] = serial
         if unit.get("asic"):
@@ -1245,7 +1534,12 @@ def _pega_tab(day: str, template: Optional[Dict[str, Any]]) -> Optional[Dict[str
                     "t": got["status"],
                 }
             if got["fail"]:
-                row[index[fail_col]] = {"v": got["fail"]}
+                cell = {"v": got["fail"]}
+                marked = [n for n in got.get("fixture") or []
+                          if n in got["fail"].split("\n")]
+                if marked:
+                    cell["fx"] = marked
+                row[index[fail_col]] = cell
             row[index[link_col]] = {"v": got["short"], "h": got["url"]}
             if got.get("suite"):
                 cell = {"v": got["suite"]}
@@ -1333,6 +1627,7 @@ def _unit_failures(detail: Dict[str, Any], slot: Optional[int]) -> str:
 
     leaves: List[str] = []
     nests: List[str] = []
+    fixture = _fixture_failures(detail)
     for case in sorted(detail.get("test_cases") or [],
                        key=lambda c: c.get("start_time") or ""):
         status = str(case.get("status") or "").lower()
@@ -1351,7 +1646,66 @@ def _unit_failures(detail: Dict[str, Any], slot: Optional[int]) -> str:
         names = leaves + [n for n in nests if n not in leaves]
     else:
         names = leaves or nests
+    # The fixture's own failures last, after the unit's own. They are the
+    # unit's too — its run failed them — and they were being dropped by the
+    # slot filter, which is a rule about telling eight chips apart and has
+    # nothing to say about a test that belongs to none of them.
+    #
+    # Except on a slot the run says passed. The line's sheet writes it that way
+    # and it is the right way: on 2026-09-08 run_d973aecb, CpldDiagnosticsTestCase
+    # is on the one failing unit's row and the five passing slots' failure cells
+    # are empty. A failure printed against a unit that passed would be read as
+    # that unit's, and the callers ask for a unit's failures precisely when it
+    # failed.
+    if fixture and _slot_passed(detail, slot):
+        fixture = []
+    names = names + [n for n in fixture if n not in names]
     return "\n".join(names)
+
+
+def _slot_passed(detail: Dict[str, Any], slot: int) -> bool:
+    """Whether the run recorded this slot as a pass."""
+    for part in pega.participants(detail):
+        if part["slot"] == slot:
+            return part["status"] == "pass"
+    return False
+
+
+#: A failing test that carries no chip index: the fixture's own, not any one
+#: unit's.
+#:
+#: THE CASE THIS EXISTS FOR. On 2026-09-08 the line's sheet recorded
+#: 268494100000036 as failing SohuLlamaForwardIteratedTestCase *and*
+#: CpldDiagnosticsTestCase; this page showed only the first. The second is real
+#: — it failed in that run — but its test id has no chip index, so the slot
+#: filter above dropped it from all eight units and the sheet was ahead of the
+#: dashboard on a failure the dashboard had collected.
+#:
+#: Attributed to every unit in the run, because that is what the evidence
+#: supports: the fixture failed while these units were in it, and which chip
+#: caused it is not something the record says. The page marks them rather than
+#: letting them read as a chip's own failure — see `fixtureFailures` on the
+#: cell.
+#:
+#: Containers stay out on the same rule as everywhere else: ServerNestedTestCase
+#: is the wrapper for whatever really failed underneath, and it has no slot
+#: either. In the 75 runs of the 09-04..09-08 retest campaign it accounts for 49
+#: of the 50 slot-less failures; CpldDiagnosticsTestCase is the other one.
+def _fixture_failures(detail: Dict[str, Any]) -> List[str]:
+    out: List[str] = []
+    for case in sorted(detail.get("test_cases") or [],
+                       key=lambda c: c.get("start_time") or ""):
+        status = str(case.get("status") or "").lower()
+        if not status.startswith(("fail", "error")):
+            continue
+        if chips.chip_of(case.get("test_id") or "") is not None:
+            continue
+        name = (case.get("test_name") or "").strip()
+        if not name or rootcause.is_container(name):
+            continue
+        if name not in out:
+            out.append(name)
+    return out
 
 
 def _derived_link(run: Dict[str, Any], day: str) -> Dict[str, Any]:
@@ -1600,6 +1954,13 @@ def _counts(rows: List[List[Dict[str, Any]]], header: List[Dict[str, Any]]) -> D
                               newRelease=fresh_release,
                               returning=returning,
                               lookback=NEW_INPUT_LOOKBACK,
+                              # Where the history actually starts, beside how
+                              # many days that is. The page said "no earlier
+                              # attempt in the previous N days", which was true
+                              # of a 30-day window and is a strange way to say
+                              # "ever" now that N reaches the first run the
+                              # controllers hold — and N grows by one a day.
+                              historyFrom=pega.HISTORY_FROM,
                               nonRelease=sorted(non_release))
     return counts
 

@@ -144,6 +144,21 @@ def _current_week() -> Optional[str]:
     return weeks[0]["week"] if weeks else None
 
 
+def _thin_volumes(step: Dict[str, Any]) -> str:
+    """One thin stage, as both of its counts.
+
+    Two numbers because the sentence around it is about first-time units and
+    the number people quote is the week's traffic: "MLT (10 first-time of 90
+    units)" cannot be misread, and "MLT (90 units)" was.
+    """
+    if step.get("newUnits") is None:            # an older archive
+        return "{} ({} unit{})".format(
+            step["label"], step["units"], "" if step["units"] == 1 else "s")
+    return "{} ({} first-time of {} unit{})".format(
+        step["label"], step["newUnits"], step["units"],
+        "" if step["units"] == 1 else "s")
+
+
 def summarise(week: Dict[str, Any]) -> str:
     """The week as prose and one table — readable without the dashboard."""
     context = week.get("context") or {}
@@ -163,9 +178,17 @@ def summarise(week: Dict[str, Any]) -> str:
         "`week.html#week={}`.".format(
             datetime.now(timezone.utc).strftime("%Y-%m-%d"), week.get("week")),
         "",
-        "Rolled first-pass across {}: **{}**.".format(
+        # Marked where it is thin, because this file is quoted from months
+        # later and the mark is the only thing travelling with the number.
+        "Rolled first-pass across {}: **{}**{}.".format(
             " x ".join(totals.get("rolledOver") or []) or "no stage",
-            pct(totals.get("rolledFpy"))),
+            pct(totals.get("rolledFpy")),
+            " (thin: {})".format(", ".join(
+                "{} over {} first-time units".format(step["label"],
+                                                     step.get("newUnits"))
+                for step in totals.get("rolledThin") or []))
+            if (totals.get("rolledFpy") is not None
+                and totals.get("rolledThin")) else ""),
         "",
         "| Step | Units | Runs | First pass | After retest | Retest rate | Top failure |",
         "| --- | ---: | ---: | ---: | ---: | ---: | --- |",
@@ -189,9 +212,11 @@ def summarise(week: Dict[str, Any]) -> str:
             "Excluded from the rolled figure — fewer than {} first-time units, "
             "which is too few to read a yield from: {}.".format(
                 context.get("minCohort"),
-                ", ".join("{} ({} unit{})".format(
-                t["label"], t["units"], "" if t["units"] == 1 else "s")
-                for t in thin)),
+                # The first-time count, not the week's traffic. It printed
+                # `units` under a sentence about first-time units, so a thin
+                # MLT read as "MLT (90 units)" — a line that argues with
+                # itself, and the reader believes the number.
+                ", ".join(_thin_volumes(t) for t in thin)),
         ]
 
     source = context.get("source") or {}
@@ -282,10 +307,34 @@ def render_html(week: Dict[str, Any]) -> str:
     totals = week.get("totals") or {}
     floor = context.get("minCohort")
 
+    # What the dash is waiting for, where there is a dash: the stages in scope
+    # and the first-time counts they came up short on. "Enough units" named the
+    # wrong denominator — a step can run ninety units and have ten it has never
+    # seen, which is exactly how 2026-W36 lost its headline.
+    thin_scope = totals.get("rolledThin") or []
+    missing = totals.get("rolledMissing") or []
+    scope = " &times; ".join(totals.get("rolledOver") or [])
+    thin_note = " &middot; ".join(
+        "{} {} new of {}".format(step["label"], step.get("newUnits"),
+                                 step["units"])
+        for step in thin_scope)
+
+    if totals.get("rolledFpy") is None:
+        # No product: which half was absent, or an archive too old to say.
+        sub = ("no {} first-pass cohort this week &mdash; one station is not a "
+               "product of two".format(" or ".join(missing)) if missing
+               else "no step in the product had a first-pass cohort")
+    elif thin_note:
+        # Published thin, the way a thin step's own yield is.
+        sub = "{} &middot; thin: {} &mdash; under {}".format(
+            scope, thin_note, floor)
+    else:
+        sub = scope
+
     tiles = [
-        ("Rolled first-pass", _pct(totals.get("rolledFpy")),
-         " &times; ".join(totals.get("rolledOver") or []) or
-         "no step had enough units to read", "lead"),
+        ("Rolled first-pass",
+         _pct(totals.get("rolledFpy")) + (" *" if thin_note else ""),
+         sub, "lead"),
         ("Units tested",
          str(sum(row.get("units") or 0 for row in week.get("rows") or [])),
          "{} steps &middot; {} unit runs".format(
@@ -324,7 +373,11 @@ def render_html(week: Dict[str, Any]) -> str:
                 _esc(row.get("label")), _esc(row.get("controller") or ""),
                 "" if readable else
                 (" &middot; quantity only, in bring-up" if row.get("countsOnly")
-                 else " &middot; under {} units, no yield".format(floor)),
+                 # The yield beside this prints, and has since L10 and L11
+                 # asked for theirs. What is true of a thin step is that its
+                 # yield is over too few first-time units to roll.
+                 else " &middot; under {} first-time units, not rolled".format(
+                     floor)),
                 _esc(row.get("units")), _esc(row.get("runs")),
                 _tone(row.get("fpy")) if readable else "", _pct(row.get("fpy")),
                 row.get("newUnits"),
@@ -369,8 +422,9 @@ and every unit run behind it. Self-contained: this file needs nothing else.</p>
 <div class="tiles">{tiles}</div>
 <h2>Every step</h2>
 <div class="scroll"><table>
-<caption>Steps with fewer than {floor} first-time units report counts only &mdash;
-a yield over three chassis is not a yield.</caption>
+<caption>First-pass yield is over the units new to that step, the count under it.
+Steps with fewer than {floor} of them publish the yield, marked thin, and stay out
+of the rolled figure &mdash; a yield over three chassis is not a yield.</caption>
 <thead><tr><th>Test step</th><th class="n">Units</th><th class="n">Runs</th>
 <th class="n">First-pass yield</th><th class="n">After retest</th>
 <th class="n">Retest rate</th><th>Top failures</th></tr></thead>
