@@ -28,6 +28,8 @@
     ['weekly.html', 'Weekly tracker', 'Every week, every stage, one row each'],
     ['dailyexcel.html', 'Daily tracker',
       'The line’s own daily MLT/HTT sheet, rebuilt'],
+    ['daily_FA.html', 'Daily FA',
+      'L10 SFT report: yield, CSV, and File Jira for a picked day'],
     ['runs.html', 'Raw runs', 'One row per unit run — the drill-down'],
     ['customize.html', 'Customize',
       'Pick days and stations by range or by serial, take the CSV'],

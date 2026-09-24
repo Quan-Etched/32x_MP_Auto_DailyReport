@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily FA — L10 SFT</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="stations.css">
+  <link rel="stylesheet" href="dailyfa.css">
+</head>
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <h1>Daily FA</h1>
+    <span class="meta" id="meta"></span>
+    <span class="build" id="build" title="Which build of the analysis produced this page"></span>
+    <span class="spacer"></span>
+    <nav class="masthead-nav" id="nav"></nav>
+    <button type="button" class="theme-toggle" id="theme-toggle">Theme: system</button>
+  </header>
+
+  <nav class="daycal" id="daycal" aria-label="Day"></nav>
+
+  <div class="banner" id="notice" hidden></div>
+
+  <main id="content">
+    <section class="sft-report" id="sft-report" hidden>
+      <h2>L10 SFT report <span class="l10-sub" id="sft-report-day"></span></h2>
+      <p class="sft-counts" id="sft-report-counts"></p>
+      <p class="sft-sns" id="sft-report-sns"></p>
+      <p class="sft-stage-label" id="sft-report-stage-label" hidden>
+        File Jira tickets based on Error Type:
+      </p>
+      <ul class="sft-stages" id="sft-report-stages"></ul>
+      <p class="sft-actions">
+        <a id="sft-report-csv" href="#">Download CSV</a>
+        <button type="button" id="sft-report-jira">File Jira</button>
+        <span id="sft-report-note"></span>
+      </p>
+    </section>
+  </main>
+
+  <footer class="notes">
+    <p>
+      This page is the L10 SFT failure report. Pick a day, then download the
+      CSV or file Jira. One ticket per L10_FLOW_TEST_COVERAGE column C stage.
+      The daily tracker tables stay on
+      <a href="dailyexcel.html">Daily tracker</a>.
+    </p>
+  </footer>
+
+</div>
+
+<script src="data/dailyfa.js"></script>
+<script src="failreport.js"></script>
+<script src="dailyfa.js"></script>
+<script src="nav.js"></script>
+<script src="theme.js"></script>
+</body>
+</html>

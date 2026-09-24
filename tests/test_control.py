@@ -166,6 +166,25 @@ class GuardTest(unittest.TestCase):
         self.assertFalse(self.guard({"Host": "127.0.0.1:8787"}))
 
 
+class SftGuardTest(unittest.TestCase):
+    class FakeHandler(control.ControlHandler):
+        def __init__(self, headers):
+            self.headers = headers
+            self.path = "/api/sft-sync"
+
+    def allowed(self, headers):
+        return self.FakeHandler(headers)._sft_guard_ok()
+
+    def test_the_review_host_names_are_allowed(self):
+        header = {"X-Factory-Update": "1"}
+        self.assertTrue(self.allowed(dict(header, Host="127.0.0.1:8080")))
+        self.assertTrue(self.allowed(dict(
+            header, Host="production-failure-analysis.i.etched.com")))
+        self.assertTrue(self.allowed(dict(
+            header, Host="production-failure-analysis.usw2.i.etched.com")))
+        self.assertFalse(self.allowed(dict(header, Host="evil.com")))
+
+
 class DaysParamTest(unittest.TestCase):
     class FakeHandler(control.ControlHandler):
         def __init__(self, path):

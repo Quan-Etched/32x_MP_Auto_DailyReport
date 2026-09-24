@@ -41,7 +41,7 @@ import subprocess
 import threading
 from collections import deque
 from datetime import datetime, timezone
-from typing import Any, Deque, Dict, List, Optional
+from typing import Any, Deque, Dict, List, Optional, Tuple
 
 from . import config
 
@@ -68,6 +68,12 @@ MAX_LOG_LINES = 500
 JOB_TIMEOUT_SEC = 45 * 60
 
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1", "[::1]")
+
+#: Review page Host names that may file SFT bugs from the copied snapshot.
+DEFAULT_PUBLIC_HOSTS = (
+    "production-failure-analysis.usw2.i.etched.com",
+    "production-failure-analysis.i.etched.com",
+)
 
 
 def _now() -> str:
@@ -252,6 +258,9 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:                      # noqa: N802
         route = self.path.split("?", 1)[0]
+        if route == "/api/sft-jiras":
+            self._file_sft_jiras()
+            return
         if route != "/api/update":
             self._json({"error": "no such route"}, status=404)
             return
@@ -272,6 +281,89 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
         if host not in ("127.0.0.1", "localhost", "::1"):
             return False
         return self.headers.get("X-Factory-Update") is not None
+
+    def _public_hosts(self) -> Tuple[str, ...]:
+        extra = [
+            item.strip()
+            for item in os.environ.get("FACTORY_PUBLIC_HOST", "").split(",")
+            if item.strip()
+        ]
+        seen = []
+        for host in list(DEFAULT_PUBLIC_HOSTS) + extra:
+            if host not in seen:
+                seen.append(host)
+        return tuple(seen)
+
+    def _sft_guard_ok(self) -> bool:
+        """The review host may file SFT bugs from the copied snapshot. Update stays local.
+
+        Opening the page on the server's own name would otherwise fail the
+        Host check that stops a random site from driving the update button.
+        Filing still needs the header, so a cross-site form cannot post it.
+        """
+        if self.headers.get("X-Factory-Update") is None:
+            return False
+        host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]")
+        if host in LOOPBACK_HOSTS:
+            return True
+        return host in self._public_hosts()
+
+    def _file_sft_jiras(self) -> None:
+        if not self._sft_guard_ok():
+            self._json({"error": "refused: not a dashboard request"}, status=403)
+            return
+        length = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(min(length, 4000)) if length else b""
+        try:
+            body = json.loads(raw.decode("utf-8") or "{}")
+        except ValueError:
+            body = {}
+        day = str(body.get("day") or "").strip()
+        from . import bug_report, daily_report
+
+        bundle_path = config.DASHBOARD_DATA_DIR / "dailyexcel.js"
+        if not bundle_path.exists():
+            self._json({"error": "no daily tracker bundle"}, status=404)
+            return
+        try:
+            bundle = daily_report._read_js_bundle(bundle_path)
+        except (OSError, ValueError):
+            self._json({"error": "daily tracker bundle could not be read"},
+                       status=500)
+            return
+        report = self._sft_report_from_bundle(bundle, day)
+        if not report:
+            self._json({"error": "no L10 SFT report for {}".format(day or "that day")},
+                       status=404)
+            return
+        try:
+            filed = bug_report.file_sft_report(report)
+        except bug_report.JiraError as exc:
+            self._json({"error": str(exc)}, status=400)
+            return
+        for tab in bundle.get("tabs") or []:
+            if tab.get("day") != report.get("day"):
+                continue
+            l10 = tab.get("l10")
+            if isinstance(l10, dict):
+                l10["sftReport"] = report
+                break
+        try:
+            from . import build_dailyexcel
+            build_dailyexcel.write_bundle(bundle, bundle_path)
+        except OSError:
+            pass
+        self._json({"day": report.get("day"), "filed": filed})
+
+    def _sft_report_from_bundle(self, bundle: Dict[str, Any],
+                                day: str) -> Optional[Dict[str, Any]]:
+        for tab in bundle.get("tabs") or []:
+            if day and tab.get("day") != day:
+                continue
+            got = (tab.get("l10") or {}).get("sftReport")
+            if got and (not day or got.get("day") == day):
+                return got
+        return None
 
     def _days_param(self) -> Optional[int]:
         _, _, query = self.path.partition("?")

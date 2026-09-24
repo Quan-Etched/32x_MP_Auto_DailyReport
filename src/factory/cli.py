@@ -7,7 +7,17 @@
     python -m factory.cli demo    --days 2
     python -m factory.cli build
     python -m factory.cli report
+    python -m factory.cli daily-report --day 2026-09-10
+    python -m factory.cli file-bugs --offline
     python -m factory.cli serve
+
+The package lives in ``src/``. ``make`` sets PYTHONPATH; a bare
+``python -m factory.cli`` needs it too::
+
+    $env:PYTHONPATH = "src"; python -m factory.cli daily-report --day 2026-09-08
+
+``daily-report`` fetches pega3 before writing. ``--offline`` skips that.
+
 """
 
 from __future__ import annotations
@@ -1062,13 +1072,93 @@ def cmd_dailyexcel(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_daily_report(args: argparse.Namespace) -> int:
+    """Write the morning MLT/HTT standup note from a daily-tracker tab."""
+    from pathlib import Path as _Path
+
+    from . import daily_report
+
+    try:
+        summary, markdown = daily_report.generate(
+            day=args.day,
+            product=args.product,
+            master_jira=args.master_jira,
+            cohort_case=args.cohort_case,
+            fetch=not args.offline,
+        )
+    except daily_report.NoTab as exc:
+        print("Cannot write the daily report: {}".format(exc), file=sys.stderr)
+        return 1
+
+    if args.out == "-":
+        sys.stdout.write(markdown)
+        return 0
+
+    target = (_Path(args.out) if args.out
+              else daily_report.default_path(summary["day"]))
+    path = daily_report.write(markdown, target)
+    sys.stdout.write(markdown)
+    print("Wrote {}".format(path), file=sys.stderr)
+    return 0
+
+
+def cmd_file_bugs(args: argparse.Namespace) -> int:
+    """Draft (and, with --create, file) one bug per failing test case."""
+    from pathlib import Path as _Path
+
+    from . import bug_report, daily_report
+
+    cases = args.case or list(bug_report.DEFAULT_CASES)
+    try:
+        drafts = bug_report.generate(
+            cases=cases,
+            epic=args.epic,
+            day_from=args.since,
+            day_to=args.until,
+            fetch=not args.offline,
+        )
+    except (bug_report.NoHits, daily_report.NoTab) as exc:
+        print("Cannot file bugs: {}".format(exc), file=sys.stderr)
+        return 1
+
+    sys.stdout.write(bug_report.render_all(drafts))
+    if args.out:
+        written = bug_report.write_drafts(drafts, _Path(args.out))
+        for path in written:
+            print("Wrote {}".format(path), file=sys.stderr)
+
+    missing = [case for case in cases
+               if case not in {draft["case"] for draft in drafts}]
+    for case in missing:
+        print("No failures of {} in this window.".format(case), file=sys.stderr)
+
+    if not args.create:
+        epic = drafts[0]["epic"]
+        print("Draft only — nothing filed. Re-run with --create to open "
+              "these under {}.".format(epic), file=sys.stderr)
+        return 0
+
+    for draft in drafts:
+        path = bug_report.publish_local_csv(draft)
+        print("Wrote {}".format(path), file=sys.stderr)
+    try:
+        filed = bug_report.file_drafts(drafts)
+    except bug_report.JiraError as exc:
+        print("Jira: {}".format(exc), file=sys.stderr)
+        return 1
+    for item in filed:
+        print("Filed {} {}".format(item["case"], item["url"]), file=sys.stderr)
+    return 0
+
+
 def cmd_serve(args: argparse.Namespace) -> int:
     import functools
     import socketserver
 
     from . import control
 
-    if not config.DASHBOARD_BUNDLE.exists():
+    daily_bundle = config.DASHBOARD_DATA_DIR / "dailyexcel.js"
+    if not config.DASHBOARD_BUNDLE.exists() and not daily_bundle.exists():
         print(
             "No data bundle yet — run `make demo` or `make collect build` first.",
             file=sys.stderr,
@@ -1086,8 +1176,10 @@ def cmd_serve(args: argparse.Namespace) -> int:
         allow_reuse_address = True
         daemon_threads = True
 
-    with Server(("127.0.0.1", args.port), handler) as httpd:
-        print("Dashboard: http://127.0.0.1:{}/  (Ctrl-C to stop)".format(args.port))
+    host = args.host or "127.0.0.1"
+    with Server((host, args.port), handler) as httpd:
+        print("Dashboard: http://{}:{}/dailyexcel.html  (Ctrl-C to stop)".format(
+            host, args.port))
         print("Update button enabled — it runs collect + build + publish.")
         try:
             httpd.serve_forever()
@@ -1352,7 +1444,57 @@ def _build_parser() -> argparse.ArgumentParser:
                                                "(default: newest in daily/)")
     dailyexcel.set_defaults(handler=cmd_dailyexcel)
 
+    daily_report = subparsers.add_parser(
+        "daily-report",
+        help="write the morning MLT/HTT standup note as markdown")
+    daily_report.add_argument(
+        "--day", default=None,
+        help="YYYY-MM-DD (default: the newest tab in the tracker)")
+    daily_report.add_argument(
+        "--out", default=None,
+        help="markdown path, or '-' for stdout (default: daily/YYYY-MM-DD.md)")
+    daily_report.add_argument(
+        "--product", default=None,
+        help="title prefix (default: FACTORY_REPORT_PRODUCT or 'Sohu Module')")
+    daily_report.add_argument(
+        "--cohort-case", default=None,
+        help="original failing test case — turns the note into a retest report")
+    daily_report.add_argument(
+        "--master-jira", default=None,
+        help="campaign ticket, e.g. ETCH-42215 (or FACTORY_MASTER_JIRA)")
+    daily_report.add_argument(
+        "--offline", action="store_true",
+        help="skip the pega3 fetch and use the tracker already on disk")
+    daily_report.set_defaults(handler=cmd_daily_report)
+
+    file_bugs = subparsers.add_parser(
+        "file-bugs",
+        help="draft one Jira bug per failing test case, with every serial")
+    file_bugs.add_argument(
+        "--case", action="append", default=None,
+        help="failing test case (repeatable; default: "
+             "SohuLaneRepairTestCase and SohuVminTestCase)")
+    file_bugs.add_argument(
+        "--epic", default=None,
+        help="parent epic (default: JIRA_EPIC or ETCH-44407)")
+    file_bugs.add_argument(
+        "--since", default=None, help="first tracker day, YYYY-MM-DD")
+    file_bugs.add_argument(
+        "--until", default=None, help="last tracker day, YYYY-MM-DD")
+    file_bugs.add_argument(
+        "--out", default=None,
+        help="directory for one markdown draft per case")
+    file_bugs.add_argument(
+        "--create", action="store_true",
+        help="POST the bugs to Jira; without this, print the drafts only")
+    file_bugs.add_argument(
+        "--offline", action="store_true",
+        help="skip the pega3 fetch and use the tracker already on disk")
+    file_bugs.set_defaults(handler=cmd_file_bugs)
+
     serve = subparsers.add_parser("serve", help="serve the dashboard locally")
+    serve.add_argument("--host", default="127.0.0.1",
+                       help="bind address; 0.0.0.0 so colleagues can open the page")
     serve.add_argument("--port", type=int, default=8787)
     serve.set_defaults(handler=cmd_serve)
 

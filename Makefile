@@ -1,6 +1,10 @@
 # factory_data_analysis — no dependencies beyond Python 3.9+ stdlib.
 
+ifeq ($(OS),Windows_NT)
+PY      ?= python
+else
 PY      ?= python3
+endif
 ANNOTATE_PORT ?= 8766
 export PYTHONPATH := src
 PORT    ?= 8787
@@ -20,13 +24,13 @@ SFIS_DAYS  ?= 120
 DAYS_RECONCILE ?= 7
 
 .PHONY: sfis-reconcile sfis-doctor sfis-mirror sfis-level sfis-unit sfis-units sfis-gaps sfis-snapshots \
-	sfis-dashboard \
+	sfis-dashboard review review-data \
 	help trust demo collect build report serve test inspect levels refresh status \
         schedule-install schedule-uninstall schedule-status publish refresh-publish items \
         deploy deploy-status pega-recache pega-push \
         schedule-pega-push-install schedule-pega-push-uninstall \
         schedule-pega-push-status \
-        dailyexcel requests pega-stations release-source suite-map reconcile \
+        dailyexcel daily-report file-bugs requests pega-stations release-source suite-map reconcile \
         errors annotate error-catalogue retest-slide \
         outcomes doe-deck chips fpy \
         weekly \
@@ -53,6 +57,7 @@ help:
 	@echo "make schedule-pega-push-install  do that hourly at :50 (laptop only)"
 	@echo "make items [STATION=..]  flatten test cases to numeric test items"
 	@echo "make dailyexcel         compile daily/*.xlsx (MLT/HTT tracker) into the dashboard"
+	@echo "make daily-report [DAY=]  standup markdown from that day's tracker tab"
 	@echo "make requests           re-check what we need from other systems"
 	@echo "make suite-map [CASES=1] which suite YAML each station runs, from the sw tree"
 	@echo "make reconcile [DAY=..] OCP vs the controllers run by run, + a CSV of the gaps"
@@ -98,6 +103,19 @@ report:
 
 serve:
 	$(PY) -m factory.cli serve --port $(PORT)
+
+# The page colleagues open for review. Bound on every interface so the
+# hostname works; Ctrl-C stops it. See docs/review-server.md.
+review:
+	$(PY) -m factory.cli serve --host 0.0.0.0 --port $(PORT)
+
+# Copy today's snapshot to the review host. Rebuild locally first
+# (`make dailyexcel`); that host cannot reach pega.
+REVIEW_HOST ?= quan@production-failure-analysis.usw2.i.etched.com
+REVIEW_DIR  ?= factory_data_analysis
+review-data:
+	scp dashboard/data/dailyexcel.js dashboard/data/dailyfa.js \
+	    $(REVIEW_HOST):$(REVIEW_DIR)/dashboard/data/
 
 test:
 	$(PY) -m unittest discover -s tests -v
@@ -196,6 +214,44 @@ items:
 # export without a full rebuild.
 dailyexcel:
 	$(PY) -m factory.cli dailyexcel
+
+# Morning standup note from a tracker tab. Fetches pega3 first so the note
+# is not stuck on last week's cache. DAY=2026-09-10 picks a day; OUT=C:\note.md
+# writes somewhere else; COHORT=SohuLaneRepairTestCase makes it a retest note.
+# OFFLINE=1 skips the fetch.
+DAY        ?=
+OUT        ?=
+COHORT     ?=
+PRODUCT    ?=
+MASTER_JIRA?=
+OFFLINE    ?=
+daily-report:
+	$(PY) -m factory.cli daily-report \
+	    $(if $(DAY),--day $(DAY),) \
+	    $(if $(OUT),--out $(OUT),) \
+	    $(if $(COHORT),--cohort-case $(COHORT),) \
+	    $(if $(PRODUCT),--product "$(PRODUCT)",) \
+	    $(if $(MASTER_JIRA),--master-jira $(MASTER_JIRA),) \
+	    $(if $(OFFLINE),--offline,)
+
+# One Jira bug per failing test case, every serial in the body, parented
+# under EPIC (default ETCH-44407). Prints the bug reports. CREATE=1 posts
+# them; that needs JIRA_EMAIL and JIRA_API_TOKEN. CASES is optional and
+# repeatable as a make list. OFFLINE=1 skips the pega3 fetch.
+EPIC  ?= ETCH-44407
+SINCE ?=
+UNTIL ?=
+CREATE ?=
+CASES ?=
+file-bugs:
+	$(PY) -m factory.cli file-bugs \
+	    --epic $(EPIC) \
+	    $(if $(SINCE),--since $(SINCE),) \
+	    $(if $(UNTIL),--until $(UNTIL),) \
+	    $(if $(OUT),--out $(OUT),) \
+	    $(if $(CREATE),--create,) \
+	    $(if $(OFFLINE),--offline,) \
+	    $(foreach c,$(CASES),--case $(c))
 
 # The L10 daily tracker (FAT, SFT, RIN, 2U) from pega4. Also part of `make build`.
 

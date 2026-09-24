@@ -51,7 +51,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 from . import config
 
@@ -519,9 +519,7 @@ def day_suite_runs(day: str, host: Optional[str] = None) -> List[Dict[str, Any]]
     # EXCLUSIVE. The obvious-looking start_date/end_date are silently ignored:
     # passing them returns every recent run regardless of the day asked for,
     # which looks like a working filter until two different days come back
-    # byte-identical.
-    start = "{}T00:00:00.000Z".format(day)
-    end = "{}T00:00:00.000Z".format(_next_day(day))
+    # byte-identical. See :func:`listing_path`.
 
     # A finished day's run list cannot change, so only *today* is worth going
     # to the network for. Without this a 30-day collect made 120 listing calls
@@ -533,9 +531,7 @@ def day_suite_runs(day: str, host: Optional[str] = None) -> List[Dict[str, Any]]
     collected: List[Dict[str, Any]] = []
     for page in range(1, MAX_PAGES + 1):
         payload = _get(
-            "/api/history/data-analysis/suite-runs"
-            "?start={start}&end={end}&page={page}&per_page={size}".format(
-                start=start, end=end, page=page, size=PAGE_SIZE),
+            listing_path(day, page),
             cache=True, stale_ok=still_running, host=host)
         batch = payload.get("suite_runs") or []
         collected.extend(batch)
@@ -558,6 +554,39 @@ def day_range(first: str, last: str) -> List[str]:
         out.append(start.strftime("%Y-%m-%d"))
         start += timedelta(days=1)
     return out
+
+
+def listing_path(day: str, page: int) -> str:
+    """The day-listing URL a cache entry is keyed on."""
+    start = "{}T00:00:00.000Z".format(day)
+    end = "{}T00:00:00.000Z".format(_next_day(day))
+    return (
+        "/api/history/data-analysis/suite-runs"
+        "?start={start}&end={end}&page={page}&per_page={size}".format(
+            start=start, end=end, page=page, size=PAGE_SIZE)
+    )
+
+
+def drop_listings(first: str, last: str,
+                  hosts: Sequence[Optional[str]] = ("pega3",)) -> int:
+    """Delete cached day-listings so the next read hits the network.
+
+    Run *details* stay on disk — a finished run does not change. Only the
+    list of which runs belong to the day is dropped, which is the part that
+    goes stale while a day is still being tested (and the part a laptop
+    that last collected on 09-11 will keep serving until something
+    throws it away).
+    """
+    dropped = 0
+    for day in day_range(first, last):
+        for page in range(1, MAX_PAGES + 1):
+            path = listing_path(day, page)
+            for host in hosts:
+                for target in (_cache_path(path, host), _partial_path(path, host)):
+                    if target.exists():
+                        target.unlink()
+                        dropped += 1
+    return dropped
 
 
 def _next_day(day: str) -> str:

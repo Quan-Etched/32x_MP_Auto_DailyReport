@@ -34,6 +34,154 @@ class StageTest(unittest.TestCase):
         self.assertIsNone(build_l10.stage_of(None))
 
 
+class SyncDaysTest(unittest.TestCase):
+    def test_open_days_cover_utc_and_pacific(self):
+        from datetime import datetime, timezone
+        # 09-24 07:00 UTC is still 09-23 in Pacific, so both dates stay open.
+        moment = datetime(2026, 9, 24, 7, 0, tzinfo=timezone.utc)
+        self.assertEqual(build_l10.open_sync_days(moment),
+                         ["2026-09-23", "2026-09-24"])
+
+    def test_merge_adds_a_day_the_snapshot_did_not_have(self):
+        bundle = {"tabs": [{"day": "2026-09-23", "columns": [{"key": "A"}],
+                            "rows": [{"v": "old"}]}]}
+        l10 = {"day": "2026-09-24", "sftReport": {"tested": 1}, "rows": []}
+        info = build_l10.merge_l10_into_bundle(bundle, {"2026-09-24": l10})
+        self.assertEqual(info["added"], ["2026-09-24"])
+        self.assertEqual([tab["day"] for tab in bundle["tabs"]],
+                         ["2026-09-23", "2026-09-24"])
+        self.assertEqual(bundle["tabs"][1]["l10"]["sftReport"]["tested"], 1)
+
+
+class CoverageStageTest(unittest.TestCase):
+    def test_column_c_groups_c2c_llama_and_connectivity_apart(self):
+        self.assertEqual(
+            build_l10.stage_of_test("C2cLinkupMultiChipTestCase"), "Sohu C2C")
+        self.assertEqual(
+            build_l10.stage_of_test("C2cLinkupTestCase"), "Sohu C2C")
+        self.assertEqual(
+            build_l10.stage_of_test("C2cLinkStabilityTestCase"), "Sohu C2C")
+        self.assertEqual(
+            build_l10.stage_of_test("SohuPingTestCase"), "Sohu C2C")
+        self.assertEqual(
+            build_l10.stage_of_test("SohuLlama70bForwardIteratedTestCase"),
+            "Model Registry & Inference")
+        self.assertEqual(
+            build_l10.stage_of_test("SohuLlamaTp8InferenceMaxTestCase"),
+            "InferenceMAX Run-in")
+        self.assertEqual(
+            build_l10.stage_of_test("CheckInterfaceLinkStatus"), "Connectivity")
+        self.assertEqual(
+            build_l10.stage_of_test("LoopbackTopologyTest"), "Network Bandwidth")
+        self.assertEqual(build_l10.stage_of_test("FanTest"), "FanTest")
+        self.assertEqual(build_l10.stage_of_test("BmcCheck"), "BMC")
+        self.assertEqual(
+            build_l10.stage_of_test("StageHuggingFaceToShmTestCase"),
+            "Model Registry & Inference")
+
+
+class SftReportTest(unittest.TestCase):
+    def units(self):
+        # SN-A fails, then passes: it counts as a pass, and the failed case
+        # is still in the CSV. SN-B fails twice: one failed chassis, two rows.
+        return {
+            "SN-A": {"sft:attempts": [
+                {"status": "fail", "started": "2026-09-24T01:00:00Z",
+                 "url": "http://pega4/a1",
+                 "failures": [{"test": "FanTest", "caseId": "case-a1",
+                               "code": "NA", "at": "2026-09-24T01:01:00Z"}]},
+                {"status": "pass", "started": "2026-09-24T03:00:00Z",
+                 "url": "http://pega4/a2", "failures": []},
+            ]},
+            "SN-B": {"sft:attempts": [
+                {"status": "fail", "started": "2026-09-24T02:00:00Z",
+                 "url": "http://pega4/b1",
+                 "failures": [{"test": "FanTest", "caseId": "case-b1",
+                               "code": "TH-X", "at": "2026-09-24T02:01:00Z"}]},
+                {"status": "fail", "started": "2026-09-24T04:00:00Z",
+                 "url": "http://pega4/b2",
+                 "failures": [{"test": "FanTest", "caseId": "case-b2",
+                               "code": "TH-X", "at": "2026-09-24T04:01:00Z"}]},
+            ]},
+        }
+
+    def test_retest_pass_is_a_pass_and_a_repeat_fail_counts_once(self):
+        report = build_l10.summarize_sft(self.units(), "2026-09-24")
+        self.assertEqual(report["tested"], 2)
+        self.assertEqual(report["passed"], 1)
+        self.assertEqual(report["failed"], 1)
+        self.assertEqual(report["failedSns"], ["SN-B"])
+        self.assertAlmostEqual(report["yield"], 0.5)
+        by_sn = {}
+        for row in report["rows"]:
+            by_sn.setdefault(row["sn"], []).append(row)
+        self.assertEqual(len(by_sn["SN-A"]), 2)
+        self.assertEqual(by_sn["SN-A"][0]["status"], "fail")
+        self.assertEqual(by_sn["SN-A"][0]["final"], "pass")
+        self.assertEqual(by_sn["SN-A"][1]["status"], "pass")
+        self.assertEqual(by_sn["SN-A"][1]["test"], "")
+        self.assertEqual([row["url"] for row in by_sn["SN-B"]],
+                         ["http://pega4/b1", "http://pega4/b2"])
+        self.assertEqual(report["kinds"][0]["caseIds"],
+                         ["case-a1", "case-b1", "case-b2"])
+        self.assertEqual(report["kinds"][0]["sns"], ["SN-B"])
+
+    def test_the_same_run_is_one_csv_row(self):
+        units = {
+            "SN-C": {"sft:attempts": [
+                {"status": "fail", "started": "2026-09-24T01:00:00Z",
+                 "url": "http://pega4/c1",
+                 "failures": [
+                     {"test": "C2cLinkupMultiChipTestCase",
+                      "caseId": "c-link", "code": "TH-C2C-0001"},
+                     {"test": "C2cPrbsMultiChipTestCase",
+                      "caseId": "c-prbs", "code": "NA"},
+                 ]},
+                {"status": "fail", "started": "2026-09-24T01:00:00Z",
+                 "url": "http://pega4/c1",
+                 "failures": [
+                     {"test": "C2cLinkupMultiChipTestCase",
+                      "caseId": "c-link", "code": "TH-C2C-0001"},
+                 ]},
+            ]},
+        }
+        report = build_l10.summarize_sft(units, "2026-09-24")
+        self.assertEqual(len(report["rows"]), 1)
+        row = report["rows"][0]
+        self.assertEqual(row["sn"], "SN-C")
+        self.assertEqual(row["attempt"], 1)
+        self.assertEqual(row["url"], "http://pega4/c1")
+        self.assertTrue(row["c2c"])
+        self.assertIn("C2cLinkupMultiChipTestCase", row["test"])
+        self.assertIn("C2cPrbsMultiChipTestCase", row["test"])
+
+    def test_a_missing_code_is_na(self):
+        detail = {"test_cases": [
+            {"test_name": "FanTest", "test_id": "case-1", "status": "fail",
+             "start_time": "2026-09-24T01:00:00Z"},
+            {"test_name": "KnownTest", "test_id": "case-2", "status": "fail",
+             "start_time": "2026-09-24T01:02:00Z"},
+        ]}
+        rows = build_l10.failure_details(detail, {
+            "KnownTest": [{"code": "TH-FAN-0001"}],
+            "FanTest": [{"code": "TH-A"}, {"code": "TH-B"}],
+        })
+        by_id = {row["caseId"]: row["code"] for row in rows}
+        self.assertEqual(by_id["case-1"], "NA")
+        self.assertEqual(by_id["case-2"], "TH-FAN-0001")
+
+    def test_csv_carries_the_esvm_link_and_the_code(self):
+        text = build_l10.sft_csv(build_l10.summarize_sft(
+            self.units(), "2026-09-24"))
+        self.assertIn("http://pega4/a2", text)
+        self.assertIn("http://pega4/b2", text)
+        self.assertIn("TH-X", text)
+        self.assertIn("errorCode", text)
+        self.assertIn(",jira", text.splitlines()[0])
+        self.assertNotIn("caseId", text.splitlines()[0])
+        self.assertNotIn("case-b2", text)
+
+
 class FailureTest(unittest.TestCase):
     def test_every_failure_in_the_run_belongs_to_the_chassis(self):
         # No slot filtering: an L10 run is one chassis, so filtering by chip
@@ -344,6 +492,30 @@ class SharedIndexTest(unittest.TestCase):
         self.assertEqual(
             [("P" if a["status"] == "pass" else "F") + str(a["n"])
              for a in serial["history"]["l10_fat"]], ["F1", "P2"])
+
+
+class FaBundleTest(unittest.TestCase):
+    def test_daily_fa_keeps_the_report_and_drops_the_tables(self):
+        report = {"day": "2026-09-23", "tested": 2, "failed": 1, "rows": []}
+        slim = build_dailyexcel.slim_fa_bundle({
+            "generatedAt": "2026-09-24T00:00:00+00:00",
+            "build": {"commit": "abc"},
+            "tabs": [{
+                "day": "2026-09-23",
+                "label": "09-23",
+                "rows": [{}, {}, {}],
+                "l10": {"sftReport": report, "rows": ["heavy"]},
+                "columns": ["heavy"],
+            }],
+        })
+        tab = slim["tabs"][0]
+        self.assertEqual(tab["day"], "2026-09-23")
+        self.assertEqual(tab["units"], 3)
+        self.assertEqual(tab["l10"]["sftReport"], report)
+        self.assertNotIn("rows", tab)
+        self.assertNotIn("columns", tab)
+        self.assertNotIn("rows", tab["l10"])
+        self.assertIn("SohuPingTestCase", slim.get("flowStages") or {})
 
 
 if __name__ == "__main__":
