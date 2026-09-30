@@ -295,6 +295,70 @@ class FaJiraTest(unittest.TestCase):
         self.assertIn("Jonathan Wang", client.draft["markdown"])
         self.assertIn("Error type: software", client.draft["markdown"])
 
+    def test_preview_does_not_create_a_ticket(self):
+        report = {
+            "day": "2026-09-24",
+            "stage": "fat",
+            "rows": [{
+                "sn": "SN-F",
+                "errorType": "hardware",
+                "test": "BmcCheck",
+                "code": "NA",
+                "url": "http://pega4/f",
+                "at": "",
+                "jira": "",
+            }],
+        }
+        preview = bug_report.preview_fa_row(
+            report, "SN-F|hardware|http://pega4/f",
+            epic="ETCH-44407", dri="Eason Chuang")
+        self.assertFalse(preview["already"])
+        self.assertIn("SN-F", preview["summary"])
+        self.assertIn("BmcCheck", preview["markdown"])
+        self.assertIn("Eason Chuang", preview["markdown"])
+        self.assertEqual(preview["epic"], "ETCH-44407")
+        self.assertFalse(report["rows"][0].get("jira"))
+
+    def test_confirm_uses_the_edited_summary_and_body(self):
+        report = {
+            "day": "2026-09-24",
+            "stage": "fat",
+            "rows": [{
+                "sn": "SN-F",
+                "errorType": "hardware",
+                "test": "BmcCheck",
+                "code": "NA",
+                "url": "http://pega4/f",
+                "at": "",
+                "jira": "",
+            }],
+        }
+
+        class Fake:
+            def create_bug(self, draft):
+                self.draft = draft
+                return "ETCH-90103"
+
+        client = Fake()
+        bug_report.file_fa_row(
+            report, "SN-F|hardware|http://pega4/f",
+            epic="ETCH-44407", client=client, dri="Jonathan Wang",
+            summary="edited title for SN-F",
+            markdown="Operator notes.\n\npega URL: http://pega4/f\n")
+        self.assertEqual(client.draft["summary"], "edited title for SN-F")
+        self.assertIn("Operator notes.", client.draft["markdown"])
+        text = json.dumps(client.draft["adf"])
+        self.assertIn("Operator notes.", text)
+        self.assertIn("http://pega4/f", text)
+
+    def test_plain_text_turns_urls_into_adf_links(self):
+        adf = bug_report.adf_from_plain(
+            "See https://jira.example/browse/ETCH-1.\n- first\n- second\n")
+        text = json.dumps(adf)
+        self.assertIn('"type": "link"', text)
+        self.assertIn("https://jira.example/browse/ETCH-1", text)
+        self.assertIn("bulletList", text)
+
 
 class SftJiraTest(unittest.TestCase):
     def test_the_draft_lists_every_case_id(self):

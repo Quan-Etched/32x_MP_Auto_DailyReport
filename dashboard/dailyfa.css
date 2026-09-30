@@ -211,6 +211,101 @@ button.cal-cell.is-on .cal-n { font-weight: 700; color: var(--accent-solid); }
   cursor: default;
 }
 .fa-jira-link { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.fa-dialog {
+  width: min(720px, calc(100% - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  padding: 20px 22px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+.fa-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.fa-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+.fa-dialog.fa-dialog-armed,
+.fa-dialog.fa-dialog-armed * {
+  pointer-events: none;
+}
+.fa-dialog h2 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 650;
+}
+.fa-dialog-meta {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.fa-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 12px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+}
+.fa-dialog-field input,
+.fa-dialog-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+}
+.fa-dialog-field textarea {
+  min-height: 220px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.fa-dialog-error {
+  margin: 0 0 10px;
+  color: var(--status-critical, #c43c3c);
+  font-size: 13px;
+}
+.fa-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+.fa-dialog-cancel,
+.fa-dialog-confirm {
+  appearance: none;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+.fa-dialog-cancel {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+}
+.fa-dialog-cancel:hover:not(:disabled) { background: var(--hover-wash); }
+.fa-dialog-confirm {
+  border: 1px solid transparent;
+  background: var(--accent-solid);
+  color: #fff;
+  font-weight: 600;
+}
+.fa-dialog-confirm:hover:not(:disabled) { filter: brightness(1.08); }
+.fa-dialog-cancel:disabled,
+.fa-dialog-confirm:disabled { opacity: 0.55; cursor: default; }
+
 .fa-actions,
 .sft-actions { margin: 0; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
 .fa-actions a,

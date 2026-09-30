@@ -5,8 +5,8 @@
 
    The table is one row per SN + run + error type. Error type is only
    hardware or software. Test cases of that type stack in the cell.
-   SN is written once per run. DRI is a dropdown. Jira files that row
-   only; after a row is filed the button stays off.
+   SN is written once per run. DRI is a dropdown. File Jira opens a
+   preview first; Confirm files that row, Cancel leaves it unfiled.
 */
 (function () {
   'use strict';
@@ -431,7 +431,9 @@
     button.type = 'button';
     button.className = 'fa-jira-btn';
     button.textContent = 'File Jira';
-    button.addEventListener('click', function () {
+    button.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
       fileRow(panel, report, row, button, td);
     });
     td.appendChild(button);
@@ -621,44 +623,244 @@
     PANELS.forEach(function (panel) { renderPanel(tab, panel); });
   }
 
-  function fileRow(panel, report, row, button, td) {
-    if (row.jira || button.disabled) return;
-    button.disabled = true;
-    button.textContent = 'Filing…';
-    noteFor(panel, 'Filing ' + (row.sn || '') + ' ' + (row.test || '') + '…');
-    fetch('/api/fa-jiras', {
+  function postFa(path, payload) {
+    return fetch(path, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Factory-Update': '1'
       },
-      body: JSON.stringify({
-        day: report.day,
-        stage: report.stage || panel.stage,
-        id: row.id,
-        dri: row.dri
-      })
+      body: JSON.stringify(payload)
     }).then(function (response) {
       return response.json().then(function (body) {
         return {ok: response.ok, body: body};
+      }, function () {
+        return {ok: response.ok, body: {}};
       });
+    });
+  }
+
+  function stageLabel(stage) {
+    if (stage === 'fat') return 'L10 FAT';
+    if (stage === 'sft') return 'L10 SFT';
+    if (stage === 'rin') return 'L10 RIN';
+    return 'L10 ' + String(stage || '').toUpperCase();
+  }
+
+  function localPreview(panel, report, row) {
+    var stage = report.stage || panel.stage;
+    var label = stageLabel(stage);
+    var day = report.day || '';
+    var sn = row.sn || '';
+    var tests = row.tests && row.tests.length
+      ? row.tests.slice()
+      : String(row.test || '').split(/,\s*/).filter(Boolean);
+    var test = tests[0] || row.test || 'unclassified failure';
+    var errorType = row.errorType || '';
+    var named = tests.length !== 1 ? (errorType || test) : test;
+    var dri = row.dri || '';
+    var at = '';
+    if (row.times && row.times.length) at = row.times[0];
+    else at = row.at || '';
+    var summary = [label, day, sn, named].join(' ').replace(/\s+/g, ' ').trim();
+    if (summary.length > 255) summary = summary.slice(0, 255);
+    var markdown = [
+      label + ' ' + day + ' failed ' + named + ' on ' + (sn || 'unknown SN') + '.',
+      '',
+      'Error type: ' + errorType,
+      'Test case: ' + (tests.join('\n') || test),
+      'Error code: ' + (row.code || 'NA'),
+      'DRI: ' + dri,
+      'Tested at: ' + (at || 'unknown'),
+      'pega URL: ' + (row.url || 'none'),
+      ''
+    ].join('\n');
+    return {
+      sn: sn,
+      test: test,
+      errorType: errorType,
+      dri: dri,
+      epic: 'ETCH-44407',
+      summary: summary,
+      markdown: markdown
+    };
+  }
+
+  function faDialog() {
+    var node = byId('fa-jira-dialog');
+    if (node) return node;
+    var dialog = document.createElement('dialog');
+    dialog.id = 'fa-jira-dialog';
+    dialog.className = 'fa-dialog';
+    dialog.setAttribute('aria-labelledby', 'fa-dialog-title');
+    dialog.innerHTML =
+      '<h2 id="fa-dialog-title">Preview Jira ticket</h2>' +
+      '<p class="fa-dialog-meta" id="fa-dialog-meta"></p>' +
+      '<label class="fa-dialog-field">Summary' +
+      '<input id="fa-dialog-summary" type="text" maxlength="255"></label>' +
+      '<label class="fa-dialog-field">Description' +
+      '<textarea id="fa-dialog-body" rows="14" spellcheck="true"></textarea></label>' +
+      '<p class="fa-dialog-error" id="fa-dialog-error" hidden></p>' +
+      '<div class="fa-dialog-actions">' +
+      '<button type="button" class="fa-dialog-cancel" id="fa-dialog-cancel">Cancel</button>' +
+      '<button type="button" class="fa-dialog-confirm" id="fa-dialog-confirm">Confirm</button>' +
+      '</div>';
+    document.body.appendChild(dialog);
+    dialog.addEventListener('cancel', function (event) {
+      event.preventDefault();
+      closeFaDialog(false);
+    });
+    dialog.addEventListener('click', function (event) {
+      if (dialog.classList.contains('fa-dialog-armed')) return;
+      var box = dialog.getBoundingClientRect();
+      var outside = event.clientX < box.left || event.clientX > box.right ||
+        event.clientY < box.top || event.clientY > box.bottom;
+      if (outside) closeFaDialog(false);
+    });
+    dialog.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter') return;
+      if (event.target && event.target.id === 'fa-dialog-confirm') return;
+      event.preventDefault();
+    });
+    byId('fa-dialog-cancel').addEventListener('click', function () {
+      closeFaDialog(false);
+    });
+    byId('fa-dialog-confirm').addEventListener('click', confirmFaDialog);
+    return dialog;
+  }
+
+  var faDialogState = null;
+  var faDialogArm = 0;
+
+  function setFaDialogError(text) {
+    var node = byId('fa-dialog-error');
+    if (!node) return;
+    if (text) {
+      node.hidden = false;
+      node.textContent = text;
+    } else {
+      node.hidden = true;
+      node.textContent = '';
+    }
+  }
+
+  function closeFaDialog(filed) {
+    if (faDialogState && faDialogState.filing && !filed) return;
+    var dialog = byId('fa-jira-dialog');
+    if (dialog) {
+      dialog.classList.remove('fa-dialog-armed');
+      if (dialog.open) dialog.close();
+    }
+    var state = faDialogState;
+    faDialogState = null;
+    if (!state) return;
+    if (!filed) {
+      state.button.disabled = false;
+      state.button.textContent = 'File Jira';
+      noteFor(state.panel, '');
+      state.button.focus();
+    }
+  }
+
+  function armFaDialog(dialog) {
+    var token = Date.now();
+    faDialogArm = token;
+    dialog.classList.add('fa-dialog-armed');
+    var confirm = byId('fa-dialog-confirm');
+    confirm.disabled = true;
+    function ready() {
+      if (faDialogArm !== token) return;
+      dialog.classList.remove('fa-dialog-armed');
+      if (faDialogState && !faDialogState.filing) confirm.disabled = false;
+      var summary = byId('fa-dialog-summary');
+      if (summary) summary.focus();
+    }
+    window.setTimeout(ready, 450);
+  }
+
+  function openFaDialog(state, preview) {
+    var dialog = faDialog();
+    faDialogState = state;
+    byId('fa-dialog-meta').textContent = [
+      preview.sn, preview.errorType, preview.dri, preview.epic
+    ].filter(Boolean).join(' · ');
+    byId('fa-dialog-summary').value = preview.summary || '';
+    byId('fa-dialog-body').value = preview.markdown || '';
+    setFaDialogError('');
+    var confirm = byId('fa-dialog-confirm');
+    confirm.textContent = 'Confirm';
+    byId('fa-dialog-cancel').disabled = false;
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+    armFaDialog(dialog);
+  }
+
+  function confirmFaDialog() {
+    var state = faDialogState;
+    var dialog = byId('fa-jira-dialog');
+    if (!state || (dialog && dialog.classList.contains('fa-dialog-armed'))) return;
+    var summary = (byId('fa-dialog-summary').value || '').trim();
+    var markdown = byId('fa-dialog-body').value || '';
+    if (!summary) {
+      setFaDialogError('Summary cannot be empty.');
+      byId('fa-dialog-summary').focus();
+      return;
+    }
+    var confirm = byId('fa-dialog-confirm');
+    confirm.disabled = true;
+    confirm.textContent = 'Filing…';
+    byId('fa-dialog-cancel').disabled = true;
+    state.filing = true;
+    setFaDialogError('');
+    noteFor(state.panel, 'Filing ' + (state.row.sn || '') + '…');
+    postFa('/api/fa-jiras', {
+      day: state.report.day,
+      stage: state.report.stage || state.panel.stage,
+      id: state.row.id,
+      dri: state.row.dri,
+      summary: summary,
+      markdown: markdown
     }).then(function (result) {
+      byId('fa-dialog-cancel').disabled = false;
       if (!result.ok) {
-        button.disabled = false;
-        button.textContent = 'File Jira';
-        noteFor(panel, result.body.error || 'Jira was not filed.');
+        state.filing = false;
+        confirm.disabled = false;
+        confirm.textContent = 'Confirm';
+        setFaDialogError(result.body.error || 'Jira was not filed.');
+        noteFor(state.panel, result.body.error || 'Jira was not filed.');
         return;
       }
       var filed = result.body.filed || {};
-      if (filed.url) row.jira = filed.url;
-      renderJiraCell(td, panel, report, row);
-      bindCsv(panel, report);
-      noteFor(panel, filed.key || 'Filed.');
+      if (filed.url) state.row.jira = filed.url;
+      renderJiraCell(state.td, state.panel, state.report, state.row);
+      bindCsv(state.panel, state.report);
+      noteFor(state.panel, filed.key || 'Filed.');
+      closeFaDialog(true);
     }).catch(function () {
-      button.disabled = false;
-      button.textContent = 'File Jira';
-      noteFor(panel, 'This page is not being served by the factory app, so Jira cannot be filed from here.');
+      state.filing = false;
+      byId('fa-dialog-cancel').disabled = false;
+      confirm.disabled = false;
+      confirm.textContent = 'Confirm';
+      setFaDialogError(
+        'This page is not being served by the factory app, so Jira cannot be filed from here.');
     });
+  }
+
+  function fileRow(panel, report, row, button, td) {
+    if (row.jira || button.disabled) return;
+    button.disabled = true;
+    button.textContent = 'Preview…';
+    noteFor(panel, '');
+    var preview = localPreview(panel, report, row);
+    window.setTimeout(function () {
+      openFaDialog({
+        panel: panel,
+        report: report,
+        row: row,
+        button: button,
+        td: td
+      }, preview);
+    }, 0);
   }
 
   window.FaReport = {render: render, reportFor: reportFor, csvText: csvText,

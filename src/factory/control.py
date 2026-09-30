@@ -258,6 +258,9 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:                      # noqa: N802
         route = self.path.split("?", 1)[0]
+        if route == "/api/fa-jira-preview":
+            self._preview_fa_jira()
+            return
         if route in ("/api/fa-jiras", "/api/sft-jiras"):
             self._file_fa_jiras()
             return
@@ -308,48 +311,87 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
             return True
         return host in self._public_hosts()
 
-    def _file_fa_jiras(self) -> None:
-        if not self._sft_guard_ok():
-            self._json({"error": "refused: not a dashboard request"}, status=403)
-            return
+    def _read_json_body(self, limit: int = 200000) -> Dict[str, Any]:
         length = int(self.headers.get("Content-Length") or 0)
-        raw = self.rfile.read(min(length, 8000)) if length else b""
+        raw = self.rfile.read(min(length, limit)) if length else b""
         try:
             body = json.loads(raw.decode("utf-8") or "{}")
         except ValueError:
-            body = {}
+            return {}
+        return body if isinstance(body, dict) else {}
+
+    def _fa_request(self) -> Optional[Tuple[Dict[str, Any], Dict[str, Any],
+                                            Dict[str, Any], str, str, str]]:
+        """Shared File-Jira POST: body, bundle, report, stage, row id, DRI.
+
+        Returns None after writing the error response.
+        """
+        if not self._sft_guard_ok():
+            self._json({"error": "refused: not a dashboard request"}, status=403)
+            return None
+        body = self._read_json_body()
         day = str(body.get("day") or "").strip()
         stage = str(body.get("stage") or body.get("station") or "sft").strip().lower()
         if stage.startswith("l10_"):
             stage = stage[4:]
         row_id = str(body.get("id") or "").strip()
         dri = str(body.get("dri") or "").strip()
-        from . import bug_report, build_l10, daily_report
+        from . import build_l10, daily_report
 
         if stage not in build_l10.REPORT_STAGES:
             self._json({"error": "stage must be fat, sft or rin"}, status=400)
-            return
+            return None
         if not row_id:
             self._json({"error": "pick a failure row to file"}, status=400)
-            return
+            return None
 
         bundle_path = config.DASHBOARD_DATA_DIR / "dailyexcel.js"
         if not bundle_path.exists():
             self._json({"error": "no daily tracker bundle"}, status=404)
-            return
+            return None
         try:
             bundle = daily_report._read_js_bundle(bundle_path)
         except (OSError, ValueError):
             self._json({"error": "daily tracker bundle could not be read"},
                        status=500)
-            return
+            return None
         report = self._fa_report_from_bundle(bundle, day, stage)
         if not report:
             self._json({"error": "no L10 {} report for {}".format(
                 stage.upper(), day or "that day")}, status=404)
+            return None
+        return body, bundle, report, stage, row_id, dri
+
+    def _preview_fa_jira(self) -> None:
+        loaded = self._fa_request()
+        if loaded is None:
             return
+        _body, _bundle, report, stage, row_id, dri = loaded
+        from . import bug_report
+
         try:
-            filed = bug_report.file_fa_row(report, row_id, dri=dri or None)
+            preview = bug_report.preview_fa_row(report, row_id, dri=dri or None)
+        except bug_report.JiraError as exc:
+            self._json({"error": str(exc)}, status=400)
+            return
+        self._json({"day": report.get("day"), "stage": stage, "preview": preview})
+
+    def _file_fa_jiras(self) -> None:
+        loaded = self._fa_request()
+        if loaded is None:
+            return
+        body, bundle, report, stage, row_id, dri = loaded
+        from . import bug_report, build_l10
+
+        summary = body.get("summary")
+        markdown = body.get("markdown")
+        if markdown is None:
+            markdown = body.get("description")
+        try:
+            filed = bug_report.file_fa_row(
+                report, row_id, dri=dri or None,
+                summary=None if summary is None else str(summary),
+                markdown=None if markdown is None else str(markdown))
         except bug_report.JiraError as exc:
             self._json({"error": str(exc)}, status=400)
             return
@@ -363,7 +405,8 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
                 break
         try:
             from . import build_dailyexcel
-            build_dailyexcel.write_bundle(bundle, bundle_path)
+            build_dailyexcel.write_bundle(
+                bundle, config.DASHBOARD_DATA_DIR / "dailyexcel.js")
         except OSError:
             pass
         self._json({"day": report.get("day"), "stage": stage, "filed": filed})

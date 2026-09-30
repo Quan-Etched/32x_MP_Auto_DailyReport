@@ -23,6 +23,7 @@ import csv
 import io
 import json
 import os
+import re
 import ssl
 import urllib.error
 import urllib.request
@@ -44,6 +45,9 @@ DRIVE_FOLDER_URL = (
 OCCURRENCE_COLUMNS = ("sn", "day", "station", "release", "run", "url")
 
 _EXTRAS = ("l10", "l11")
+
+_URL_RE = re.compile(r"https?://[^\s<>]+")
+_JIRA_SUMMARY_MAX = 255
 
 
 class NoHits(Exception):
@@ -270,6 +274,70 @@ def _bullets(items: Sequence[str]) -> Dict[str, Any]:
             for item in items
         ],
     }
+
+
+def _inline(text: str) -> List[Dict[str, Any]]:
+    """Plain text with http(s) URLs turned into ADF links."""
+    nodes: List[Dict[str, Any]] = []
+    pos = 0
+    for match in _URL_RE.finditer(text or ""):
+        if match.start() > pos:
+            nodes.append(_text(text[pos:match.start()]))
+        url = match.group(0).rstrip(".,);")
+        nodes.append(_text(url, url))
+        pos = match.start() + len(url)
+        if pos < match.end():
+            nodes.append(_text(text[pos:match.end()]))
+            pos = match.end()
+    if pos < len(text or ""):
+        nodes.append(_text(text[pos:]))
+    return nodes or [_text("")]
+
+
+def adf_from_plain(text: str) -> Dict[str, Any]:
+    """Turn an edited ticket body into the ADF Jira's create API wants.
+
+    Blank lines separate paragraphs. Consecutive ``- `` lines become a
+    bullet list. URLs in the text are linked.
+    """
+    content: List[Dict[str, Any]] = []
+    bullets: List[str] = []
+
+    def flush_bullets() -> None:
+        if bullets:
+            content.append(_bullets(list(bullets)))
+            bullets.clear()
+
+    for raw in (text or "").replace("\r\n", "\n").split("\n"):
+        stripped = raw.rstrip()
+        if stripped.startswith("- "):
+            bullets.append(stripped[2:])
+            continue
+        flush_bullets()
+        if not stripped:
+            continue
+        content.append(_para(*_inline(stripped)))
+    flush_bullets()
+    if not content:
+        content.append(_para(_text("")))
+    return {"type": "doc", "version": 1, "content": content}
+
+
+def apply_ticket_edits(draft: Dict[str, Any],
+                       summary: Optional[str] = None,
+                       markdown: Optional[str] = None) -> Dict[str, Any]:
+    """Overlay the operator's preview edits onto a generated draft."""
+    if summary is not None:
+        text = str(summary).strip()
+        if text:
+            draft["summary"] = text[:_JIRA_SUMMARY_MAX]
+    if markdown is not None:
+        body = str(markdown).replace("\r\n", "\n")
+        if not body.endswith("\n"):
+            body += "\n"
+        draft["markdown"] = body
+        draft["adf"] = adf_from_plain(body)
+    return draft
 
 
 def render_adf(draft: Dict[str, Any]) -> Dict[str, Any]:
@@ -859,20 +927,62 @@ def _matches_fa_id(row: Dict[str, Any], row_id: str) -> bool:
                     row.get("url") or "") == row_id
 
 
-def file_fa_row(report: Dict[str, Any], row_id: str,
-                epic: Optional[str] = None,
-                client: Optional["JiraClient"] = None,
-                dri: Optional[str] = None
-                ) -> Dict[str, Any]:
-    """File one Jira for one table row. A second click returns the same ticket."""
+def _fa_row(report: Dict[str, Any], row_id: str,
+            dri: Optional[str] = None
+            ) -> Tuple[List[Dict[str, Any]], Dict[str, Any], str]:
+    """Leaves matching ``row_id``, the grouped table row, and any existing URL."""
     from .build_l10 import DRI_OPTIONS, as_dri, expand_fail_rows, group_fail_rows
 
-    parent = (epic or os.environ.get("JIRA_EPIC", "").strip() or DEFAULT_EPIC)
     report["rows"] = expand_fail_rows(report)
     matches = [item for item in report["rows"] if _matches_fa_id(item, row_id)]
     if not matches:
         raise JiraError("that failure is not in the report")
     already = next((item.get("jira") for item in matches if item.get("jira")), "")
+    chosen = (dri or "").strip()
+    if chosen not in DRI_OPTIONS:
+        chosen = as_dri(matches[0].get("dri") or "",
+                        matches[0].get("errorType") or "")
+    for item in matches:
+        item["dri"] = chosen
+    grouped = group_fail_rows(matches)
+    row = grouped[0] if grouped else matches[0]
+    row["dri"] = chosen
+    return matches, row, already or ""
+
+
+def preview_fa_row(report: Dict[str, Any], row_id: str,
+                   epic: Optional[str] = None,
+                   dri: Optional[str] = None) -> Dict[str, Any]:
+    """The ticket that would be filed, without creating it."""
+    parent = (epic or os.environ.get("JIRA_EPIC", "").strip() or DEFAULT_EPIC)
+    matches, row, already = _fa_row(report, row_id, dri=dri)
+    draft = fa_draft(report, row, parent)
+    key = str(already).rstrip("/").rsplit("/", 1)[-1] if already else ""
+    return {
+        "id": row_id,
+        "sn": row.get("sn") or "",
+        "test": row.get("test") or "",
+        "errorType": row.get("errorType") or "",
+        "dri": row.get("dri") or "",
+        "epic": draft["epic"],
+        "summary": draft["summary"],
+        "markdown": draft["markdown"],
+        "already": bool(already),
+        "key": key,
+        "url": already,
+    }
+
+
+def file_fa_row(report: Dict[str, Any], row_id: str,
+                epic: Optional[str] = None,
+                client: Optional["JiraClient"] = None,
+                dri: Optional[str] = None,
+                summary: Optional[str] = None,
+                markdown: Optional[str] = None
+                ) -> Dict[str, Any]:
+    """File one Jira for one table row. A second click returns the same ticket."""
+    parent = (epic or os.environ.get("JIRA_EPIC", "").strip() or DEFAULT_EPIC)
+    matches, row, already = _fa_row(report, row_id, dri=dri)
     if already:
         key = str(already).rstrip("/").rsplit("/", 1)[-1]
         return {
@@ -883,19 +993,11 @@ def file_fa_row(report: Dict[str, Any], row_id: str,
             "url": already,
             "already": True,
         }
-    chosen = (dri or "").strip()
-    if chosen not in DRI_OPTIONS:
-        chosen = as_dri(matches[0].get("dri") or "",
-                        matches[0].get("errorType") or "")
-    for item in matches:
-        item["dri"] = chosen
-    grouped = group_fail_rows(matches)
-    row = grouped[0] if grouped else matches[0]
-    row["dri"] = chosen
     if client is None:
         email, token = credentials()
         client = JiraClient(email, token)
-    draft = fa_draft(report, row, parent)
+    draft = apply_ticket_edits(fa_draft(report, row, parent),
+                               summary=summary, markdown=markdown)
     key = client.create_bug(draft)
     filed = {
         "id": row_id,
