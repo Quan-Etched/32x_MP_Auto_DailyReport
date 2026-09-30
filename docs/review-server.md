@@ -2,9 +2,9 @@
 
 服务器：`production-failure-analysis.usw2.i.etched.com`
 
-**Daily tracker**（`dailyexcel.html`）还是今早那样的模块 / L10 / L11 表，不再往那一页加 SFT 报告。
+**Daily tracker**（`dailyexcel.html`）还是模块 / L10 / L11 表，不再往那一页加 FA 报告。
 
-**Daily FA**（`daily_FA.html`）才是今天的 failure analysis 页：上面是同一个选日子的月历，下面只有 L10 SFT 报告——测了多少台、失败多少台、失败 SN、yield、Download CSV、File Jira。
+**Daily FA**（`daily_FA.html`）才是 failure analysis 页：上面是同一个选日子的月历，下面是 L10 FAT、L10 SFT、L10 RIN 三张报告——测了多少台、失败 SN、yield，以及失败表（DUT SN / error type / test case / 测试时间 / error code / pega URL / File Jira）。点某一行的 Jira 才开单，开过之后那一行不能再点。
 
 ## 同事打开网页
 
@@ -15,8 +15,8 @@
 
 nginx 把 80/443 转到本机 `127.0.0.1:8080`。安全组不开放 8787，不要把 `:8787` 发给同事。
 
-- **Download CSV**：一天一行一个 SFT run（通过也写）。同一条 ESVM 只写一次 SN / attempt / final / 时间 / URL。没有 case id。开过票时，`jira` 列是该行所属 stage 的票链接。
-- **File Jira**：按 L10_FLOW_TEST_COVERAGE 表 C 列（stage）分类，每个 stage 当天开一张 Bug。挂在 `JIRA_EPIC`（默认 ETCH-44407）下面。
+- **Download CSV**：失败表的一份拷贝。一失败一行。
+- **File Jira**：只开该行那台 DUT、那个 test case 的 Bug。挂在 `JIRA_EPIC`（默认 ETCH-44407）下面。
 
 ## 服务器上的进程
 
@@ -27,7 +27,9 @@ systemctl --user status factory-review.service
 systemctl --user restart factory-review.service
 ```
 
-这台机器到不了 pega4，**不要在服务器上拉 pega**。Daily FA 只读小的 `dailyfa.js`（日历 + SFT 报告）；Daily tracker 才读整份 `dailyexcel.js`。每天在能访问 pega 的电脑上重建，再拷上去：
+这台机器到不了 pega4，**不要在服务器上拉 pega**。Daily FA 只读小的 `dailyfa.js`（日历 + FAT/SFT/RIN 报告）；Daily tracker 才读整份 `dailyexcel.js`。每天在能访问 pega 的电脑上重建，再拷上去。
+
+重建时，每条失败的 L10 run 会把 `log.jsonl` 下载到本机 `data/raw/pega-logs/`（同一条测试有多条 diagnosis 时，全部 `TH-` error code 都写进行里）。已经下过的 run 下次直接读本地缓存。拷上去的是带这些 code 的 `dailyfa.js`，不是日志原文：
 
 ```sh
 python3 -m factory.cli dailyexcel

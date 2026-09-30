@@ -1985,24 +1985,33 @@ def _known_duts(payload: Dict[str, Any]) -> set:
 # --------------------------------------------------------------------- write
 
 def slim_fa_bundle(bundle: Dict[str, Any]) -> Dict[str, Any]:
-    """Calendar days + SFT reports only — Daily FA must not parse the tracker.
+    """Calendar days + FAT/SFT/RIN reports — Daily FA must not parse the tracker.
 
     The full dailyexcel.js is several megabytes of module / L10 / L11 tables.
     Coming back to Daily FA re-parses that whole file. The report page only
-    needs a day list and each day's sftReport.
+    needs a day list and each day's stage reports.
     """
+    from . import build_l10
+
     tabs = []
     for tab in bundle.get("tabs") or []:
-        report = ((tab.get("l10") or {}).get("sftReport"))
+        l10 = tab.get("l10") or {}
+        reports = {}
+        for stage, key in build_l10.REPORT_KEY.items():
+            report = build_l10.normalize_report(l10.get(key), stage)
+            if report is None and l10.get("columns"):
+                report = build_l10.report_from_table(l10, stage)
+            if report:
+                reports[key] = report
         entry = {
             "day": tab.get("day"),
             "label": tab.get("label"),
-            "units": len(tab.get("rows") or []),
+            "units": tab.get("units") if tab.get("units") is not None
+            else len(tab.get("rows") or []),
         }
-        if report:
-            entry["l10"] = {"sftReport": report}
+        if reports:
+            entry["l10"] = reports
         tabs.append(entry)
-    from . import build_l10
 
     return {
         "generatedAt": bundle.get("generatedAt"),

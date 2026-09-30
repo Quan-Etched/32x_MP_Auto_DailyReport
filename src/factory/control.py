@@ -258,8 +258,8 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self) -> None:                      # noqa: N802
         route = self.path.split("?", 1)[0]
-        if route == "/api/sft-jiras":
-            self._file_sft_jiras()
+        if route in ("/api/fa-jiras", "/api/sft-jiras"):
+            self._file_fa_jiras()
             return
         if route != "/api/update":
             self._json({"error": "no such route"}, status=404)
@@ -308,18 +308,29 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
             return True
         return host in self._public_hosts()
 
-    def _file_sft_jiras(self) -> None:
+    def _file_fa_jiras(self) -> None:
         if not self._sft_guard_ok():
             self._json({"error": "refused: not a dashboard request"}, status=403)
             return
         length = int(self.headers.get("Content-Length") or 0)
-        raw = self.rfile.read(min(length, 4000)) if length else b""
+        raw = self.rfile.read(min(length, 8000)) if length else b""
         try:
             body = json.loads(raw.decode("utf-8") or "{}")
         except ValueError:
             body = {}
         day = str(body.get("day") or "").strip()
-        from . import bug_report, daily_report
+        stage = str(body.get("stage") or body.get("station") or "sft").strip().lower()
+        if stage.startswith("l10_"):
+            stage = stage[4:]
+        row_id = str(body.get("id") or "").strip()
+        from . import bug_report, build_l10, daily_report
+
+        if stage not in build_l10.REPORT_STAGES:
+            self._json({"error": "stage must be fat, sft or rin"}, status=400)
+            return
+        if not row_id:
+            self._json({"error": "pick a failure row to file"}, status=400)
+            return
 
         bundle_path = config.DASHBOARD_DATA_DIR / "dailyexcel.js"
         if not bundle_path.exists():
@@ -331,39 +342,52 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
             self._json({"error": "daily tracker bundle could not be read"},
                        status=500)
             return
-        report = self._sft_report_from_bundle(bundle, day)
+        report = self._fa_report_from_bundle(bundle, day, stage)
         if not report:
-            self._json({"error": "no L10 SFT report for {}".format(day or "that day")},
-                       status=404)
+            self._json({"error": "no L10 {} report for {}".format(
+                stage.upper(), day or "that day")}, status=404)
             return
         try:
-            filed = bug_report.file_sft_report(report)
+            filed = bug_report.file_fa_row(report, row_id)
         except bug_report.JiraError as exc:
             self._json({"error": str(exc)}, status=400)
             return
+        report_key = build_l10.REPORT_KEY[stage]
         for tab in bundle.get("tabs") or []:
             if tab.get("day") != report.get("day"):
                 continue
             l10 = tab.get("l10")
             if isinstance(l10, dict):
-                l10["sftReport"] = report
+                l10[report_key] = report
                 break
         try:
             from . import build_dailyexcel
             build_dailyexcel.write_bundle(bundle, bundle_path)
         except OSError:
             pass
-        self._json({"day": report.get("day"), "filed": filed})
+        self._json({"day": report.get("day"), "stage": stage, "filed": filed})
 
-    def _sft_report_from_bundle(self, bundle: Dict[str, Any],
-                                day: str) -> Optional[Dict[str, Any]]:
+    def _fa_report_from_bundle(self, bundle: Dict[str, Any],
+                               day: str, stage: str) -> Optional[Dict[str, Any]]:
+        from . import build_l10
+
+        key = build_l10.REPORT_KEY[stage]
         for tab in bundle.get("tabs") or []:
             if day and tab.get("day") != day:
                 continue
-            got = (tab.get("l10") or {}).get("sftReport")
+            l10 = tab.get("l10") or {}
+            got = build_l10.normalize_report(l10.get(key), stage)
+            if got is None and l10.get("columns"):
+                got = build_l10.report_from_table(l10, stage)
             if got and (not day or got.get("day") == day):
+                if isinstance(l10, dict):
+                    l10[key] = got
                 return got
         return None
+
+    def _sft_report_from_bundle(self, bundle: Dict[str, Any],
+                                day: str) -> Optional[Dict[str, Any]]:
+        return self._fa_report_from_bundle(bundle, day, "sft")
 
     def _days_param(self) -> Optional[int]:
         _, _, query = self.path.partition("?")

@@ -1,4 +1,4 @@
-/* Daily FA: the daily tracker's month calendar, then the L10 SFT report. */
+/* Daily FA: the daily tracker's month calendar, then FAT / SFT / RIN reports. */
 
 .daycal {
   margin: 4px 0 18px;
@@ -117,6 +117,7 @@ button.cal-cell.is-on .cal-n { font-weight: 700; color: var(--accent-solid); }
   .cal-units, .cal-sheet { display: none; }
 }
 
+.fa-report,
 .sft-report {
   margin: 8px 0 18px;
   padding: 14px 16px;
@@ -124,30 +125,89 @@ button.cal-cell.is-on .cal-n { font-weight: 700; color: var(--accent-solid); }
   border-radius: var(--radius);
   background: var(--surface-1);
 }
-.sft-report h2 { margin: 0 0 8px; font-size: 18px; }
-.sft-report .l10-sub { color: var(--text-secondary); font-weight: 400; }
+.fa-report h2,
+.sft-report h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.65em;
+}
+.fa-report .l10-sub,
+.sft-report .l10-sub,
+.fa-yield { color: inherit; font-weight: 700; }
+.fa-counts,
 .sft-counts { margin: 0 0 6px; }
+.fa-sns,
 .sft-sns {
   margin: 0 0 8px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 12px;
   line-height: 1.5;
 }
-.sft-stage-label { margin: 10px 0 4px; color: var(--text-secondary); font-size: 13px; }
-.sft-stages {
-  margin: 0 0 12px;
-  padding-left: 1.2em;
+.fa-table-wrap { overflow-x: auto; margin: 10px 0 12px; }
+.fa-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12.5px;
 }
-.sft-stages li { margin: 4px 0; }
-.sft-actions { margin: 0; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
-.sft-actions a, .sft-actions button { font: inherit; }
-.sft-actions button {
+.fa-table th,
+.fa-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.fa-table th {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.fa-table .col-sn,
+.fa-table .col-time,
+.fa-table .col-code { width: 10%; }
+.fa-table .col-type { width: calc(100% / 7); }
+.fa-table .col-url,
+.fa-table .col-dri,
+.fa-table .col-jira { width: calc(100% / 18); }
+.fa-table td.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.fa-table td.col-sn,
+.fa-table td.col-url,
+.fa-table td.col-dri,
+.fa-table td.col-jira { white-space: nowrap; }
+.fa-table td.col-type,
+.fa-table td.col-code,
+.fa-table td.col-test,
+.fa-table td.col-time { white-space: normal; overflow-wrap: break-word; }
+.fa-table .fa-case,
+.fa-table .fa-time { white-space: nowrap; }
+.fa-table .fa-code { display: block; white-space: nowrap; }
+.fa-table tbody tr:hover { background: var(--hover-wash); }
+.fa-jira { white-space: nowrap; }
+.fa-jira-btn {
   appearance: none;
   border: 1px solid var(--border);
   background: transparent;
   color: inherit;
   border-radius: 6px;
-  padding: 4px 10px;
+  padding: 3px 10px;
+  font: inherit;
   cursor: pointer;
 }
-.sft-actions button:hover { background: var(--hover-wash); }
+.fa-jira-btn:hover:not(:disabled) { background: var(--hover-wash); }
+.fa-jira-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.fa-jira-link { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.fa-actions,
+.sft-actions { margin: 0; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.fa-actions a,
+.sft-actions a { font: inherit; }

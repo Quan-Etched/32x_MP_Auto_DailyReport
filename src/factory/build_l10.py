@@ -91,16 +91,19 @@ def stage_of(suite: Optional[str]) -> Optional[str]:
 
 
 def failure_details(detail: Dict[str, Any],
-                   by_case: Optional[Dict[str, List[Dict[str, Any]]]] = None
+                   by_case: Optional[Dict[str, List[Dict[str, Any]]]] = None,
+                   log_codes: Optional[Dict[str, List[str]]] = None,
+                   run_id: str = ""
                    ) -> List[Dict[str, str]]:
     """One record per failing leaf: test name, case id, code, time.
 
-    The code is the one the run itself recorded. When the run has none and
-    the catalogue names exactly one code for that test, that code is used.
-    Several catalogue codes, or none, is ``NA`` — picking one would invent
-    a diagnosis the run did not make.
+    Codes come from that test's ``log.jsonl`` diagnoses, every one of them.
+    The run payload only keeps the diagnosis ESVM preferred. When the log
+    has none, codes on the case itself are used, then every catalogue
+    code for that test. One test with several codes lists all of them.
     """
     known = by_case or {}
+    logged = log_codes or {}
     found: List[Dict[str, str]] = []
     seen = set()
     for case in sorted(detail.get("test_cases") or [],
@@ -118,14 +121,26 @@ def failure_details(detail: Dict[str, Any],
         found.append({
             "test": name,
             "caseId": case_id,
-            "code": _case_code(case, name, known),
+            "code": _case_code(case, name, known, logged, run_id, case_id),
             "at": str(case.get("start_time") or ""),
         })
     return found
 
 
 def _case_code(case: Dict[str, Any], name: str,
-               by_case: Dict[str, List[Dict[str, Any]]]) -> str:
+               by_case: Dict[str, List[Dict[str, Any]]],
+               log_codes: Dict[str, List[str]],
+               run_id: str, case_id: str) -> str:
+    from . import th_logs
+
+    unique = case_id
+    if run_id and case_id.startswith(run_id + "_"):
+        unique = case_id[len(run_id) + 1:]
+    logged = list(log_codes.get(unique) or log_codes.get(case_id) or [])
+    if not logged:
+        logged = th_logs.th_codes(str(case.get("error_message") or ""))
+    if logged:
+        return "\n".join(logged)
     for key in ("error_code", "errorCode", "code", "failure_code"):
         value = case.get(key)
         if value:
@@ -135,8 +150,8 @@ def _case_code(case: Dict[str, Any], name: str,
         code = str(entry.get("code") or "").strip()
         if code and code not in codes:
             codes.append(code)
-    if len(codes) == 1:
-        return codes[0]
+    if codes:
+        return "\n".join(codes)
     return "NA"
 
 
@@ -210,14 +225,37 @@ def is_c2c(name: str) -> bool:
     return stage_of_test(name) == "Sohu C2C" or "c2c" in (name or "").lower()
 
 
-def summarize_sft(units: Dict[str, Dict[str, Any]], day: str) -> Dict[str, Any]:
-    """L10 SFT for one day, one CSV row per suite run.
+#: Daily FA reports these three stages. 2U stays on the tracker table only.
+REPORT_STAGES = ("fat", "sft", "rin")
+REPORT_KEY = {"fat": "fatReport", "sft": "sftReport", "rin": "rinReport"}
 
-    A later pass replaces an earlier fail: the chassis passed. A later fail
-    does not add a second failed chassis. Passes are in the CSV too. The same
-    ESVM run is written once — one SN, one attempt, one time, one URL.
+
+DEFAULT_DRI = "MTE"
+
+
+def row_id(sn: str, test: str, url: str = "", at: str = "") -> str:
+    """Stable identity for one failure leaf, used to file that row's Jira."""
+    return "|".join([sn or "", test or "", url or "", at or ""])
+
+
+def group_id(sn: str, error_type: str, url: str = "") -> str:
+    """One table row: one SN, one run, one error type."""
+    return "|".join([sn or "", error_type or "", url or ""])
+
+
+def summarize_sft(units: Dict[str, Dict[str, Any]], day: str) -> Dict[str, Any]:
+    """L10 SFT for one day. Kept as the name the tests and callers already use."""
+    return summarize_stage(units, day, "sft")
+
+
+def summarize_stage(units: Dict[str, Dict[str, Any]], day: str,
+                    stage: str) -> Dict[str, Any]:
+    """One Daily FA report: last attempt decides pass/fail.
+
+    A later pass is a pass and is listed. A later fail is a fail; if the
+    chassis passed earlier that day, that pass time is kept on the fail rows.
     """
-    key = "sft" + build_dailyexcel.ATTEMPTS_KEY
+    key = stage + build_dailyexcel.ATTEMPTS_KEY
     tested = passed = failed = 0
     failed_sns: List[str] = []
     rows: List[Dict[str, Any]] = []
@@ -236,30 +274,104 @@ def summarize_sft(units: Dict[str, Dict[str, Any]], day: str) -> Dict[str, Any]:
         else:
             failed += 1
             failed_sns.append(dut)
-        for index, attempt in enumerate(attempts, start=1):
-            rows.append(_run_row(dut, index, final["status"], attempt))
+        rows.extend(_final_rows(dut, attempts, final))
+    return _finish_report(day, stage, tested, passed, failed, failed_sns, rows)
+
+
+def _pass_time(attempts: Sequence[Dict[str, Any]]) -> str:
+    times = [item.get("started") or "" for item in attempts
+             if item.get("status") == "pass"]
+    return next((item for item in reversed(times) if item), "")
+
+
+def _pass_row(dut: str, index: int, attempt: Dict[str, Any]) -> Dict[str, Any]:
+    url = attempt.get("url") or ""
+    at = attempt.get("started") or ""
+    return {
+        "id": group_id(dut, "Passed", url),
+        "sn": dut,
+        "errorType": "Passed",
+        "test": "",
+        "caseId": "",
+        "at": at,
+        "passAt": at,
+        "code": "",
+        "url": url,
+        "jira": "",
+        "dri": "",
+        "attempt": index,
+        "final": "pass",
+        "status": "pass",
+    }
+
+
+def _final_rows(dut: str, attempts: Sequence[Dict[str, Any]],
+                final: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Only the last attempt. Pass rows have no DRI / Jira."""
+    pass_at = _pass_time(attempts)
+    index = len(attempts)
+    if final.get("status") == "pass":
+        return [_pass_row(dut, index, final)]
+    rows = _fail_rows(dut, index, "fail", final)
+    for row in rows:
+        row["passAt"] = pass_at
+    return rows
+
+
+def _fail_rows(dut: str, index: int, final: str,
+               attempt: Dict[str, Any]) -> List[Dict[str, Any]]:
+    rows = []
+    for item in attempt.get("failures") or []:
+        test = (item.get("test") or "").strip()
+        if not test:
+            continue
+        at = item.get("at") or attempt.get("started") or ""
+        url = attempt.get("url") or ""
+        rows.append({
+            "id": row_id(dut, test, url, at),
+            "sn": dut,
+            "errorType": stage_of_test(test),
+            "test": test,
+            "caseId": (item.get("caseId") or test).strip(),
+            "at": at,
+            "code": (item.get("code") or "NA").strip() or "NA",
+            "url": url,
+            "jira": item.get("jira") or attempt.get("jira") or "",
+            "dri": item.get("dri") or DEFAULT_DRI,
+            "attempt": index,
+            "final": final,
+            "status": attempt.get("status") or "",
+        })
+    return rows
+
+
+def _finish_report(day: str, stage: str, tested: int, passed: int,
+                   failed: int, failed_sns: Sequence[str],
+                   rows: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     kinds: Dict[str, Dict[str, Any]] = {}
     for row in rows:
-        for test, case_id in zip(row.get("tests") or [],
-                                 row.get("caseIds") or []):
-            if not test:
-                continue
-            bucket = kinds.setdefault(test, {
-                "test": test, "caseIds": [], "sns": [],
-            })
-            if case_id and case_id not in bucket["caseIds"]:
-                bucket["caseIds"].append(case_id)
-            if row.get("final") == "fail" and row["sn"] not in bucket["sns"]:
-                bucket["sns"].append(row["sn"])
+        test = row.get("test") or ""
+        if not test:
+            continue
+        bucket = kinds.setdefault(test, {
+            "test": test, "caseIds": [], "sns": [],
+        })
+        case_id = row.get("caseId") or test
+        if case_id and case_id not in bucket["caseIds"]:
+            bucket["caseIds"].append(case_id)
+        if row.get("final") == "fail" and row.get("sn") \
+                and row["sn"] not in bucket["sns"]:
+            bucket["sns"].append(row["sn"])
     return {
         "day": day,
-        "station": "l10_sft",
+        "stage": stage,
+        "station": STATION_OF[stage],
         "tested": tested,
         "passed": passed,
         "failed": failed,
         "yield": (passed / tested) if tested else None,
-        "failedSns": failed_sns,
-        "rows": rows,
+        "failedSns": list(failed_sns),
+        "rows": list(rows),
         "kinds": [kinds[name] for name in sorted(kinds)],
     }
 
@@ -278,40 +390,250 @@ def _unique_runs(attempts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return found
 
 
-def _run_row(dut: str, index: int, final: str,
-             attempt: Dict[str, Any]) -> Dict[str, Any]:
-    failures = list(attempt.get("failures") or [])
-    tests = [item.get("test") or "" for item in failures if item.get("test")]
-    codes = [(item.get("code") or "NA") for item in failures if item.get("test")]
-    case_ids = [item.get("caseId") or "" for item in failures if item.get("test")]
-    return {
-        "sn": dut,
-        "attempt": index,
-        "final": final,
-        "status": attempt.get("status") or "",
-        "test": "; ".join(tests),
-        "tests": tests,
-        "code": "; ".join(codes),
-        "caseIds": case_ids,
-        "at": attempt.get("started") or (failures[0].get("at") if failures else ""),
-        "url": attempt.get("url") or "",
-        "c2c": any(is_c2c(name) for name in tests),
-        "jira": attempt.get("jira") or "",
-    }
+def expand_fail_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Turn a stored report into one-row-per-failure, old or new shape.
+
+    Yesterday's snapshot wrote one row per suite run, with tests joined by
+    ``; ``. The table needs one leaf per row. Already-expanded rows pass
+    through with an id filled in if they lost it.
+    """
+    found: List[Dict[str, Any]] = []
+    for row in report.get("rows") or []:
+        if row.get("status") == "pass" or row.get("errorType") == "Passed":
+            item = dict(row)
+            item["errorType"] = "Passed"
+            item["dri"] = ""
+            item["jira"] = item.get("jira") or ""
+            item["id"] = item.get("id") or group_id(
+                item.get("sn") or "", "Passed", item.get("url") or "")
+            found.append(item)
+            continue
+        if row.get("errorType") or (
+                row.get("test") and not row.get("tests")):
+            item = dict(row)
+            item.setdefault("errorType", stage_of_test(item.get("test") or ""))
+            item.setdefault("caseId", item.get("test") or "")
+            item.setdefault("code", item.get("code") or "NA")
+            item["id"] = item.get("id") or row_id(
+                item.get("sn") or "", item.get("test") or "",
+                item.get("url") or "", item.get("at") or "")
+            item.setdefault("dri", DEFAULT_DRI)
+            if item.get("test"):
+                found.append(item)
+            continue
+        tests = list(row.get("tests") or [])
+        if not tests:
+            tests = [part.strip() for part in
+                     str(row.get("test") or "").split(";") if part.strip()]
+        codes = [part.strip() for part in str(row.get("code") or "").split(";")]
+        case_ids = list(row.get("caseIds") or [])
+        for index, test in enumerate(tests):
+            if not test:
+                continue
+            at = row.get("at") or ""
+            url = row.get("url") or ""
+            found.append({
+                "id": row_id(row.get("sn") or "", test, url, at),
+                "sn": row.get("sn") or "",
+                "errorType": stage_of_test(test),
+                "test": test,
+                "caseId": case_ids[index] if index < len(case_ids) else test,
+                "at": at,
+                "code": codes[index] if index < len(codes) and codes[index]
+                else (row.get("code") or "NA"),
+                "url": url,
+                "jira": row.get("jira") or "",
+                "dri": row.get("dri") or DEFAULT_DRI,
+                "attempt": row.get("attempt") or "",
+                "final": row.get("final") or "",
+                "status": row.get("status") or "",
+            })
+    return found
+
+
+def group_fail_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Same SN + run + error type is one table row; test cases stack."""
+    order: List[str] = []
+    buckets: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        key = group_id(row.get("sn") or "", row.get("errorType") or "",
+                       row.get("url") or "")
+        bucket = buckets.get(key)
+        if bucket is None:
+            bucket = {
+                "id": key,
+                "sn": row.get("sn") or "",
+                "errorType": row.get("errorType") or "",
+                "tests": [],
+                "codes": [],
+                "at": row.get("at") or "",
+                "passAt": row.get("passAt") or "",
+                "url": row.get("url") or "",
+                "jira": row.get("jira") or "",
+                "dri": "" if row.get("errorType") == "Passed"
+                else (row.get("dri") or DEFAULT_DRI),
+                "attempt": row.get("attempt") or "",
+                "final": row.get("final") or "",
+                "status": row.get("status") or "",
+            }
+            buckets[key] = bucket
+            order.append(key)
+        test = (row.get("test") or "").strip()
+        if test and test not in bucket["tests"]:
+            bucket["tests"].append(test)
+        code = (row.get("code") or "").strip()
+        for part in code.splitlines():
+            part = part.strip()
+            if part and part not in bucket["codes"]:
+                bucket["codes"].append(part)
+        if row.get("jira"):
+            bucket["jira"] = row["jira"]
+        if row.get("passAt"):
+            bucket["passAt"] = row["passAt"]
+        at = row.get("at") or ""
+        if at and (not bucket["at"] or at < bucket["at"]):
+            bucket["at"] = at
+    found = []
+    for key in order:
+        bucket = buckets[key]
+        bucket["test"] = ", ".join(bucket["tests"])
+        if bucket.get("errorType") == "Passed":
+            bucket["code"] = ""
+        else:
+            real = [code for code in bucket["codes"] if code != "NA"]
+            bucket["codes"] = real or ["NA"]
+            bucket["code"] = "\n".join(bucket["codes"])
+        found.append(bucket)
+    return found
+
+
+def report_from_table(l10: Dict[str, Any], stage: str) -> Optional[Dict[str, Any]]:
+    """Coarse report from the L10 tracker table when the stage report is absent.
+
+    Only the latest attempt is on the row. Error codes are NA until the
+    tracker is rebuilt from pega with leaf detail.
+    """
+    station = STATION_OF.get(stage)
+    if not station:
+        return None
+    columns = l10.get("columns") or []
+    result_at = sn_at = -1
+    for index, column in enumerate(columns):
+        if column.get("key") == "B":
+            sn_at = index
+        title = column.get("title") or ""
+        if column.get("station") == station and column.get("kind") != "version" \
+                and "Results" in title:
+            result_at = index
+    fail_at = link_at = -1
+    if result_at >= 0:
+        for index in range(result_at + 1, len(columns)):
+            title = columns[index].get("title") or ""
+            if fail_at < 0 and "Failure Test Case" in title:
+                fail_at = index
+            if title.startswith("FI Test Link"):
+                link_at = index
+                break
+    if result_at < 0:
+        return None
+    day = l10.get("day") or ""
+    tested = passed = failed = 0
+    failed_sns: List[str] = []
+    rows: List[Dict[str, Any]] = []
+
+    def cell(row: Sequence[Any], at: int) -> Dict[str, Any]:
+        if at < 0 or at >= len(row):
+            return {}
+        slot = row[at]
+        return slot if isinstance(slot, dict) else {}
+
+    for row in l10.get("rows") or []:
+        tone = cell(row, result_at).get("t")
+        sn = str(cell(row, sn_at).get("v") or "").strip()
+        fail_names = [part.strip() for part in
+                      str(cell(row, fail_at).get("v") or "").split("\n")
+                      if part.strip()]
+        link = str(cell(row, link_at).get("h") or "")
+        history = ((cell(row, sn_at).get("history") or {}).get(station)) or []
+        attempts = [item for item in history if item.get("day") == day]
+        if not attempts and tone in ("pass", "fail"):
+            attempts = [{
+                "n": 1,
+                "status": tone,
+                "url": link,
+                "failures": [
+                    {"test": name, "caseId": name, "code": "NA", "at": ""}
+                    for name in fail_names
+                ] if tone == "fail" else [],
+            }]
+        if tone not in ("pass", "fail"):
+            last = attempts[-1].get("status") if attempts else ""
+            if last in ("pass", "fail"):
+                tone = last
+            else:
+                continue
+        if not attempts:
+            continue
+        tested += 1
+        if tone == "pass":
+            passed += 1
+        elif tone == "fail":
+            failed += 1
+            if sn:
+                failed_sns.append(sn)
+        seen = set()
+        unique: List[Dict[str, Any]] = []
+        attempts = sorted(attempts, key=lambda item: item.get("n") or 0)
+        for index, attempt in enumerate(attempts, start=1):
+            url = attempt.get("url") or ""
+            run = url or attempt.get("started") or "#{}".format(index)
+            if run in seen:
+                continue
+            seen.add(run)
+            failures = list(attempt.get("failures") or [])
+            tests = [item.get("test") or "" for item in failures if item.get("test")]
+            if not tests and attempt.get("status") == "fail" and (
+                    attempt is attempts[-1] or not url or url == link):
+                tests = list(fail_names)
+                failures = [{"test": name, "caseId": name, "code": "NA",
+                             "at": ""} for name in tests]
+            unique.append(dict(attempt, failures=failures, url=url,
+                               started=attempt.get("started") or ""))
+        if unique:
+            rows.extend(_final_rows(sn, unique, unique[-1]))
+    report = _finish_report(day, stage, tested, passed, failed, failed_sns, rows)
+    report["coarse"] = True
+    return report
+
+
+def normalize_report(report: Optional[Dict[str, Any]],
+                     stage: str) -> Optional[Dict[str, Any]]:
+    """Idempotent: expand old run-rows and stamp stage / station."""
+    if not report:
+        return None
+    out = dict(report)
+    out["stage"] = out.get("stage") or stage
+    out["station"] = out.get("station") or STATION_OF.get(stage) or ""
+    out["rows"] = expand_fail_rows(out)
+    return out
 
 
 def sft_csv(report: Dict[str, Any]) -> str:
-    """One row per suite run: pass or fail. No case id — that is Jira's."""
+    """Failure table as CSV. One row per failing leaf."""
+    return stage_csv(report)
+
+
+def stage_csv(report: Dict[str, Any]) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer, lineterminator="\n")
-    writer.writerow(["sn", "attempt", "final", "test", "errorCode",
-                     "testedAt", "esvmUrl", "jira"])
-    for row in report.get("rows") or []:
+    writer.writerow(["sn", "errorType", "test", "testedAt", "errorCode",
+                     "pegaUrl", "dri", "jira"])
+    for row in group_fail_rows(expand_fail_rows(report)):
         writer.writerow([
-            row.get("sn") or "", row.get("attempt") or "",
-            row.get("final") or "", row.get("test") or "",
-            row.get("code") or "", row.get("at") or "",
-            row.get("url") or "", row.get("jira") or "",
+            row.get("sn") or "", row.get("errorType") or "",
+            row.get("test") or "", row.get("at") or "",
+            row.get("code") or "", row.get("url") or "",
+            row.get("dri") or DEFAULT_DRI, row.get("jira") or "",
         ])
     return buffer.getvalue()
 
@@ -520,11 +842,18 @@ def _day(day: str, history_index: Optional[Dict[str, Any]] = None
                     "suite": entry.get("suite_name") or "",
                     "started": started,
                 }
-                # Only SFT keeps the leaf list. The other stages already show
-                # their latest failure on the row; the report needs every
-                # attempt, and only for the station it counts.
-                if stage == "sft" and part["status"] == "fail":
-                    attempt["failures"] = failure_details(detail, codes)
+                # Daily FA needs the leaf list for FAT, SFT and RIN — every
+                # attempt, not just the latest. The tracker row still shows
+                # only the last verdict.
+                if stage in REPORT_STAGES and part["status"] == "fail":
+                    # One download per failed run, during the daily rebuild.
+                    # The codes from every diagnosis land in dailyfa.js; the
+                    # review host never fetches the log itself.
+                    from . import th_logs
+                    attempt["failures"] = failure_details(
+                        detail, codes,
+                        th_logs.codes_for_run(run_id, host="pega4", day=day),
+                        run_id)
                 unit.setdefault(stage + build_dailyexcel.ATTEMPTS_KEY,
                                 []).append(attempt)
 
@@ -591,7 +920,7 @@ def _day(day: str, history_index: Optional[Dict[str, Any]] = None
             row[offset + 3] = {"v": got["short"], "h": got["url"]}
         rows.append(row)
 
-    return {
+    tab = {
         "name": "{} (from pega4)".format(day),
         "label": day[5:],
         "day": day,
@@ -607,8 +936,10 @@ def _day(day: str, history_index: Optional[Dict[str, Any]] = None
         "rows": rows,
         "counts": _counts(rows, columns),
         "crossref": {"matched": 0, "duts": len(units)},
-        "sftReport": summarize_sft(units, day),
     }
+    for stage in REPORT_STAGES:
+        tab[REPORT_KEY[stage]] = summarize_stage(units, day, stage)
+    return tab
 
 
 def _counts(rows, columns) -> Dict[str, Any]:

@@ -148,6 +148,41 @@ class TimeoutIsNotDeath(unittest.TestCase):
             pega._get("/probe", host="pega4")
         self.assertIn("pega4", pega._UNREACHABLE)
 
+    def test_a_400_on_one_path_does_not_write_the_host_off(self):
+        """A nested browse 400 is a bad path, not a dead pega."""
+        def bad_path(url, timeout=None):
+            raise urllib.error.HTTPError(url, 400, "Bad Request", hdrs=None,
+                                         fp=None)
+
+        self.addCleanup(setattr, pega.urllib.request, "urlopen",
+                        pega.urllib.request.urlopen)
+        pega.urllib.request.urlopen = bad_path
+
+        with self.assertRaises(pega.PegaUnavailable):
+            pega._get("/probe", host="pega4")
+        self.assertNotIn("pega4", pega._UNREACHABLE)
+
+        calls = []
+
+        class Response:
+            def read(self):
+                return b'{"ok": true}'
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+        def then_ok(url, timeout=None):
+            calls.append(url)
+            return Response()
+
+        pega.urllib.request.urlopen = then_ok
+        self.assertEqual(pega._get("/next", host="pega4"), {"ok": True})
+        self.assertEqual(len(calls), 1)
+
+
     def test_the_timeout_clears_the_relayed_path_it_was_measured_against(self):
         """5.1s, 7.3s and 12.5s connects, one over 45s. Eight seconds cut all
         of them off; the point of the constant is to sit above them."""

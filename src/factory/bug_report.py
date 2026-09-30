@@ -790,6 +790,117 @@ def stage_kinds(report: Dict[str, Any]) -> List[Dict[str, Any]]:
     return [buckets[name] for name in buckets]
 
 
+def fa_draft(report: Dict[str, Any], row: Dict[str, Any],
+             epic: str) -> Dict[str, Any]:
+    """One bug for one DUT + error-type failure on a Daily FA row."""
+    from .build_l10 import REPORT_STAGES
+
+    stage = report.get("stage") or "sft"
+    if stage not in REPORT_STAGES:
+        stage = "sft"
+    label = {"fat": "L10 FAT", "sft": "L10 SFT", "rin": "L10 RIN"}[stage]
+    day = report.get("day") or ""
+    sn = row.get("sn") or ""
+    tests = list(row.get("tests") or [])
+    if not tests:
+        tests = [part.strip() for part in
+                 str(row.get("test") or "").splitlines() if part.strip()]
+    test = tests[0] if tests else (row.get("test") or "unclassified failure")
+    error_type = row.get("errorType") or test
+    named = error_type if len(tests) != 1 else test
+    summary = "{} {} {} {}".format(label, day, sn, named)
+    if len(summary) > 250:
+        summary = summary[:247] + "..."
+    lines = [
+        "{} {} failed {} on {}.".format(label, day, named, sn or "unknown SN"),
+        "",
+        "Error type: {}".format(error_type),
+        "Test case: {}".format("\n".join(tests) or test),
+        "Error code: {}".format(row.get("code") or "NA"),
+        "DRI: {}".format(row.get("dri") or "MTE"),
+        "Tested at: {}".format(row.get("at") or "unknown"),
+        "pega URL: {}".format(row.get("url") or "none"),
+    ]
+    content: List[Dict[str, Any]] = [
+        _heading("Summary"),
+        _para(_text(lines[0])),
+        _heading("Failure"),
+        _bullets([
+            "DUT SN: {}".format(sn or "unknown"),
+            "Error type: {}".format(error_type),
+            "Test case: {}".format(" / ".join(tests) or test),
+            "Error code: {}".format(row.get("code") or "NA"),
+            "DRI: {}".format(row.get("dri") or "MTE"),
+            "Tested at: {}".format(row.get("at") or "unknown"),
+        ]),
+    ]
+    url = (row.get("url") or "").strip()
+    if url:
+        content.append(_heading("pega URL"))
+        content.append(_para(_text(url, url)))
+    return {
+        "case": named,
+        "epic": epic,
+        "project": epic.split("-", 1)[0],
+        "issueType": DEFAULT_ISSUE_TYPE,
+        "summary": summary,
+        "adf": {"type": "doc", "version": 1, "content": content},
+        "markdown": "\n".join(lines) + "\n",
+    }
+
+
+def _matches_fa_id(row: Dict[str, Any], row_id: str) -> bool:
+    from .build_l10 import group_id
+
+    if row.get("id") == row_id:
+        return True
+    return group_id(row.get("sn") or "", row.get("errorType") or "",
+                    row.get("url") or "") == row_id
+
+
+def file_fa_row(report: Dict[str, Any], row_id: str,
+                epic: Optional[str] = None,
+                client: Optional["JiraClient"] = None
+                ) -> Dict[str, Any]:
+    """File one Jira for one table row. A second click returns the same ticket."""
+    from .build_l10 import expand_fail_rows, group_fail_rows
+
+    parent = (epic or os.environ.get("JIRA_EPIC", "").strip() or DEFAULT_EPIC)
+    report["rows"] = expand_fail_rows(report)
+    matches = [item for item in report["rows"] if _matches_fa_id(item, row_id)]
+    if not matches:
+        raise JiraError("that failure is not in the report")
+    already = next((item.get("jira") for item in matches if item.get("jira")), "")
+    if already:
+        key = str(already).rstrip("/").rsplit("/", 1)[-1]
+        return {
+            "id": row_id,
+            "sn": matches[0].get("sn") or "",
+            "test": matches[0].get("test") or "",
+            "key": key,
+            "url": already,
+            "already": True,
+        }
+    grouped = group_fail_rows(matches)
+    row = grouped[0] if grouped else matches[0]
+    if client is None:
+        email, token = credentials()
+        client = JiraClient(email, token)
+    draft = fa_draft(report, row, parent)
+    key = client.create_bug(draft)
+    filed = {
+        "id": row_id,
+        "sn": row.get("sn") or "",
+        "test": row.get("test") or "",
+        "key": key,
+        "url": daily_report.jira_url(key),
+        "already": False,
+    }
+    for item in matches:
+        item["jira"] = filed["url"]
+    return filed
+
+
 def file_sft_report(report: Dict[str, Any], epic: Optional[str] = None,
                     client: Optional["JiraClient"] = None
                     ) -> List[Dict[str, Any]]:

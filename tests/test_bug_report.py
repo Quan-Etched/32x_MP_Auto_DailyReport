@@ -193,6 +193,79 @@ class CollectTest(unittest.TestCase):
         self.assertIn("SN-A", linked["markdown"])
 
 
+class FaJiraTest(unittest.TestCase):
+    def test_one_row_files_one_ticket_and_a_second_click_is_the_same_url(self):
+        report = {
+            "day": "2026-09-24",
+            "stage": "fat",
+            "rows": [{
+                "id": "SN-F|BmcCheck|http://pega4/f|",
+                "sn": "SN-F",
+                "errorType": "BMC",
+                "test": "BmcCheck",
+                "code": "NA",
+                "url": "http://pega4/f",
+                "at": "",
+                "jira": "",
+            }],
+        }
+
+        class Fake:
+            def __init__(self):
+                self.calls = 0
+
+            def create_bug(self, draft):
+                self.calls += 1
+                self.draft = draft
+                return "ETCH-90100"
+
+        client = Fake()
+        filed = bug_report.file_fa_row(
+            report, "SN-F|BmcCheck|http://pega4/f|",
+            epic="ETCH-44407", client=client)
+        self.assertEqual(client.calls, 1)
+        self.assertEqual(filed["key"], "ETCH-90100")
+        self.assertIn("SN-F", client.draft["summary"])
+        self.assertIn("BmcCheck", client.draft["summary"])
+        self.assertIn("L10 FAT", client.draft["summary"])
+        self.assertEqual(report["rows"][0]["jira"], filed["url"])
+        again = bug_report.file_fa_row(
+            report, "SN-F|BmcCheck|http://pega4/f|",
+            epic="ETCH-44407", client=client)
+        self.assertEqual(client.calls, 1)
+        self.assertTrue(again["already"])
+        self.assertEqual(again["url"], filed["url"])
+
+    def test_a_group_id_files_every_leaf_of_that_error_type(self):
+        report = {
+            "day": "2026-09-24",
+            "stage": "sft",
+            "rows": [
+                {"sn": "SN-C", "errorType": "Sohu C2C",
+                 "test": "C2cLinkupMultiChipTestCase",
+                 "url": "http://pega4/c1", "at": "", "code": "TH-C2C-0001",
+                 "jira": ""},
+                {"sn": "SN-C", "errorType": "Sohu C2C",
+                 "test": "C2cPrbsMultiChipTestCase",
+                 "url": "http://pega4/c1", "at": "", "code": "NA", "jira": ""},
+            ],
+        }
+
+        class Fake:
+            def create_bug(self, draft):
+                self.draft = draft
+                return "ETCH-90101"
+
+        client = Fake()
+        filed = bug_report.file_fa_row(
+            report, "SN-C|Sohu C2C|http://pega4/c1",
+            epic="ETCH-44407", client=client)
+        self.assertEqual(filed["key"], "ETCH-90101")
+        self.assertEqual(report["rows"][0]["jira"], filed["url"])
+        self.assertEqual(report["rows"][1]["jira"], filed["url"])
+        self.assertIn("Sohu C2C", client.draft["summary"])
+
+
 class SftJiraTest(unittest.TestCase):
     def test_the_draft_lists_every_case_id(self):
         report = {

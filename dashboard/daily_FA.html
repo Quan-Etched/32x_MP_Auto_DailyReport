@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Daily FA — L10 SFT</title>
+  <title>Daily FA — L10 FAT / SFT / RIN</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="stations.css">
   <link rel="stylesheet" href="dailyfa.css">
@@ -25,27 +25,45 @@
   <div class="banner" id="notice" hidden></div>
 
   <main id="content">
-    <section class="sft-report" id="sft-report" hidden>
-      <h2>L10 SFT report <span class="l10-sub" id="sft-report-day"></span></h2>
-      <p class="sft-counts" id="sft-report-counts"></p>
-      <p class="sft-sns" id="sft-report-sns"></p>
-      <p class="sft-stage-label" id="sft-report-stage-label" hidden>
-        File Jira tickets based on Error Type:
+    <section class="fa-report" id="fat-report" hidden>
+      <h2>L10 FAT <span class="l10-sub" id="fat-report-day"></span>
+        <span class="fa-yield" id="fat-report-counts"></span></h2>
+      <p class="fa-sns" id="fat-report-sns"></p>
+      <div class="fa-table-wrap" id="fat-report-table"></div>
+      <p class="fa-actions">
+        <a id="fat-report-csv" href="#">Download CSV</a>
+        <span id="fat-report-note"></span>
       </p>
-      <ul class="sft-stages" id="sft-report-stages"></ul>
-      <p class="sft-actions">
+    </section>
+
+    <section class="fa-report" id="sft-report" hidden>
+      <h2>L10 SFT <span class="l10-sub" id="sft-report-day"></span>
+        <span class="fa-yield" id="sft-report-counts"></span></h2>
+      <p class="fa-sns" id="sft-report-sns"></p>
+      <div class="fa-table-wrap" id="sft-report-table"></div>
+      <p class="fa-actions">
         <a id="sft-report-csv" href="#">Download CSV</a>
-        <button type="button" id="sft-report-jira">File Jira</button>
         <span id="sft-report-note"></span>
+      </p>
+    </section>
+
+    <section class="fa-report" id="rin-report" hidden>
+      <h2>L10 RIN <span class="l10-sub" id="rin-report-day"></span>
+        <span class="fa-yield" id="rin-report-counts"></span></h2>
+      <p class="fa-sns" id="rin-report-sns"></p>
+      <div class="fa-table-wrap" id="rin-report-table"></div>
+      <p class="fa-actions">
+        <a id="rin-report-csv" href="#">Download CSV</a>
+        <span id="rin-report-note"></span>
       </p>
     </section>
   </main>
 
   <footer class="notes">
     <p>
-      This page is the L10 SFT failure report. Pick a day, then download the
-      CSV or file Jira. One ticket per L10_FLOW_TEST_COVERAGE column C stage.
-      The daily tracker tables stay on
+      This page is the L10 FAT / SFT / RIN failure report. Pick a day, then
+      download the CSV or file a Jira from a row. The daily tracker tables
+      stay on
       <a href="dailyexcel.html">Daily tracker</a>.
     </p>
   </footer>

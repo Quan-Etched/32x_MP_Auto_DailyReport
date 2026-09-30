@@ -1,4 +1,4 @@
-/* Daily FA: the daily tracker's month calendar, then the L10 SFT report.
+/* Daily FA: the daily tracker's month calendar, then FAT / SFT / RIN reports.
 
    The calendar is the same control as dailyexcel.html — days with a tab are
    clickable, empty/future/before-floor days are not. Nothing else from the
@@ -179,7 +179,8 @@
     if (!current) return;
     renderTabs();
     stampMeta();
-    if (window.SftReport) window.SftReport.render(current);
+    if (window.FaReport) window.FaReport.render(current);
+    else if (window.SftReport) window.SftReport.render(current);
     document.title = 'Daily FA — ' + (current.day || current.label);
   }
 

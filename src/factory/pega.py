@@ -434,7 +434,12 @@ def _get(path: str, cache: bool = False, stale_ok: bool = False,
             # log line asserting something it does not know.
             fallback = ("falling back to the cache" if cache
                         else "this call has no cache to fall back to")
-            if not _is_timeout(exc):
+            if isinstance(exc, urllib.error.HTTPError) and 400 <= exc.code < 500:
+                # One bad path is not a dead host. A 400 on a nested
+                # browse used to write pega4 off and skip the rest of
+                # the day's log.jsonl downloads.
+                log.info("%s %s (%s); %s", who, exc, url, fallback)
+            elif not _is_timeout(exc):
                 _UNREACHABLE.add(who)
                 log.info("%s unreachable (%s); %s", who, exc, fallback)
             else:

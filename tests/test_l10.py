@@ -115,18 +115,34 @@ class SftReportTest(unittest.TestCase):
         by_sn = {}
         for row in report["rows"]:
             by_sn.setdefault(row["sn"], []).append(row)
-        self.assertEqual(len(by_sn["SN-A"]), 2)
-        self.assertEqual(by_sn["SN-A"][0]["status"], "fail")
-        self.assertEqual(by_sn["SN-A"][0]["final"], "pass")
-        self.assertEqual(by_sn["SN-A"][1]["status"], "pass")
-        self.assertEqual(by_sn["SN-A"][1]["test"], "")
+        self.assertEqual(len(by_sn["SN-A"]), 1)
+        self.assertEqual(by_sn["SN-A"][0]["status"], "pass")
+        self.assertEqual(by_sn["SN-A"][0]["errorType"], "Passed")
+        self.assertEqual(by_sn["SN-A"][0]["url"], "http://pega4/a2")
+        self.assertEqual(by_sn["SN-A"][0]["at"], "2026-09-24T03:00:00Z")
+        self.assertEqual(by_sn["SN-A"][0]["dri"], "")
         self.assertEqual([row["url"] for row in by_sn["SN-B"]],
-                         ["http://pega4/b1", "http://pega4/b2"])
-        self.assertEqual(report["kinds"][0]["caseIds"],
-                         ["case-a1", "case-b1", "case-b2"])
+                         ["http://pega4/b2"])
+        self.assertEqual(report["kinds"][0]["caseIds"], ["case-b2"])
         self.assertEqual(report["kinds"][0]["sns"], ["SN-B"])
 
-    def test_the_same_run_is_one_csv_row(self):
+    def test_a_later_fail_keeps_the_earlier_pass_time(self):
+        units = {
+            "SN-D": {"sft:attempts": [
+                {"status": "pass", "started": "2026-09-24T01:00:00Z",
+                 "url": "http://pega4/d1", "failures": []},
+                {"status": "fail", "started": "2026-09-24T04:00:00Z",
+                 "url": "http://pega4/d2",
+                 "failures": [{"test": "FanTest", "caseId": "d-fail",
+                               "code": "NA", "at": "2026-09-24T04:01:00Z"}]},
+            ]},
+        }
+        row = build_l10.summarize_sft(units, "2026-09-24")["rows"][0]
+        self.assertEqual(row["status"], "fail")
+        self.assertEqual(row["passAt"], "2026-09-24T01:00:00Z")
+        self.assertEqual(row["url"], "http://pega4/d2")
+
+    def test_one_run_is_one_table_row_per_failing_leaf(self):
         units = {
             "SN-C": {"sft:attempts": [
                 {"status": "fail", "started": "2026-09-24T01:00:00Z",
@@ -146,17 +162,25 @@ class SftReportTest(unittest.TestCase):
             ]},
         }
         report = build_l10.summarize_sft(units, "2026-09-24")
-        self.assertEqual(len(report["rows"]), 1)
-        row = report["rows"][0]
-        self.assertEqual(row["sn"], "SN-C")
-        self.assertEqual(row["attempt"], 1)
-        self.assertEqual(row["url"], "http://pega4/c1")
-        self.assertTrue(row["c2c"])
-        self.assertIn("C2cLinkupMultiChipTestCase", row["test"])
-        self.assertIn("C2cPrbsMultiChipTestCase", row["test"])
+        self.assertEqual(len(report["rows"]), 2)
+        self.assertEqual({row["test"] for row in report["rows"]}, {
+            "C2cLinkupMultiChipTestCase", "C2cPrbsMultiChipTestCase",
+        })
+        self.assertTrue(all(row["url"] == "http://pega4/c1"
+                            for row in report["rows"]))
+        self.assertTrue(all(row["errorType"] == "Sohu C2C"
+                            for row in report["rows"]))
+        grouped = build_l10.group_fail_rows(report["rows"])
+        self.assertEqual(len(grouped), 1)
+        self.assertEqual(grouped[0]["tests"], [
+            "C2cLinkupMultiChipTestCase", "C2cPrbsMultiChipTestCase",
+        ])
+        self.assertIn(", ", grouped[0]["test"])
 
     def test_a_missing_code_is_na(self):
         detail = {"test_cases": [
+            {"test_name": "GhostTest", "test_id": "case-0", "status": "fail",
+             "start_time": "2026-09-24T00:59:00Z"},
             {"test_name": "FanTest", "test_id": "case-1", "status": "fail",
              "start_time": "2026-09-24T01:00:00Z"},
             {"test_name": "KnownTest", "test_id": "case-2", "status": "fail",
@@ -167,19 +191,68 @@ class SftReportTest(unittest.TestCase):
             "FanTest": [{"code": "TH-A"}, {"code": "TH-B"}],
         })
         by_id = {row["caseId"]: row["code"] for row in rows}
-        self.assertEqual(by_id["case-1"], "NA")
+        self.assertEqual(by_id["case-0"], "NA")
+        self.assertEqual(by_id["case-1"], "TH-A\nTH-B")
         self.assertEqual(by_id["case-2"], "TH-FAN-0001")
 
-    def test_csv_carries_the_esvm_link_and_the_code(self):
+    def test_every_diagnosis_code_is_kept(self):
+        detail = {"test_cases": [
+            {"test_name": "SohuLaneRepairTestCase",
+             "test_id": "run_1_chip0_lane_repair", "status": "failed",
+             "start_time": "2026-09-24T01:00:00Z",
+             "error_message": "TH-HBM-0006-S2Q9 only the preferred one"},
+        ]}
+        rows = build_l10.failure_details(detail, {}, {
+            "chip0_lane_repair": ["TH-HBM-0006-S2Q9", "TH-HBM-0008-S4Q9"],
+        }, "run_1")
+        self.assertEqual(rows[0]["code"],
+                         "TH-HBM-0006-S2Q9\nTH-HBM-0008-S4Q9")
+        grouped = build_l10.group_fail_rows([{
+            "sn": "SN", "errorType": "Lane Repair", "test": rows[0]["test"],
+            "code": rows[0]["code"], "url": "http://pega4/x", "at": "",
+        }])
+        self.assertEqual(grouped[0]["codes"],
+                         ["TH-HBM-0006-S2Q9", "TH-HBM-0008-S4Q9"])
+
+    def test_csv_carries_the_pega_link_and_the_code(self):
         text = build_l10.sft_csv(build_l10.summarize_sft(
             self.units(), "2026-09-24"))
         self.assertIn("http://pega4/a2", text)
+        self.assertNotIn("http://pega4/a1", text)
         self.assertIn("http://pega4/b2", text)
         self.assertIn("TH-X", text)
         self.assertIn("errorCode", text)
-        self.assertIn(",jira", text.splitlines()[0])
+        self.assertIn("errorType", text.splitlines()[0])
+        self.assertIn("pegaUrl", text.splitlines()[0])
+        self.assertIn(",dri,", text.splitlines()[0])
+        self.assertIn("MTE", text)
         self.assertNotIn("caseId", text.splitlines()[0])
         self.assertNotIn("case-b2", text)
+
+    def test_fat_and_rin_use_the_same_shape(self):
+        units = {
+            "SN-F": {"fat:attempts": [
+                {"status": "fail", "started": "2026-09-24T01:00:00Z",
+                 "url": "http://pega4/f1",
+                 "failures": [{"test": "CheckSystemLogStates",
+                               "caseId": "fat-1", "code": "NA",
+                               "at": "2026-09-24T01:01:00Z"}]},
+            ],
+             "rin:attempts": [
+                {"status": "fail", "started": "2026-09-24T05:00:00Z",
+                 "url": "http://pega4/r1",
+                 "failures": [{"test": "RunInStress", "caseId": "rin-1",
+                               "code": "TH-R",
+                               "at": "2026-09-24T05:01:00Z"}]},
+            ]},
+        }
+        fat = build_l10.summarize_stage(units, "2026-09-24", "fat")
+        rin = build_l10.summarize_stage(units, "2026-09-24", "rin")
+        self.assertEqual(fat["station"], "l10_fat")
+        self.assertEqual(fat["rows"][0]["errorType"], "Final Log Check")
+        self.assertEqual(rin["station"], "l10_rin")
+        self.assertEqual(rin["rows"][0]["errorType"], "Run-In (RIN)")
+        self.assertEqual(rin["rows"][0]["code"], "TH-R")
 
 
 class FailureTest(unittest.TestCase):
@@ -495,8 +568,11 @@ class SharedIndexTest(unittest.TestCase):
 
 
 class FaBundleTest(unittest.TestCase):
-    def test_daily_fa_keeps_the_report_and_drops_the_tables(self):
-        report = {"day": "2026-09-23", "tested": 2, "failed": 1, "rows": []}
+    def test_daily_fa_keeps_the_reports_and_drops_the_tables(self):
+        sft = {"day": "2026-09-23", "tested": 2, "failed": 1, "rows": []}
+        fat = {"day": "2026-09-23", "tested": 1, "failed": 1,
+               "rows": [{"sn": "SN-F", "errorType": "BMC", "test": "BmcCheck",
+                         "at": "", "code": "NA", "url": "http://pega4/f"}]}
         slim = build_dailyexcel.slim_fa_bundle({
             "generatedAt": "2026-09-24T00:00:00+00:00",
             "build": {"commit": "abc"},
@@ -504,18 +580,45 @@ class FaBundleTest(unittest.TestCase):
                 "day": "2026-09-23",
                 "label": "09-23",
                 "rows": [{}, {}, {}],
-                "l10": {"sftReport": report, "rows": ["heavy"]},
+                "l10": {"fatReport": fat, "sftReport": sft, "rows": ["heavy"]},
                 "columns": ["heavy"],
             }],
         })
         tab = slim["tabs"][0]
         self.assertEqual(tab["day"], "2026-09-23")
         self.assertEqual(tab["units"], 3)
-        self.assertEqual(tab["l10"]["sftReport"], report)
+        self.assertEqual(tab["l10"]["sftReport"]["tested"], 2)
+        self.assertEqual(tab["l10"]["fatReport"]["rows"][0]["test"], "BmcCheck")
         self.assertNotIn("rows", tab)
         self.assertNotIn("columns", tab)
         self.assertNotIn("rows", tab["l10"])
         self.assertIn("SohuPingTestCase", slim.get("flowStages") or {})
+
+    def test_a_missing_fat_report_is_derived_from_the_l10_table(self):
+        columns = build_l10._columns()
+        result_at = next(i for i, column in enumerate(columns)
+                         if column.get("station") == "l10_fat"
+                         and "Results" in column["title"])
+        fail_at = result_at + 2
+        link_at = result_at + 3
+        row = [{} for _ in columns]
+        row[1] = {"v": "SN-F"}
+        row[result_at] = {"v": "Failed", "t": "fail"}
+        row[fail_at] = {"v": "CheckSystemLogStates"}
+        row[link_at] = {"v": "short", "h": "http://pega4/f1"}
+        slim = build_dailyexcel.slim_fa_bundle({
+            "tabs": [{
+                "day": "2026-09-23",
+                "label": "09-23",
+                "l10": {"day": "2026-09-23", "columns": columns, "rows": [row]},
+            }],
+        })
+        fat = slim["tabs"][0]["l10"]["fatReport"]
+        self.assertEqual(fat["failed"], 1)
+        self.assertEqual(fat["rows"][0]["sn"], "SN-F")
+        self.assertEqual(fat["rows"][0]["test"], "CheckSystemLogStates")
+        self.assertEqual(fat["rows"][0]["errorType"], "Final Log Check")
+        self.assertEqual(fat["rows"][0]["url"], "http://pega4/f1")
 
 
 if __name__ == "__main__":
