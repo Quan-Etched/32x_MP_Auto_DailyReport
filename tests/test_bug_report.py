@@ -258,12 +258,42 @@ class FaJiraTest(unittest.TestCase):
 
         client = Fake()
         filed = bug_report.file_fa_row(
-            report, "SN-C|Sohu C2C|http://pega4/c1",
+            report, "SN-C|hardware|http://pega4/c1",
             epic="ETCH-44407", client=client)
         self.assertEqual(filed["key"], "ETCH-90101")
         self.assertEqual(report["rows"][0]["jira"], filed["url"])
         self.assertEqual(report["rows"][1]["jira"], filed["url"])
-        self.assertIn("Sohu C2C", client.draft["summary"])
+        self.assertIn("hardware", client.draft["summary"])
+        self.assertIn("Eason Chuang", client.draft["markdown"])
+
+    def test_dri_from_the_request_is_written_on_the_ticket(self):
+        report = {
+            "day": "2026-09-24",
+            "stage": "sft",
+            "rows": [{
+                "id": "SN-L|SohuLlama70bForwardIteratedTestCase|http://pega4/l|",
+                "sn": "SN-L",
+                "errorType": "software",
+                "test": "SohuLlama70bForwardIteratedTestCase",
+                "code": "NA",
+                "url": "http://pega4/l",
+                "at": "",
+                "jira": "",
+            }],
+        }
+
+        class Fake:
+            def create_bug(self, draft):
+                self.draft = draft
+                return "ETCH-90102"
+
+        client = Fake()
+        bug_report.file_fa_row(
+            report,
+            "SN-L|SohuLlama70bForwardIteratedTestCase|http://pega4/l|",
+            epic="ETCH-44407", client=client, dri="Jonathan Wang")
+        self.assertIn("Jonathan Wang", client.draft["markdown"])
+        self.assertIn("Error type: software", client.draft["markdown"])
 
 
 class SftJiraTest(unittest.TestCase):

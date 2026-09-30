@@ -1993,6 +1993,7 @@ def slim_fa_bundle(bundle: Dict[str, Any]) -> Dict[str, Any]:
     """
     from . import build_l10
 
+    cache: Dict[str, Dict[str, List[str]]] = {}
     tabs = []
     for tab in bundle.get("tabs") or []:
         l10 = tab.get("l10") or {}
@@ -2002,6 +2003,7 @@ def slim_fa_bundle(bundle: Dict[str, Any]) -> Dict[str, Any]:
             if report is None and l10.get("columns"):
                 report = build_l10.report_from_table(l10, stage)
             if report:
+                build_l10.restamp_fail_codes(report, cache)
                 reports[key] = report
         entry = {
             "day": tab.get("day"),
@@ -2017,6 +2019,8 @@ def slim_fa_bundle(bundle: Dict[str, Any]) -> Dict[str, Any]:
         "generatedAt": bundle.get("generatedAt"),
         "build": bundle.get("build"),
         "flowStages": build_l10._load_flow_stages()[0],
+        "errorTypes": build_l10._load_error_types()[0],
+        "driOptions": list(build_l10.DRI_OPTIONS),
         "tabs": tabs,
     }
 
@@ -2034,6 +2038,11 @@ def write_fa_bundle(bundle: Dict[str, Any], path: Optional[Path] = None) -> Path
 
 
 def write_bundle(bundle: Dict[str, Any], path: Optional[Path] = None) -> Path:
+    from . import build_l10
+
+    cache: Dict[str, Dict[str, List[str]]] = {}
+    for tab in bundle.get("tabs") or []:
+        build_l10.restamp_l10_reports(tab.get("l10"), cache)
     target = path or (config.DASHBOARD_DATA_DIR / "dailyexcel.js")
     target.parent.mkdir(parents=True, exist_ok=True)
     body = json.dumps(bundle, separators=(",", ":"), default=str)

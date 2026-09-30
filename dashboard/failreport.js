@@ -3,9 +3,10 @@
    Counts are one chassis, not one attempt. A later pass replaces an
    earlier fail. A later fail does not add a second failed chassis.
 
-   The table is one row per SN + run + error type. Test cases of that
-   type stack in the cell. SN is written once per run. DRI is MTE.
-   Jira files that row only; after a row is filed the button stays off.
+   The table is one row per SN + run + error type. Error type is only
+   hardware or software. Test cases of that type stack in the cell.
+   SN is written once per run. DRI is a dropdown. Jira files that row
+   only; after a row is filed the button stays off.
 */
 (function () {
   'use strict';
@@ -37,8 +38,14 @@
     return row[at] || {};
   }
 
-  function flowMap() {
-    return (window.__FACTORY_DAILY_EXCEL__ || {}).flowStages || {};
+  function errorTypeMap() {
+    return (window.__FACTORY_DAILY_EXCEL__ || {}).errorTypes || {};
+  }
+
+  function driOptions() {
+    var listed = (window.__FACTORY_DAILY_EXCEL__ || {}).driOptions;
+    if (listed && listed.length) return listed;
+    return ['Eason Chuang', 'Jonathan Wang', 'Software team'];
   }
 
   function normTest(name) {
@@ -47,18 +54,16 @@
     return text.replace(/MultiChip/ig, '').toLowerCase();
   }
 
-  function stageOfTest(name) {
-    var raw = String(name || '').trim();
+  function lookupNamed(raw, map) {
     if (!raw) return '';
-    var map = flowMap();
     if (map[raw]) return map[raw];
     var folded = normTest(raw);
     var best = '';
-    var stage = '';
+    var found = '';
     Object.keys(map).forEach(function (key) {
       var known = normTest(key);
       if (known === folded) {
-        stage = map[key];
+        found = map[key];
         best = known;
         return;
       }
@@ -66,23 +71,43 @@
       if ((folded.indexOf(known) === 0 || known.indexOf(folded) === 0) &&
           known.length > best.length) {
         best = known;
-        stage = map[key];
+        found = map[key];
       }
     });
-    if (stage) return stage;
-    var lower = raw.toLowerCase();
-    if (/c2c|sohuping|hostreboot/.test(lower) ||
-        (lower.indexOf('vfio') >= 0 && lower.indexOf('ping') >= 0)) {
-      return 'Sohu C2C';
-    }
-    if (lower.indexOf('inferencemax') >= 0) return 'InferenceMAX Run-in';
-    if (lower.indexOf('llama') >= 0 || lower.indexOf('huggingface') >= 0) {
-      return 'Model Registry & Inference';
-    }
-    return raw;
+    return found;
   }
 
-  var DEFAULT_DRI = 'MTE';
+  function errorTypeOfTest(name) {
+    var raw = String(name || '').trim();
+    if (!raw) return 'hardware';
+    var found = String(lookupNamed(raw, errorTypeMap()) || '').toLowerCase();
+    if (found === 'hardware' || found === 'software') return found;
+    var lower = raw.toLowerCase();
+    if (/llama|huggingface|inferencemax|modelregistry/.test(lower)) {
+      return 'software';
+    }
+    return 'hardware';
+  }
+
+  function asErrorType(value, test) {
+    var text = String(value || '').trim().toLowerCase();
+    if (text === 'passed') return 'Passed';
+    if (text === 'hardware' || text === 'software') return text;
+    return errorTypeOfTest(test);
+  }
+
+  function defaultDri(errorType) {
+    if (errorType === 'Passed' || !errorType) return '';
+    if (errorType === 'software') return 'Software team';
+    return 'Eason Chuang';
+  }
+
+  function asDri(value, errorType) {
+    if (errorType === 'Passed' || !errorType) return '';
+    var options = driOptions();
+    if (options.indexOf(value) >= 0) return value;
+    return defaultDri(errorType);
+  }
 
   function rowId(sn, test, url, at) {
     return [sn || '', test || '', url || '', at || ''].join('|');
@@ -110,7 +135,7 @@
           passAt: leaf.passAt || '',
           url: leaf.url || '',
           jira: leaf.jira || '',
-          dri: leaf.errorType === 'Passed' ? '' : (leaf.dri || DEFAULT_DRI),
+          dri: asDri(leaf.dri, leaf.errorType),
           attempt: leaf.attempt,
           final: leaf.final,
           status: leaf.status
@@ -156,8 +181,8 @@
         if (!row.id) {
           row.id = rowId(row.sn, row.test, row.url, row.at);
         }
-        if (!row.errorType) row.errorType = stageOfTest(row.test);
-        if (!row.dri) row.dri = DEFAULT_DRI;
+        row.errorType = asErrorType(row.errorType, row.test);
+        row.dri = asDri(row.dri, row.errorType);
         found.push(row);
         return;
       }
@@ -168,17 +193,18 @@
         .map(function (code) { return code.trim(); });
       var caseIds = row.caseIds || [];
       tests.forEach(function (test, index) {
+        var errorType = asErrorType(row.errorType, test);
         found.push({
           id: rowId(row.sn, test, row.url, row.at),
           sn: row.sn || '',
-          errorType: stageOfTest(test),
+          errorType: errorType,
           test: test,
           caseId: caseIds[index] || test,
           at: row.at || '',
           code: codes[index] || row.code || 'NA',
           url: row.url || '',
           jira: row.jira || '',
-          dri: row.dri || DEFAULT_DRI,
+          dri: asDri(row.dri, errorType),
           attempt: row.attempt || '',
           final: row.final || '',
           status: row.status || ''
@@ -304,10 +330,11 @@
         var test = item.test || '';
         if (!test) return;
         var at = item.at || last.started || '';
+        var errorType = errorTypeOfTest(test);
         rows.push({
           id: rowId(sn, test, last.url, at),
           sn: sn,
-          errorType: stageOfTest(test),
+          errorType: errorType,
           test: test,
           caseId: item.caseId || test,
           at: at,
@@ -315,7 +342,7 @@
           code: item.code || 'NA',
           url: last.url,
           jira: item.jira || last.jira || '',
-          dri: DEFAULT_DRI,
+          dri: defaultDri(errorType),
           attempt: last.n,
           final: 'fail',
           status: 'fail'
@@ -355,7 +382,7 @@
     groupFailRows(expandFailRows(report)).forEach(function (row) {
       lines.push([row.sn, row.errorType, row.test, row.at,
                   row.code || '', row.url,
-                  row.errorType === 'Passed' ? '' : (row.dri || DEFAULT_DRI),
+                  row.errorType === 'Passed' ? '' : asDri(row.dri, row.errorType),
                   row.jira || '']
         .map(function (value) {
           var text = value == null ? '' : String(value);
@@ -521,7 +548,32 @@
         urlTd.appendChild(link);
       }
       tr.appendChild(urlTd);
-      add(passed ? '' : (row.dri || DEFAULT_DRI), 'col-dri');
+      var driTd = document.createElement('td');
+      driTd.className = 'col-dri';
+      if (!passed) {
+        var select = document.createElement('select');
+        select.className = 'fa-dri';
+        var chosen = asDri(row.dri, row.errorType);
+        row.dri = chosen;
+        driOptions().forEach(function (name) {
+          var option = document.createElement('option');
+          option.value = name;
+          option.textContent = name;
+          if (name === chosen) option.selected = true;
+          select.appendChild(option);
+        });
+        select.addEventListener('change', function () {
+          row.dri = select.value;
+          (report.rows || []).forEach(function (leaf) {
+            if (groupId(leaf.sn, leaf.errorType, leaf.url) === row.id) {
+              leaf.dri = select.value;
+            }
+          });
+          bindCsv(panel, report);
+        });
+        driTd.appendChild(select);
+      }
+      tr.appendChild(driTd);
       var jiraTd = document.createElement('td');
       jiraTd.className = 'fa-jira col-jira';
       if (!passed) renderJiraCell(jiraTd, panel, report, row);
@@ -583,7 +635,8 @@
       body: JSON.stringify({
         day: report.day,
         stage: report.stage || panel.stage,
-        id: row.id
+        id: row.id,
+        dri: row.dri
       })
     }).then(function (response) {
       return response.json().then(function (body) {

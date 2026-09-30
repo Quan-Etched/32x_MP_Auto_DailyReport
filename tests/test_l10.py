@@ -2,6 +2,7 @@
 
 import inspect
 import unittest
+from unittest import mock
 
 from factory import build_dailyexcel, build_l10
 
@@ -78,6 +79,32 @@ class CoverageStageTest(unittest.TestCase):
         self.assertEqual(
             build_l10.stage_of_test("StageHuggingFaceToShmTestCase"),
             "Model Registry & Inference")
+
+
+class ErrorTypeTest(unittest.TestCase):
+    def test_coverage_sheet_is_hardware_or_software(self):
+        self.assertEqual(
+            build_l10.error_type_of_test("C2cLinkupMultiChipTestCase"),
+            "hardware")
+        self.assertEqual(
+            build_l10.error_type_of_test("SohuLlama70bForwardIteratedTestCase"),
+            "software")
+        self.assertEqual(
+            build_l10.error_type_of_test("CheckSystemLogStates"), "hardware")
+        self.assertEqual(build_l10.error_type_of_test("RunInStress"), "hardware")
+        self.assertEqual(build_l10.error_type_of_test("FanTest"), "hardware")
+        self.assertEqual(build_l10.error_type_of_test("BmcCheck"), "hardware")
+        self.assertEqual(
+            build_l10.error_type_of_test("StageHuggingFaceToShmTestCase"),
+            "software")
+        self.assertEqual(
+            build_l10.as_error_type("Sohu C2C", "C2cLinkupMultiChipTestCase"),
+            "hardware")
+        self.assertEqual(build_l10.default_dri("hardware"), "Eason Chuang")
+        self.assertEqual(build_l10.default_dri("software"), "Software team")
+        self.assertEqual(build_l10.as_dri("MTE", "hardware"), "Eason Chuang")
+        self.assertEqual(
+            build_l10.as_dri("Jonathan Wang", "hardware"), "Jonathan Wang")
 
 
 class SftReportTest(unittest.TestCase):
@@ -168,7 +195,7 @@ class SftReportTest(unittest.TestCase):
         })
         self.assertTrue(all(row["url"] == "http://pega4/c1"
                             for row in report["rows"]))
-        self.assertTrue(all(row["errorType"] == "Sohu C2C"
+        self.assertTrue(all(row["errorType"] == "hardware"
                             for row in report["rows"]))
         grouped = build_l10.group_fail_rows(report["rows"])
         self.assertEqual(len(grouped), 1)
@@ -178,13 +205,17 @@ class SftReportTest(unittest.TestCase):
         self.assertIn(", ", grouped[0]["test"])
 
     def test_a_missing_code_is_na(self):
+        # Codes come only from log.jsonl. Catalogue and payload fields are not
+        # a fallback — no log means NA.
         detail = {"test_cases": [
             {"test_name": "GhostTest", "test_id": "case-0", "status": "fail",
-             "start_time": "2026-09-24T00:59:00Z"},
+             "start_time": "2026-09-24T00:59:00Z",
+             "error_message": "TH-GHOST-0001 from the payload"},
             {"test_name": "FanTest", "test_id": "case-1", "status": "fail",
              "start_time": "2026-09-24T01:00:00Z"},
             {"test_name": "KnownTest", "test_id": "case-2", "status": "fail",
-             "start_time": "2026-09-24T01:02:00Z"},
+             "start_time": "2026-09-24T01:02:00Z",
+             "error_code": "TH-FAN-0001"},
         ]}
         rows = build_l10.failure_details(detail, {
             "KnownTest": [{"code": "TH-FAN-0001"}],
@@ -192,8 +223,28 @@ class SftReportTest(unittest.TestCase):
         })
         by_id = {row["caseId"]: row["code"] for row in rows}
         self.assertEqual(by_id["case-0"], "NA")
-        self.assertEqual(by_id["case-1"], "TH-A\nTH-B")
-        self.assertEqual(by_id["case-2"], "TH-FAN-0001")
+        self.assertEqual(by_id["case-1"], "NA")
+        self.assertEqual(by_id["case-2"], "NA")
+
+    def test_a_stored_catalogue_code_is_na_without_a_log(self):
+        report = {"rows": [{
+            "sn": "SN", "test": "FanTest", "caseId": "case-1",
+            "code": "TH-A", "errorType": "hardware",
+            "url": "http://pega4/suite_run/L10_SFT_run_missinglog",
+        }]}
+        build_l10.restamp_fail_codes(report)
+        self.assertEqual(report["rows"][0]["code"], "NA")
+
+    @mock.patch("factory.th_logs.cached_codes_for_run",
+                return_value={"case-1": ["TH-LOG-0001-S1Q1"]})
+    def test_a_log_diagnosis_replaces_the_stored_code(self, _patched):
+        report = {"rows": [{
+            "sn": "SN", "test": "FanTest", "caseId": "case-1",
+            "code": "TH-A", "errorType": "hardware",
+            "url": "http://pega4/suite_run/L10_SFT_run_haslog",
+        }]}
+        build_l10.restamp_fail_codes(report)
+        self.assertEqual(report["rows"][0]["code"], "TH-LOG-0001-S1Q1")
 
     def test_every_diagnosis_code_is_kept(self):
         detail = {"test_cases": [
@@ -225,7 +276,9 @@ class SftReportTest(unittest.TestCase):
         self.assertIn("errorType", text.splitlines()[0])
         self.assertIn("pegaUrl", text.splitlines()[0])
         self.assertIn(",dri,", text.splitlines()[0])
-        self.assertIn("MTE", text)
+        self.assertTrue(text.splitlines()[0].endswith(",jira"))
+        self.assertIn("Eason Chuang", text)
+        self.assertNotIn("MTE", text)
         self.assertNotIn("caseId", text.splitlines()[0])
         self.assertNotIn("case-b2", text)
 
@@ -249,9 +302,9 @@ class SftReportTest(unittest.TestCase):
         fat = build_l10.summarize_stage(units, "2026-09-24", "fat")
         rin = build_l10.summarize_stage(units, "2026-09-24", "rin")
         self.assertEqual(fat["station"], "l10_fat")
-        self.assertEqual(fat["rows"][0]["errorType"], "Final Log Check")
+        self.assertEqual(fat["rows"][0]["errorType"], "hardware")
         self.assertEqual(rin["station"], "l10_rin")
-        self.assertEqual(rin["rows"][0]["errorType"], "Run-In (RIN)")
+        self.assertEqual(rin["rows"][0]["errorType"], "hardware")
         self.assertEqual(rin["rows"][0]["code"], "TH-R")
 
 
@@ -617,8 +670,11 @@ class FaBundleTest(unittest.TestCase):
         self.assertEqual(fat["failed"], 1)
         self.assertEqual(fat["rows"][0]["sn"], "SN-F")
         self.assertEqual(fat["rows"][0]["test"], "CheckSystemLogStates")
-        self.assertEqual(fat["rows"][0]["errorType"], "Final Log Check")
+        self.assertEqual(fat["rows"][0]["errorType"], "hardware")
         self.assertEqual(fat["rows"][0]["url"], "http://pega4/f1")
+        self.assertIn("CheckSystemLogStates", slim.get("errorTypes") or {})
+        self.assertEqual(slim["driOptions"],
+                         ["Eason Chuang", "Jonathan Wang", "Software team"])
 
 
 if __name__ == "__main__":

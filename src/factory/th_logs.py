@@ -369,6 +369,40 @@ def _download_tree(run_id: str, host: str, root: Path) -> bool:
     return True
 
 
+_disk_codes: Dict[str, Optional[Dict[str, List[str]]]] = {}
+
+
+def cached_codes_for_run(run_id: str, host: Optional[str] = None
+                         ) -> Optional[Dict[str, List[str]]]:
+    """Codes already on disk for this run, or None if it was never fetched."""
+    if not run_id:
+        return None
+    who = host or "pega4"
+    key = who + ":" + run_id
+    if key in _disk_codes:
+        return _disk_codes[key]
+    root = _run_dir(run_id, who)
+    logs = _log_files(root)
+    if logs:
+        found: Optional[Dict[str, List[str]]] = codes_in_run(root)
+    elif _marker(root).is_file():
+        try:
+            cached = json.loads(_marker(root).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            found = {}
+        else:
+            if isinstance(cached, dict):
+                found = {str(name): [str(code) for code in values]
+                         for name, values in cached.items()
+                         if isinstance(values, list)}
+            else:
+                found = {}
+    else:
+        found = None
+    _disk_codes[key] = found
+    return found
+
+
 def codes_for_run(run_id: str, host: Optional[str] = None,
                   day: Optional[str] = None) -> Dict[str, List[str]]:
     """TH codes in this run, keyed by harness ``unique_id``.
@@ -377,29 +411,26 @@ def codes_for_run(run_id: str, host: Optional[str] = None,
     copy. A failed download is not cached, so the next rebuild tries again.
     Days before ``TH_LOGS_FROM`` (default 2026-09-25) are not fetched.
     """
-    if not run_id or not pega.enabled():
+    if not run_id:
+        return {}
+    found = cached_codes_for_run(run_id, host)
+    if found is not None:
+        if found:
+            who = host or "pega4"
+            root = _run_dir(run_id, who)
+            marker = _marker(root)
+            if _log_files(root) and not marker.is_file():
+                try:
+                    root.mkdir(parents=True, exist_ok=True)
+                    marker.write_text(json.dumps(found, indent=2),
+                                      encoding="utf-8")
+                except OSError as exc:
+                    log.info("could not cache codes for %s (%s)", run_id, exc)
+        return found
+    if not pega.enabled():
         return {}
     who = host or "pega4"
     root = _run_dir(run_id, who)
-    marker = _marker(root)
-    logs = _log_files(root)
-    if logs:
-        found = codes_in_run(root)
-        try:
-            root.mkdir(parents=True, exist_ok=True)
-            marker.write_text(json.dumps(found, indent=2), encoding="utf-8")
-        except OSError as exc:
-            log.info("could not cache codes for %s (%s)", run_id, exc)
-        return found
-    if marker.is_file():
-        try:
-            cached = json.loads(marker.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            cached = None
-        if isinstance(cached, dict) and cached:
-            return {str(key): [str(code) for code in values]
-                    for key, values in cached.items()
-                    if isinstance(values, list)}
     since = os.environ.get("TH_LOGS_FROM", _DEFAULT_FROM)
     if day and since and day < since:
         return {}
@@ -408,7 +439,7 @@ def codes_for_run(run_id: str, host: Optional[str] = None,
     found = codes_in_run(root)
     try:
         root.mkdir(parents=True, exist_ok=True)
-        marker.write_text(json.dumps(found, indent=2), encoding="utf-8")
+        _marker(root).write_text(json.dumps(found, indent=2), encoding="utf-8")
     except OSError as exc:
         log.info("could not cache codes for %s (%s)", run_id, exc)
     return found

@@ -99,8 +99,7 @@ def failure_details(detail: Dict[str, Any],
 
     Codes come from that test's ``log.jsonl`` diagnoses, every one of them.
     The run payload only keeps the diagnosis ESVM preferred. When the log
-    has none, codes on the case itself are used, then every catalogue
-    code for that test. One test with several codes lists all of them.
+    has none, the code is NA — catalogue and payload fields are not used.
     """
     known = by_case or {}
     logged = log_codes or {}
@@ -131,28 +130,65 @@ def _case_code(case: Dict[str, Any], name: str,
                by_case: Dict[str, List[Dict[str, Any]]],
                log_codes: Dict[str, List[str]],
                run_id: str, case_id: str) -> str:
-    from . import th_logs
-
     unique = case_id
     if run_id and case_id.startswith(run_id + "_"):
         unique = case_id[len(run_id) + 1:]
     logged = list(log_codes.get(unique) or log_codes.get(case_id) or [])
-    if not logged:
-        logged = th_logs.th_codes(str(case.get("error_message") or ""))
     if logged:
         return "\n".join(logged)
-    for key in ("error_code", "errorCode", "code", "failure_code"):
-        value = case.get(key)
-        if value:
-            return str(value).strip()
-    codes = []
-    for entry in by_case.get(name) or []:
-        code = str(entry.get("code") or "").strip()
-        if code and code not in codes:
-            codes.append(code)
-    if codes:
-        return "\n".join(codes)
     return "NA"
+
+
+def run_id_from_url(url: str) -> str:
+    """pega suite_run id from an ESVM link, or empty."""
+    text = (url or "").strip()
+    marker = "/suite_run/"
+    at = text.find(marker)
+    if at < 0:
+        return ""
+    return text[at + len(marker):].split("?", 1)[0].strip("/")
+
+
+def logged_case_code(case_id: str, run_id: str,
+                     log_codes: Dict[str, List[str]]) -> str:
+    return _case_code({}, "", {}, log_codes, run_id, case_id or "")
+
+
+def restamp_fail_codes(report: Dict[str, Any],
+                       cache: Optional[Dict[str, Dict[str, List[str]]]] = None
+                       ) -> Dict[str, Any]:
+    """Replace stored codes with log.jsonl diagnoses; otherwise NA.
+
+    Old snapshots kept catalogue / payload fallbacks. Daily FA only shows a
+    code when that test's log recorded one.
+    """
+    from . import th_logs
+
+    store = cache if cache is not None else {}
+    for row in report.get("rows") or []:
+        if row.get("status") == "pass" or row.get("errorType") == "Passed":
+            continue
+        run_id = run_id_from_url(row.get("url") or "")
+        if not run_id:
+            continue
+        if run_id not in store:
+            found = th_logs.cached_codes_for_run(run_id)
+            store[run_id] = found if found is not None else {}
+        row["code"] = logged_case_code(
+            row.get("caseId") or "", run_id, store[run_id])
+    return report
+
+
+def restamp_l10_reports(l10: Any,
+                        cache: Optional[Dict[str, Dict[str, List[str]]]] = None
+                        ) -> None:
+    if not isinstance(l10, dict):
+        return
+    store = cache if cache is not None else {}
+    for key in REPORT_KEY.values():
+        report = l10.get(key)
+        if isinstance(report, dict):
+            restamp_fail_codes(report, store)
 
 
 #: L10_FLOW_TEST_COVERAGE column C — one Jira family per stage, not per test.
@@ -160,6 +196,8 @@ FLOW_STAGES_PATH = config.REPO_ROOT / "errors" / "l10_flow_stages.json"
 
 _flow_stages: Optional[Dict[str, str]] = None
 _flow_index: Optional[Dict[str, str]] = None
+_error_types: Optional[Dict[str, str]] = None
+_error_index: Optional[Dict[str, str]] = None
 
 
 def _norm_test(name: str) -> str:
@@ -187,12 +225,30 @@ def _load_flow_stages() -> Tuple[Dict[str, str], Dict[str, str]]:
     return tests, index
 
 
-def stage_of_test(name: str) -> str:
-    """Coverage-sheet column C for a leaf test. Unknown names stay their own family."""
-    raw = (name or "").strip()
-    if not raw:
-        return ""
-    tests, index = _load_flow_stages()
+def _load_error_types() -> Tuple[Dict[str, str], Dict[str, str]]:
+    global _error_types, _error_index
+    if _error_types is not None and _error_index is not None:
+        return _error_types, _error_index
+    tests: Dict[str, str] = {}
+    if FLOW_STAGES_PATH.exists():
+        payload = json.loads(FLOW_STAGES_PATH.read_text(encoding="utf-8"))
+        raw = payload.get("errorTypes") or {}
+        if isinstance(raw, dict):
+            tests = {
+                str(name): str(kind).strip().lower()
+                for name, kind in raw.items()
+                if str(kind).strip().lower() in ("hardware", "software")
+            }
+    index: Dict[str, str] = {}
+    for name, kind in tests.items():
+        index.setdefault(_norm_test(name), kind)
+    _error_types = tests
+    _error_index = index
+    return tests, index
+
+
+def _lookup_named(raw: str, tests: Dict[str, str],
+                  index: Dict[str, str]) -> Optional[str]:
     if raw in tests:
         return tests[raw]
     folded = _norm_test(raw)
@@ -200,15 +256,27 @@ def stage_of_test(name: str) -> str:
         return index[folded]
     if len(folded) >= 8:
         best = ""
-        found = ""
-        for key, stage in index.items():
+        found = None
+        for key, value in index.items():
             if len(key) < 8:
                 continue
             if folded.startswith(key) or key.startswith(folded):
                 if len(key) > len(best):
-                    best, found = key, stage
+                    best, found = key, value
         if found:
             return found
+    return None
+
+
+def stage_of_test(name: str) -> str:
+    """Coverage-sheet column C for a leaf test. Unknown names stay their own family."""
+    raw = (name or "").strip()
+    if not raw:
+        return ""
+    tests, index = _load_flow_stages()
+    found = _lookup_named(raw, tests, index)
+    if found:
+        return found
     lower = raw.lower()
     if "c2c" in lower or "sohuping" in lower or "hostreboot" in lower \
             or ("vfio" in lower and "ping" in lower):
@@ -220,6 +288,51 @@ def stage_of_test(name: str) -> str:
     return raw
 
 
+def error_type_of_test(name: str) -> str:
+    """Daily FA Error Type: hardware or software, from the coverage sheet."""
+    raw = (name or "").strip()
+    if not raw:
+        return "hardware"
+    tests, index = _load_error_types()
+    found = _lookup_named(raw, tests, index)
+    if found in ("hardware", "software"):
+        return found
+    lower = raw.lower()
+    if "llama" in lower or "huggingface" in lower or "inferencemax" in lower \
+            or "modelregistry" in lower:
+        return "software"
+    return "hardware"
+
+
+def as_error_type(value: str, test: str = "") -> str:
+    text = (value or "").strip().lower()
+    if text == "passed":
+        return "Passed"
+    if text in ("hardware", "software"):
+        return text
+    return error_type_of_test(test)
+
+
+DRI_OPTIONS = ("Eason Chuang", "Jonathan Wang", "Software team")
+
+
+def default_dri(error_type: str) -> str:
+    if error_type == "Passed" or not error_type:
+        return ""
+    if error_type == "software":
+        return "Software team"
+    return "Eason Chuang"
+
+
+def as_dri(value: str, error_type: str) -> str:
+    if error_type == "Passed" or not error_type:
+        return ""
+    text = (value or "").strip()
+    if text in DRI_OPTIONS:
+        return text
+    return default_dri(error_type)
+
+
 def is_c2c(name: str) -> bool:
     """C2C link / PRBS / integrity / throughput / stability tests."""
     return stage_of_test(name) == "Sohu C2C" or "c2c" in (name or "").lower()
@@ -228,9 +341,6 @@ def is_c2c(name: str) -> bool:
 #: Daily FA reports these three stages. 2U stays on the tracker table only.
 REPORT_STAGES = ("fat", "sft", "rin")
 REPORT_KEY = {"fat": "fatReport", "sft": "sftReport", "rin": "rinReport"}
-
-
-DEFAULT_DRI = "MTE"
 
 
 def row_id(sn: str, test: str, url: str = "", at: str = "") -> str:
@@ -327,17 +437,18 @@ def _fail_rows(dut: str, index: int, final: str,
             continue
         at = item.get("at") or attempt.get("started") or ""
         url = attempt.get("url") or ""
+        error_type = error_type_of_test(test)
         rows.append({
             "id": row_id(dut, test, url, at),
             "sn": dut,
-            "errorType": stage_of_test(test),
+            "errorType": error_type,
             "test": test,
             "caseId": (item.get("caseId") or test).strip(),
             "at": at,
             "code": (item.get("code") or "NA").strip() or "NA",
             "url": url,
             "jira": item.get("jira") or attempt.get("jira") or "",
-            "dri": item.get("dri") or DEFAULT_DRI,
+            "dri": as_dri(item.get("dri") or "", error_type),
             "attempt": index,
             "final": final,
             "status": attempt.get("status") or "",
@@ -411,13 +522,15 @@ def expand_fail_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
         if row.get("errorType") or (
                 row.get("test") and not row.get("tests")):
             item = dict(row)
-            item.setdefault("errorType", stage_of_test(item.get("test") or ""))
+            error_type = as_error_type(
+                item.get("errorType") or "", item.get("test") or "")
+            item["errorType"] = error_type
             item.setdefault("caseId", item.get("test") or "")
             item.setdefault("code", item.get("code") or "NA")
             item["id"] = item.get("id") or row_id(
                 item.get("sn") or "", item.get("test") or "",
                 item.get("url") or "", item.get("at") or "")
-            item.setdefault("dri", DEFAULT_DRI)
+            item["dri"] = as_dri(item.get("dri") or "", error_type)
             if item.get("test"):
                 found.append(item)
             continue
@@ -435,7 +548,7 @@ def expand_fail_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
             found.append({
                 "id": row_id(row.get("sn") or "", test, url, at),
                 "sn": row.get("sn") or "",
-                "errorType": stage_of_test(test),
+                "errorType": as_error_type(row.get("errorType") or "", test),
                 "test": test,
                 "caseId": case_ids[index] if index < len(case_ids) else test,
                 "at": at,
@@ -443,7 +556,9 @@ def expand_fail_rows(report: Dict[str, Any]) -> List[Dict[str, Any]]:
                 else (row.get("code") or "NA"),
                 "url": url,
                 "jira": row.get("jira") or "",
-                "dri": row.get("dri") or DEFAULT_DRI,
+                "dri": as_dri(
+                    row.get("dri") or "",
+                    as_error_type(row.get("errorType") or "", test)),
                 "attempt": row.get("attempt") or "",
                 "final": row.get("final") or "",
                 "status": row.get("status") or "",
@@ -470,8 +585,8 @@ def group_fail_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "passAt": row.get("passAt") or "",
                 "url": row.get("url") or "",
                 "jira": row.get("jira") or "",
-                "dri": "" if row.get("errorType") == "Passed"
-                else (row.get("dri") or DEFAULT_DRI),
+                "dri": as_dri(row.get("dri") or "",
+                              row.get("errorType") or ""),
                 "attempt": row.get("attempt") or "",
                 "final": row.get("final") or "",
                 "status": row.get("status") or "",
@@ -633,7 +748,8 @@ def stage_csv(report: Dict[str, Any]) -> str:
             row.get("sn") or "", row.get("errorType") or "",
             row.get("test") or "", row.get("at") or "",
             row.get("code") or "", row.get("url") or "",
-            row.get("dri") or DEFAULT_DRI, row.get("jira") or "",
+            as_dri(row.get("dri") or "", row.get("errorType") or ""),
+            row.get("jira") or "",
         ])
     return buffer.getvalue()
 

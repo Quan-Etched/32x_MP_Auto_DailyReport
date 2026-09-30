@@ -323,6 +323,7 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
         if stage.startswith("l10_"):
             stage = stage[4:]
         row_id = str(body.get("id") or "").strip()
+        dri = str(body.get("dri") or "").strip()
         from . import bug_report, build_l10, daily_report
 
         if stage not in build_l10.REPORT_STAGES:
@@ -348,7 +349,7 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
                 stage.upper(), day or "that day")}, status=404)
             return
         try:
-            filed = bug_report.file_fa_row(report, row_id)
+            filed = bug_report.file_fa_row(report, row_id, dri=dri or None)
         except bug_report.JiraError as exc:
             self._json({"error": str(exc)}, status=400)
             return

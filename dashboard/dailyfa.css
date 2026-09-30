@@ -170,9 +170,9 @@ button.cal-cell.is-on .cal-n { font-weight: 700; color: var(--accent-solid); }
 .fa-table .col-sn,
 .fa-table .col-time,
 .fa-table .col-code { width: 10%; }
-.fa-table .col-type { width: calc(100% / 7); }
+.fa-table .col-type { width: calc(100% / 14); }
+.fa-table .col-dri { width: calc(100% / 9); }
 .fa-table .col-url,
-.fa-table .col-dri,
 .fa-table .col-jira { width: calc(100% / 18); }
 .fa-table td.mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -182,6 +182,10 @@ button.cal-cell.is-on .cal-n { font-weight: 700; color: var(--accent-solid); }
 .fa-table td.col-url,
 .fa-table td.col-dri,
 .fa-table td.col-jira { white-space: nowrap; }
+.fa-table select.fa-dri {
+  max-width: 100%;
+  font: inherit;
+}
 .fa-table td.col-type,
 .fa-table td.col-code,
 .fa-table td.col-test,

@@ -793,7 +793,7 @@ def stage_kinds(report: Dict[str, Any]) -> List[Dict[str, Any]]:
 def fa_draft(report: Dict[str, Any], row: Dict[str, Any],
              epic: str) -> Dict[str, Any]:
     """One bug for one DUT + error-type failure on a Daily FA row."""
-    from .build_l10 import REPORT_STAGES
+    from .build_l10 import REPORT_STAGES, as_dri
 
     stage = report.get("stage") or "sft"
     if stage not in REPORT_STAGES:
@@ -811,13 +811,14 @@ def fa_draft(report: Dict[str, Any], row: Dict[str, Any],
     summary = "{} {} {} {}".format(label, day, sn, named)
     if len(summary) > 250:
         summary = summary[:247] + "..."
+    dri = as_dri(row.get("dri") or "", error_type)
     lines = [
         "{} {} failed {} on {}.".format(label, day, named, sn or "unknown SN"),
         "",
         "Error type: {}".format(error_type),
         "Test case: {}".format("\n".join(tests) or test),
         "Error code: {}".format(row.get("code") or "NA"),
-        "DRI: {}".format(row.get("dri") or "MTE"),
+        "DRI: {}".format(dri),
         "Tested at: {}".format(row.get("at") or "unknown"),
         "pega URL: {}".format(row.get("url") or "none"),
     ]
@@ -830,7 +831,7 @@ def fa_draft(report: Dict[str, Any], row: Dict[str, Any],
             "Error type: {}".format(error_type),
             "Test case: {}".format(" / ".join(tests) or test),
             "Error code: {}".format(row.get("code") or "NA"),
-            "DRI: {}".format(row.get("dri") or "MTE"),
+            "DRI: {}".format(dri),
             "Tested at: {}".format(row.get("at") or "unknown"),
         ]),
     ]
@@ -860,10 +861,11 @@ def _matches_fa_id(row: Dict[str, Any], row_id: str) -> bool:
 
 def file_fa_row(report: Dict[str, Any], row_id: str,
                 epic: Optional[str] = None,
-                client: Optional["JiraClient"] = None
+                client: Optional["JiraClient"] = None,
+                dri: Optional[str] = None
                 ) -> Dict[str, Any]:
     """File one Jira for one table row. A second click returns the same ticket."""
-    from .build_l10 import expand_fail_rows, group_fail_rows
+    from .build_l10 import DRI_OPTIONS, as_dri, expand_fail_rows, group_fail_rows
 
     parent = (epic or os.environ.get("JIRA_EPIC", "").strip() or DEFAULT_EPIC)
     report["rows"] = expand_fail_rows(report)
@@ -881,8 +883,15 @@ def file_fa_row(report: Dict[str, Any], row_id: str,
             "url": already,
             "already": True,
         }
+    chosen = (dri or "").strip()
+    if chosen not in DRI_OPTIONS:
+        chosen = as_dri(matches[0].get("dri") or "",
+                        matches[0].get("errorType") or "")
+    for item in matches:
+        item["dri"] = chosen
     grouped = group_fail_rows(matches)
     row = grouped[0] if grouped else matches[0]
+    row["dri"] = chosen
     if client is None:
         email, token = credentials()
         client = JiraClient(email, token)
