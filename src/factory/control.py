@@ -340,8 +340,9 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
         dri = str(body.get("dri") or "").strip()
         from . import build_l10, daily_report
 
-        if stage not in build_l10.REPORT_STAGES:
-            self._json({"error": "stage must be fat, sft or rin"}, status=400)
+        if stage not in build_l10.FA_STAGES:
+            self._json({"error": "stage must be fat, sft, rin, mlt or htt"},
+                       status=400)
             return None
         if not row_id:
             self._json({"error": "pick a failure row to file"}, status=400)
@@ -408,29 +409,42 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as exc:                          # noqa: BLE001
             self._json({"error": str(exc)}, status=500)
             return
-        report_key = build_l10.REPORT_KEY[stage]
-        for tab in bundle.get("tabs") or []:
-            if tab.get("day") != report.get("day"):
-                continue
-            l10 = tab.get("l10")
-            if isinstance(l10, dict):
-                l10[report_key] = report
-                break
-        try:
-            from . import build_dailyexcel
-            # Filing must not rescan every day's logs. A failed rewrite still
-            # leaves the ticket in the ledger, so the page can show the link.
-            build_dailyexcel.write_bundle(
-                bundle, config.DASHBOARD_DATA_DIR / "dailyexcel.js",
-                restamp=False)
-        except Exception:                                 # noqa: BLE001
-            pass
+        report_key = build_l10.REPORT_KEY.get(stage)
+        if report_key:
+            for tab in bundle.get("tabs") or []:
+                if tab.get("day") != report.get("day"):
+                    continue
+                l10 = tab.get("l10")
+                if isinstance(l10, dict):
+                    l10[report_key] = report
+                    break
+            try:
+                from . import build_dailyexcel
+                # Filing must not rescan every day's logs. A failed rewrite
+                # still leaves the ticket in the ledger, so the page can
+                # show the link. L6 has no slot in this bundle; the ledger
+                # is what the page reads back.
+                build_dailyexcel.write_bundle(
+                    bundle, config.DASHBOARD_DATA_DIR / "dailyexcel.js",
+                    restamp=False)
+            except Exception:                             # noqa: BLE001
+                pass
         self._json({"day": report.get("day"), "stage": stage, "filed": filed})
 
     def _fa_report_from_bundle(self, bundle: Dict[str, Any],
                                day: str, stage: str) -> Optional[Dict[str, Any]]:
         from . import build_l10
 
+        if stage in ("mlt", "htt"):
+            key = "mltReport" if stage == "mlt" else "httReport"
+            for tab in bundle.get("tabs") or []:
+                if day and tab.get("day") != day:
+                    continue
+                l6 = build_l10.l6_from_tab(tab)
+                got = (l6 or {}).get(key)
+                if got and (not day or got.get("day") == day):
+                    return got
+            return None
         key = build_l10.REPORT_KEY[stage]
         for tab in bundle.get("tabs") or []:
             if day and tab.get("day") != day:

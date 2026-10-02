@@ -237,6 +237,7 @@ class FaJiraTest(unittest.TestCase):
         self.assertIn("SN-F", client.draft["summary"])
         self.assertIn("BmcCheck", client.draft["summary"])
         self.assertIn("L10 FAT", client.draft["summary"])
+        self.assertEqual(client.draft["epic"], "ETCH-44407")
         self.assertEqual(report["rows"][0]["jira"], filed["url"])
         again = bug_report.file_fa_row(
             report, "SN-F|BmcCheck|http://pega4/f|",
@@ -329,6 +330,42 @@ class FaJiraTest(unittest.TestCase):
         self.assertTrue(filed["already"])
         self.assertEqual(filed["key"], "ETCH-90177")
         self.assertIn("SN-G", client.summary)
+
+    def test_an_l6_ticket_uses_the_l10_epic(self):
+        report = {
+            "day": "2026-09-30",
+            "stage": "mlt",
+            "rows": [{
+                "sn": "SN-M",
+                "errorType": "hardware",
+                "test": "CheckMlt",
+                "url": "http://pega3/m",
+                "at": "2026-09-30T16:40:02",
+                "code": "NA",
+                "jira": "",
+            }],
+        }
+
+        class Fake:
+            def __init__(self):
+                self.calls = 0
+
+            def find_by_summary(self, summary):
+                return None
+
+            def create_bug(self, draft):
+                self.calls += 1
+                self.draft = draft
+                return "ETCH-90200"
+
+        client = Fake()
+        filed = bug_report.file_fa_row(
+            report, "SN-M|hardware|http://pega3/m",
+            epic="ETCH-44407", client=client)
+        self.assertEqual(client.calls, 1)
+        self.assertEqual(client.draft["epic"], "ETCH-44407")
+        self.assertTrue(client.draft["summary"].startswith("L6 MLT "))
+        self.assertEqual(filed["key"], "ETCH-90200")
 
     def test_a_group_id_files_every_leaf_of_that_error_type(self):
         report = {

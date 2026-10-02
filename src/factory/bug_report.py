@@ -696,6 +696,7 @@ class JiraClient:
         queries = [
             "parent = {} ORDER BY created DESC".format(epic),
             'summary ~ "L10 FAT" OR summary ~ "L10 SFT" OR summary ~ "L10 RIN" '
+            'OR summary ~ "L6 MLT" OR summary ~ "L6 HTT" '
             "ORDER BY created DESC",
         ]
         out: List[Dict[str, str]] = []
@@ -921,12 +922,16 @@ def stage_kinds(report: Dict[str, Any]) -> List[Dict[str, Any]]:
 def fa_draft(report: Dict[str, Any], row: Dict[str, Any],
              epic: str) -> Dict[str, Any]:
     """One bug for one DUT + error-type failure on a Daily FA row."""
-    from .build_l10 import REPORT_STAGES, as_dri
+    from .build_l10 import as_dri
 
+    labels = {
+        "fat": "L10 FAT", "sft": "L10 SFT", "rin": "L10 RIN",
+        "mlt": "L6 MLT", "htt": "L6 HTT",
+    }
     stage = report.get("stage") or "sft"
-    if stage not in REPORT_STAGES:
+    if stage not in labels:
         stage = "sft"
-    label = {"fat": "L10 FAT", "sft": "L10 SFT", "rin": "L10 RIN"}[stage]
+    label = labels[stage]
     day = report.get("day") or ""
     sn = row.get("sn") or ""
     tests = list(row.get("tests") or [])

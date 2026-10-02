@@ -1,4 +1,5 @@
-/* Daily FA: the daily tracker's month calendar, then FAT / SFT / RIN reports.
+/* Daily FA: the daily tracker's month calendar, then L6 MLT / HTT and
+   L10 FAT / SFT / RIN reports.
 
    The calendar is the same control as dailyexcel.html — days with a tab are
    clickable, empty/future/before-floor days are not. Nothing else from the

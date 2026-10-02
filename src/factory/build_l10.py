@@ -341,6 +341,8 @@ def is_c2c(name: str) -> bool:
 #: Daily FA reports these three stages. 2U stays on the tracker table only.
 REPORT_STAGES = ("fat", "sft", "rin")
 REPORT_KEY = {"fat": "fatReport", "sft": "sftReport", "rin": "rinReport"}
+#: L6 files onto the same epic as L10. The label is different; the epic is not.
+FA_STAGES = REPORT_STAGES + ("mlt", "htt")
 
 
 def row_id(sn: str, test: str, url: str = "", at: str = "") -> str:
@@ -476,7 +478,7 @@ def _finish_report(day: str, stage: str, tested: int, passed: int,
     return {
         "day": day,
         "stage": stage,
-        "station": STATION_OF[stage],
+        "station": STATION_OF.get(stage) or stage,
         "tested": tested,
         "passed": passed,
         "failed": failed,
@@ -622,13 +624,21 @@ def group_fail_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return found
 
 
+def _station_for_stage(stage: str) -> Optional[str]:
+    """Tracker column station for a Daily FA stage, including L6 MLT and HTT."""
+    if stage in ("mlt", "htt"):
+        return stage
+    return STATION_OF.get(stage)
+
+
 def report_from_table(l10: Dict[str, Any], stage: str) -> Optional[Dict[str, Any]]:
-    """Coarse report from the L10 tracker table when the stage report is absent.
+    """Coarse report from the tracker table when the stage report is absent.
 
     Only the latest attempt is on the row. Error codes are NA until the
-    tracker is rebuilt from pega with leaf detail.
+    tracker is rebuilt from pega with leaf detail. The same walk builds an
+    L6 MLT or HTT report from the module table.
     """
-    station = STATION_OF.get(stage)
+    station = _station_for_stage(stage)
     if not station:
         return None
     columns = l10.get("columns") or []
@@ -719,6 +729,198 @@ def report_from_table(l10: Dict[str, Any], stage: str) -> Optional[Dict[str, Any
     report = _finish_report(day, stage, tested, passed, failed, failed_sns, rows)
     report["coarse"] = True
     return report
+
+
+def _result_column(columns: Sequence[Any], station: str) -> int:
+    for index, column in enumerate(columns):
+        if not isinstance(column, dict):
+            continue
+        title = column.get("title") or ""
+        if column.get("station") == station and column.get("kind") != "version" \
+                and "Results" in title:
+            return index
+    return -1
+
+
+def report_from_verdicts(tab: Dict[str, Any], stage: str
+                         ) -> Optional[Dict[str, Any]]:
+    """One station's Daily FA report from the result cells on the tracker row.
+
+    The cell is the verdict the daily tracker already quotes. A same-day
+    attempt that exists only in the history strip is not a result.
+    """
+    station = _station_for_stage(stage)
+    if not station:
+        return None
+    columns = tab.get("columns") or []
+    result_at = _result_column(columns, station)
+    if result_at < 0:
+        return None
+    sn_at = next((index for index, column in enumerate(columns)
+                  if isinstance(column, dict) and column.get("key") == "B"), -1)
+    jira_at = next((index for index, column in enumerate(columns)
+                    if isinstance(column, dict) and column.get("title") == "Jira"),
+                   -1)
+    fail_at = link_at = -1
+    for index in range(result_at + 1, len(columns)):
+        column = columns[index]
+        if not isinstance(column, dict):
+            continue
+        title = column.get("title") or ""
+        if fail_at < 0 and "Failure Test Case" in title:
+            fail_at = index
+        if title.startswith("FI Test Link"):
+            link_at = index
+            break
+
+    def cell(row: Sequence[Any], at: int) -> Dict[str, Any]:
+        if at < 0 or at >= len(row) or not isinstance(row[at], dict):
+            return {}
+        return row[at]
+
+    tested = passed = failed = 0
+    failed_sns: List[str] = []
+    rows: List[Dict[str, Any]] = []
+    day = tab.get("day") or ""
+    for row in tab.get("rows") or []:
+        tone = cell(row, result_at).get("t")
+        if tone not in ("pass", "fail"):
+            continue
+        sn = str(cell(row, sn_at).get("v") or "").strip()
+        link = str(cell(row, link_at).get("h") or "")
+        fail_names = [part.strip() for part in
+                      str(cell(row, fail_at).get("v") or "").split("\n")
+                      if part.strip()]
+        times = _case_times(link) if tone == "fail" else {}
+        attempt = {
+            "status": tone,
+            "url": link,
+            "started": times.get("") or "",
+            "failures": [
+                {"test": name, "caseId": name, "code": "NA",
+                 "at": times.get(name) or times.get("") or ""}
+                for name in fail_names
+            ] if tone == "fail" else [],
+        }
+        tested += 1
+        if tone == "pass":
+            passed += 1
+        else:
+            failed += 1
+            if sn:
+                failed_sns.append(sn)
+        leaves = _final_rows(sn, [attempt], attempt)
+        ticket = _sheet_jira(cell(row, jira_at)) if tone == "fail" else ""
+        if ticket:
+            for item in leaves:
+                item["jira"] = ticket
+        rows.extend(leaves)
+    if not tested:
+        return None
+    report = _finish_report(day, stage, tested, passed, failed, failed_sns, rows)
+    report["coarse"] = True
+    return report
+
+
+def _sheet_jira(cell: Dict[str, Any]) -> str:
+    """The tracker's own Jira cell, as a browse URL. Empty if it has no key."""
+    keys = cell.get("j") if isinstance(cell.get("j"), list) else []
+    key = str(keys[0]).strip() if keys else ""
+    if not key:
+        found = build_dailyexcel.JIRA_KEY.search(str(cell.get("v") or ""))
+        key = found.group(1) if found else ""
+    if not key:
+        return ""
+    from . import links
+    return "{}/{}".format(links.jira_base().rstrip("/"), key)
+
+
+def _case_times(url: str) -> Dict[str, str]:
+    """Start time of each failing test in a cached suite run.
+
+    Key ``""`` is the run's own start. Nothing is fetched: a missing cache
+    leaves the Test time column blank rather than blocking the page on pega.
+    """
+    run_id = run_id_from_url(url)
+    if not run_id:
+        return {}
+    host = ""
+    named = re.search(r"//(?:.*?)?(pega\d+)", url or "", re.IGNORECASE)
+    if named:
+        host = named.group(1).lower()
+    detail = pega._read_cache("/api/test_suite_run/" + run_id, host or None)
+    if not isinstance(detail, dict):
+        return {}
+    times: Dict[str, str] = {}
+    started = str(detail.get("start_time") or "")
+    if started:
+        times[""] = started
+    for case in detail.get("test_cases") or []:
+        name = str(case.get("test_name") or "").strip()
+        at = str(case.get("start_time") or "")
+        if name and at and name not in times:
+            times[name] = at
+    return times
+
+
+def _cell_tone(row: Sequence[Any], at: int) -> str:
+    if at < 0 or at >= len(row):
+        return ""
+    slot = row[at]
+    if not isinstance(slot, dict):
+        return ""
+    return slot.get("t") or ""
+
+
+def combined_module_yield(tab: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Units that passed both, over units that entered MLT.
+
+    Not MLT% × HTT%. A module can pass MLT and never reach HTT, and HTT's
+    own population includes modules that did not pass MLT that day.
+    """
+    columns = tab.get("columns") or []
+    mlt_at = _result_column(columns, "mlt")
+    htt_at = _result_column(columns, "htt")
+    if mlt_at < 0:
+        return None
+    tested = passed = no_htt = 0
+    for row in tab.get("rows") or []:
+        mlt = _cell_tone(row, mlt_at)
+        htt = _cell_tone(row, htt_at)
+        if mlt not in ("pass", "fail"):
+            continue
+        tested += 1
+        if mlt == "pass" and htt not in ("pass", "fail"):
+            no_htt += 1
+        if mlt == "pass" and htt == "pass":
+            passed += 1
+    if not tested:
+        return None
+    return {
+        "passed": passed,
+        "tested": tested,
+        "yield": passed / tested,
+        "noHtt": no_htt,
+    }
+
+
+def l6_from_tab(tab: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """L6 MLT and HTT reports for one day, from the module tracker table."""
+    columns = tab.get("columns") if isinstance(tab, dict) else None
+    if not any(isinstance(column, dict) and column.get("station") in ("mlt", "htt")
+               for column in columns or []):
+        return None
+    sheet = dict(tab)
+    sheet["day"] = tab.get("day") or ""
+    mlt = report_from_verdicts(sheet, "mlt")
+    htt = report_from_verdicts(sheet, "htt")
+    if mlt is None and htt is None:
+        return None
+    return {
+        "mltReport": mlt,
+        "httReport": htt,
+        "combined": combined_module_yield(sheet),
+    }
 
 
 def normalize_report(report: Optional[Dict[str, Any]],

@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Daily FA — L10 FAT / SFT / RIN</title>
+  <title>Daily FA — L6 MLT / HTT, L10 FAT / SFT / RIN</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="stations.css">
-  <link rel="stylesheet" href="dailyfa.css?v=preview2">
+  <link rel="stylesheet" href="dailyfa.css?v=l6">
 </head>
 <body>
 <div class="wrap">
@@ -25,6 +25,32 @@
   <div class="banner" id="notice" hidden></div>
 
   <main id="content">
+    <section class="fa-report" id="l6-yield" hidden>
+      <h2 id="l6-yield-combined"></h2>
+    </section>
+
+    <section class="fa-report" id="mlt-report" hidden>
+      <h2>L6 MLT <span class="l10-sub" id="mlt-report-day"></span>
+        <span class="fa-yield" id="mlt-report-counts"></span></h2>
+      <p class="fa-sns" id="mlt-report-sns"></p>
+      <div class="fa-table-wrap" id="mlt-report-table"></div>
+      <p class="fa-actions">
+        <a id="mlt-report-csv" href="#">Download CSV</a>
+        <span id="mlt-report-note"></span>
+      </p>
+    </section>
+
+    <section class="fa-report" id="htt-report" hidden>
+      <h2>L6 HTT <span class="l10-sub" id="htt-report-day"></span>
+        <span class="fa-yield" id="htt-report-counts"></span></h2>
+      <p class="fa-sns" id="htt-report-sns"></p>
+      <div class="fa-table-wrap" id="htt-report-table"></div>
+      <p class="fa-actions">
+        <a id="htt-report-csv" href="#">Download CSV</a>
+        <span id="htt-report-note"></span>
+      </p>
+    </section>
+
     <section class="fa-report" id="fat-report" hidden>
       <h2>L10 FAT <span class="l10-sub" id="fat-report-day"></span>
         <span class="fa-yield" id="fat-report-counts"></span></h2>
@@ -61,7 +87,9 @@
 
   <footer class="notes">
     <p>
-      This page is the L10 FAT / SFT / RIN failure report. Pick a day, then
+      This page is the L6 MLT / HTT and L10 FAT / SFT / RIN failure report.
+      MLT + HTT yield is units that passed both, over units that entered MLT.
+      Pick a day, then
       download the CSV or file a Jira from a row. The daily tracker tables
       stay on
       <a href="dailyexcel.html">Daily tracker</a>.
@@ -70,9 +98,9 @@
 
 </div>
 
-<script src="data/dailyfa.js"></script>
-<script src="failreport.js?v=preview2"></script>
-<script src="dailyfa.js"></script>
+<script src="data/dailyfa.js?v=l6time"></script>
+<script src="failreport.js?v=l6time"></script>
+<script src="dailyfa.js?v=l6time"></script>
 <script src="nav.js"></script>
 <script src="theme.js"></script>
 </body>

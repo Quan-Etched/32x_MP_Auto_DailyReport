@@ -1985,7 +1985,7 @@ def _known_duts(payload: Dict[str, Any]) -> set:
 # --------------------------------------------------------------------- write
 
 def slim_fa_bundle(bundle: Dict[str, Any], restamp: bool = True) -> Dict[str, Any]:
-    """Calendar days + FAT/SFT/RIN reports — Daily FA must not parse the tracker.
+    """Calendar days plus L6 and L10 reports — Daily FA must not parse the tracker.
 
     The full dailyexcel.js is several megabytes of module / L10 / L11 tables.
     Coming back to Daily FA re-parses that whole file. The report page only
@@ -2016,6 +2016,13 @@ def slim_fa_bundle(bundle: Dict[str, Any], restamp: bool = True) -> Dict[str, An
         }
         if reports:
             entry["l10"] = reports
+        l6 = build_l10.l6_from_tab(tab)
+        if l6:
+            from . import bug_report
+            for key in ("mltReport", "httReport"):
+                if l6.get(key):
+                    bug_report.apply_ledger_to_report(l6[key])
+            entry["l6"] = l6
         tabs.append(entry)
 
     return {

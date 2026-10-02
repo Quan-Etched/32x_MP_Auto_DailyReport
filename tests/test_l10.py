@@ -676,6 +676,150 @@ class FaBundleTest(unittest.TestCase):
         self.assertEqual(slim["driOptions"],
                          ["Eason Chuang", "Jonathan Wang", "Software team"])
 
+    def test_l6_mlt_and_htt_yields_come_from_the_module_table(self):
+        columns = [
+            {"key": "A", "title": "Date"},
+            {"key": "B", "title": "SN"},
+            {"key": "E", "title": "MLT Results", "station": "mlt"},
+            {"key": "Ev", "title": "MLT Version", "kind": "version"},
+            {"key": "F", "title": "MLT Failure Test Case"},
+            {"key": "G", "title": "FI Test Link"},
+            {"key": "H", "title": "HTT Results", "station": "htt"},
+            {"key": "Hv", "title": "HTT Version", "kind": "version"},
+            {"key": "I", "title": "HTT Failure Test Case"},
+            {"key": "J", "title": "FI Test Link"},
+        ]
+
+        def row(sn, mlt, htt):
+            cells = [{} for _ in columns]
+            cells[1] = {"v": sn}
+            cells[2] = {"v": "Passed" if mlt == "pass" else "Failed", "t": mlt}
+            if mlt == "fail":
+                cells[4] = {"v": "CheckMlt"}
+                cells[5] = {"h": "http://pega3/" + sn}
+            if htt in ("pass", "fail"):
+                cells[6] = {
+                    "v": "Passed" if htt == "pass" else "Failed", "t": htt}
+                if htt == "fail":
+                    cells[8] = {"v": "CheckHtt"}
+                    cells[9] = {"h": "http://pega3/h-" + sn}
+            return cells
+
+        slim = build_dailyexcel.slim_fa_bundle({
+            "tabs": [{
+                "day": "2026-09-23",
+                "label": "09-23",
+                "columns": columns,
+                "rows": [
+                    row("SN-A", "pass", "pass"),
+                    row("SN-B", "pass", "fail"),
+                    row("SN-C", "fail", ""),
+                    row("SN-D", "pass", ""),
+                ],
+            }],
+        })
+        tab = slim["tabs"][0]
+        l6 = tab["l6"]
+        self.assertEqual(l6["mltReport"]["tested"], 4)
+        self.assertEqual(l6["mltReport"]["passed"], 3)
+        self.assertEqual(l6["mltReport"]["yield"], 0.75)
+        self.assertEqual(l6["httReport"]["tested"], 2)
+        self.assertEqual(l6["httReport"]["passed"], 1)
+        self.assertEqual(l6["httReport"]["yield"], 0.5)
+        self.assertEqual(l6["combined"]["tested"], 4)
+        self.assertEqual(l6["combined"]["passed"], 1)
+        self.assertEqual(l6["combined"]["noHtt"], 1)
+        self.assertEqual(l6["combined"]["yield"], 0.25)
+        failed = [item for item in l6["mltReport"]["rows"]
+                  if item.get("status") == "fail"]
+        self.assertEqual(failed[0]["sn"], "SN-C")
+        self.assertEqual(failed[0]["test"], "CheckMlt")
+        self.assertNotIn("rows", tab)
+        self.assertNotIn("columns", tab)
+
+    def test_a_blank_result_cell_is_not_counted_from_history(self):
+        columns = [
+            {"key": "B", "title": "SN"},
+            {"key": "E", "title": "MLT Results", "station": "mlt"},
+            {"key": "F", "title": "MLT Failure Test Case"},
+            {"key": "G", "title": "FI Test Link"},
+            {"key": "H", "title": "HTT Results", "station": "htt"},
+            {"key": "I", "title": "HTT Failure Test Case"},
+            {"key": "J", "title": "FI Test Link"},
+        ]
+        row = [
+            {"v": "SN-H", "history": {"mlt": [
+                {"day": "2026-10-01", "status": "pass"}]}},
+            {},
+            {},
+            {},
+            {"v": "Passed", "t": "pass"},
+            {},
+            {"h": "http://pega3/h"},
+        ]
+        got = build_l10.l6_from_tab({
+            "day": "2026-10-01", "columns": columns, "rows": [row],
+        })
+        self.assertIsNone(got["mltReport"])
+        self.assertEqual(got["httReport"]["tested"], 1)
+        self.assertEqual(got["httReport"]["passed"], 1)
+        self.assertIsNone(got["combined"])
+
+    def test_an_l6_failure_takes_its_test_time_from_the_cached_run(self):
+        columns = [
+            {"key": "B", "title": "SN"},
+            {"key": "E", "title": "MLT Results", "station": "mlt"},
+            {"key": "F", "title": "MLT Failure Test Case"},
+            {"key": "G", "title": "FI Test Link"},
+        ]
+        row = [
+            {"v": "SN-T"},
+            {"v": "Failed", "t": "fail"},
+            {"v": "CheckMlt"},
+            {"h": "http://pega3:3000/suite_run/mlt_run_abc?slot_number=1"},
+        ]
+        cached = {
+            "start_time": "2026-09-30T16:37:41",
+            "test_cases": [{
+                "test_name": "CheckMlt",
+                "status": "fail",
+                "start_time": "2026-09-30T16:40:02",
+            }],
+        }
+        with mock.patch("factory.build_l10.pega._read_cache",
+                        return_value=cached) as read:
+            report = build_l10.report_from_verdicts({
+                "day": "2026-09-30", "columns": columns, "rows": [row],
+            }, "mlt")
+        read.assert_called_once()
+        self.assertEqual(read.call_args[0][0],
+                         "/api/test_suite_run/mlt_run_abc")
+        self.assertEqual(read.call_args[0][1], "pega3")
+        failed = [item for item in report["rows"] if item.get("status") == "fail"]
+        self.assertEqual(failed[0]["at"], "2026-09-30T16:40:02")
+
+    def test_an_l6_failure_keeps_the_jira_already_on_the_tracker(self):
+        columns = [
+            {"key": "B", "title": "SN"},
+            {"key": "E", "title": "MLT Results", "station": "mlt"},
+            {"key": "F", "title": "MLT Failure Test Case"},
+            {"key": "G", "title": "FI Test Link"},
+            {"key": "K", "title": "Jira"},
+        ]
+        row = [
+            {"v": "SN-J"},
+            {"v": "Failed", "t": "fail"},
+            {"v": "CheckMlt"},
+            {"h": "http://pega3:3000/suite_run/mlt_run_jira"},
+            {"v": "ETCH-38567: CheckMlt", "j": ["ETCH-38567"]},
+        ]
+        with mock.patch("factory.build_l10.pega._read_cache", return_value={}):
+            report = build_l10.report_from_verdicts({
+                "day": "2026-09-30", "columns": columns, "rows": [row],
+            }, "mlt")
+        failed = [item for item in report["rows"] if item.get("status") == "fail"]
+        self.assertTrue(failed[0]["jira"].endswith("/ETCH-38567"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,4 @@
-/* L10 FAT / SFT / RIN reports for the selected day on Daily FA.
+/* L6 MLT / HTT and L10 FAT / SFT / RIN reports for the selected day.
 
    Counts are one chassis, not one attempt. A later pass replaces an
    earlier fail. A later fail does not add a second failed chassis.
@@ -12,6 +12,18 @@
   'use strict';
 
   var PANELS = [
+    {stage: 'mlt', label: 'L6 MLT', key: 'mltReport', source: 'l6',
+     passes: false,
+     panel: 'mlt-report', day: 'mlt-report-day',
+     counts: 'mlt-report-counts', sns: 'mlt-report-sns',
+     table: 'mlt-report-table', csv: 'mlt-report-csv',
+     note: 'mlt-report-note'},
+    {stage: 'htt', label: 'L6 HTT', key: 'httReport', source: 'l6',
+     passes: false,
+     panel: 'htt-report', day: 'htt-report-day',
+     counts: 'htt-report-counts', sns: 'htt-report-sns',
+     table: 'htt-report-table', csv: 'htt-report-csv',
+     note: 'htt-report-note'},
     {stage: 'fat', label: 'L10 FAT', key: 'fatReport',
      panel: 'fat-report', day: 'fat-report-day',
      counts: 'fat-report-counts', sns: 'fat-report-sns',
@@ -29,7 +41,8 @@
      note: 'rin-report-note'}
   ];
 
-  var STATION_OF = {fat: 'l10_fat', sft: 'l10_sft', rin: 'l10_rin'};
+  var STATION_OF = {fat: 'l10_fat', sft: 'l10_sft', rin: 'l10_rin',
+                    mlt: 'mlt', htt: 'htt'};
 
   function byId(id) { return document.getElementById(id); }
 
@@ -398,7 +411,7 @@
   }
 
   function reportFor(tab, panel) {
-    var l10 = tab && tab.l10;
+    var l10 = panel.source === 'l6' ? (tab && tab.l6) : (tab && tab.l10);
     var stored = l10 && l10[panel.key];
     if (stored) {
       stored.stage = stored.stage || panel.stage;
@@ -420,9 +433,21 @@
     return (report.yield * 100).toFixed(1) + '%';
   }
 
-  function csvText(report) {
+  function isPassRow(row) {
+    return row.status === 'pass' || row.errorType === 'Passed';
+  }
+
+  function visibleRows(panel, report) {
+    var rows = groupFailRows(expandFailRows(report));
+    if (panel && panel.passes === false) {
+      rows = rows.filter(function (row) { return !isPassRow(row); });
+    }
+    return rows;
+  }
+
+  function csvText(report, panel) {
     var lines = ['sn,errorType,test,testedAt,errorCode,pegaUrl,dri,jira'];
-    groupFailRows(expandFailRows(report)).forEach(function (row) {
+    visibleRows(panel, report).forEach(function (row) {
       lines.push([row.sn, row.errorType, row.test, row.at,
                   row.code || '', row.url,
                   row.errorType === 'Passed' ? '' : asDri(row.dri, row.errorType),
@@ -438,7 +463,7 @@
   function bindCsv(panel, report) {
     var link = byId(panel.csv);
     if (!link) return;
-    var blob = new Blob([csvText(report)], {type: 'text/csv'});
+    var blob = new Blob([csvText(report, panel)], {type: 'text/csv'});
     if (link._url) URL.revokeObjectURL(link._url);
     link._url = URL.createObjectURL(blob);
     link.href = link._url;
@@ -494,9 +519,10 @@
     var host = byId(panel.table);
     if (!host) return;
     host.innerHTML = '';
-    var rows = groupFailRows(expandFailRows(report));
+    var rows = visibleRows(panel, report);
     if (!rows.length) {
-      host.appendChild(document.createTextNode('No DUT tested on this day.'));
+      host.appendChild(document.createTextNode(
+        report.tested ? 'No failures on this day.' : 'No DUT tested on this day.'));
       return;
     }
     var table = document.createElement('table');
@@ -509,10 +535,10 @@
       ['Test case', 'col-test'],
       ['Test time', 'col-time'],
       ['Error code', 'col-code'],
-      ['DataLink', 'col-url'],
-      ['DRI', 'col-dri'],
-      ['Jira', 'col-jira']
+      ['FI', 'col-url'],
+      ['DRI', 'col-dri']
     ];
+    if (panel.jira !== false) titles.push(['Jira', 'col-jira']);
     titles.forEach(function (item) {
       var th = document.createElement('th');
       th.className = item[1];
@@ -627,10 +653,12 @@
         driTd.appendChild(select);
       }
       tr.appendChild(driTd);
-      var jiraTd = document.createElement('td');
-      jiraTd.className = 'fa-jira col-jira';
-      if (!passed) renderJiraCell(jiraTd, panel, report, row);
-      tr.appendChild(jiraTd);
+      if (panel.jira !== false) {
+        var jiraTd = document.createElement('td');
+        jiraTd.className = 'fa-jira col-jira';
+        if (!passed) renderJiraCell(jiraTd, panel, report, row);
+        tr.appendChild(jiraTd);
+      }
       body.appendChild(tr);
     });
     table.appendChild(body);
@@ -672,8 +700,29 @@
 
   var lastTab = null;
 
+  function renderCombined(tab) {
+    var host = byId('l6-yield');
+    var line = byId('l6-yield-combined');
+    if (!host || !line) return;
+    var l6 = (tab && tab.l6) || {};
+    var both = l6.combined;
+    var day = (tab && tab.day) || '';
+    var mltPassed = (l6.mltReport && l6.mltReport.passed) || 0;
+    var httPassed = (l6.httReport && l6.httReport.passed) || 0;
+    host.hidden = false;
+    if (!both || !both.tested) {
+      line.textContent = 'L6 MLT+HTT，' + day + ', No yield for this day.';
+      return;
+    }
+    line.textContent = 'L6 MLT+HTT，' + day + ', ' +
+      mltPassed + ' passed MLT, ' + httPassed + ' passed HTT, ' +
+      both.passed + 'x passed both / ' + both.tested +
+      'x entered， yield (' + pct(both) + ')';
+  }
+
   function render(tab) {
     lastTab = tab;
+    renderCombined(tab);
     PANELS.forEach(function (panel) { renderPanel(tab, panel); });
   }
 
@@ -714,6 +763,8 @@
   }
 
   function stageLabel(stage) {
+    if (stage === 'mlt') return 'L6 MLT';
+    if (stage === 'htt') return 'L6 HTT';
     if (stage === 'fat') return 'L10 FAT';
     if (stage === 'sft') return 'L10 SFT';
     if (stage === 'rin') return 'L10 RIN';
