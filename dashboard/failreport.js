@@ -360,15 +360,58 @@
     };
   }
 
+  function ticketSummary(report, row) {
+    var label = stageLabel(report.stage || '');
+    var tests = row.tests && row.tests.length
+      ? row.tests.slice()
+      : String(row.test || '').split(/,\s*/).filter(Boolean);
+    var test = tests[0] || row.test || 'unclassified failure';
+    var named = tests.length !== 1 ? (row.errorType || test) : test;
+    return label + ' ' + (report.day || '') + ' ' + (row.sn || '') + ' ' + named;
+  }
+
+  function rememberedUrl(report, row) {
+    if (row.jira) return row.jira;
+    var book = window.__FA_FILED__ || {};
+    var rows = book.rows || {};
+    var gid = groupId(row.sn, row.errorType, row.url);
+    var hit = rows[gid] || rows[row.id || ''];
+    if (hit && hit.url) return hit.url;
+    var summaries = [ticketSummary(report, row)];
+    var byType = stageLabel(report.stage || '') + ' ' + (report.day || '') +
+      ' ' + (row.sn || '') + ' ' + (row.errorType || '');
+    if (row.errorType && summaries.indexOf(byType) < 0) summaries.push(byType);
+    var issues = book.issues || [];
+    for (var i = 0; i < issues.length; i++) {
+      if (summaries.indexOf(issues[i].summary) >= 0 && issues[i].url) {
+        return issues[i].url;
+      }
+    }
+    return '';
+  }
+
+  function stampRemembered(report) {
+    (report.rows || []).forEach(function (row) {
+      var url = rememberedUrl(report, row);
+      if (url) row.jira = url;
+    });
+  }
+
   function reportFor(tab, panel) {
     var l10 = tab && tab.l10;
     var stored = l10 && l10[panel.key];
     if (stored) {
       stored.stage = stored.stage || panel.stage;
+      stored.day = stored.day || (tab && tab.day) || '';
       expandFailRows(stored);
+      stampRemembered(stored);
       return stored;
     }
-    if (l10 && l10.columns) return fromTable(l10, panel.stage);
+    if (l10 && l10.columns) {
+      var built = fromTable(l10, panel.stage);
+      if (built) stampRemembered(built);
+      return built;
+    }
     return null;
   }
 
@@ -439,6 +482,14 @@
     td.appendChild(button);
   }
 
+  function dataLinkLabel(url) {
+    var host = (/\/\/([^/:]+)/.exec(String(url || '')) || [])[1] || '';
+    var named = /pega(\d+)/i.exec(host);
+    if (named) return 'Pega' + named[1];
+    if (!host) return 'DataLink';
+    return host.charAt(0).toUpperCase() + host.slice(1);
+  }
+
   function renderTable(panel, report) {
     var host = byId(panel.table);
     if (!host) return;
@@ -458,7 +509,7 @@
       ['Test case', 'col-test'],
       ['Test time', 'col-time'],
       ['Error code', 'col-code'],
-      ['ESVM', 'col-url'],
+      ['DataLink', 'col-url'],
       ['DRI', 'col-dri'],
       ['Jira', 'col-jira']
     ];
@@ -546,7 +597,7 @@
         link.href = row.url;
         link.target = '_blank';
         link.rel = 'noopener';
-        link.textContent = 'ESVM';
+        link.textContent = dataLinkLabel(row.url);
         urlTd.appendChild(link);
       }
       tr.appendChild(urlTd);
@@ -619,8 +670,22 @@
     noteFor(panel, '');
   }
 
+  var lastTab = null;
+
   function render(tab) {
+    lastTab = tab;
     PANELS.forEach(function (panel) { renderPanel(tab, panel); });
+  }
+
+  function loadFiled() {
+    fetch('/api/fa-jiras', {cache: 'no-store'}).then(function (response) {
+      if (!response.ok) return null;
+      return response.json();
+    }).then(function (book) {
+      if (!book || !book.rows && !book.issues) return;
+      window.__FA_FILED__ = book;
+      if (lastTab) render(lastTab);
+    }).catch(function () {});
   }
 
   function postFa(path, payload) {
@@ -632,10 +697,18 @@
       },
       body: JSON.stringify(payload)
     }).then(function (response) {
-      return response.json().then(function (body) {
+      return response.text().then(function (text) {
+        var body = {};
+        try {
+          body = text ? JSON.parse(text) : {};
+        } catch (e) {
+          body = {};
+        }
+        if (!body || typeof body !== 'object') body = {};
+        if (!response.ok && !body.error) {
+          body.error = 'Jira was not filed (HTTP ' + response.status + ').';
+        }
         return {ok: response.ok, body: body};
-      }, function () {
-        return {ok: response.ok, body: {}};
       });
     });
   }
@@ -862,6 +935,8 @@
       }, preview);
     }, 0);
   }
+
+  loadFiled();
 
   window.FaReport = {render: render, reportFor: reportFor, csvText: csvText,
                      fromTable: fromTable, expandFailRows: expandFailRows,

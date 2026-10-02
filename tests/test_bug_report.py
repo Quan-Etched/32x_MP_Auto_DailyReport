@@ -194,6 +194,15 @@ class CollectTest(unittest.TestCase):
 
 
 class FaJiraTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self._env = mock.patch.dict(
+            "os.environ",
+            {"FA_JIRAS_PATH": str(Path(self.tmp.name) / "fa_jiras.json")})
+        self._env.start()
+        self.addCleanup(self._env.stop)
+
     def test_one_row_files_one_ticket_and_a_second_click_is_the_same_url(self):
         report = {
             "day": "2026-09-24",
@@ -235,6 +244,91 @@ class FaJiraTest(unittest.TestCase):
         self.assertEqual(client.calls, 1)
         self.assertTrue(again["already"])
         self.assertEqual(again["url"], filed["url"])
+
+    def test_a_rebuilt_report_still_returns_the_filed_link(self):
+        report = {
+            "day": "2026-09-24",
+            "stage": "fat",
+            "rows": [{
+                "id": "SN-F|BmcCheck|http://pega4/f|",
+                "sn": "SN-F",
+                "errorType": "hardware",
+                "test": "BmcCheck",
+                "code": "NA",
+                "url": "http://pega4/f",
+                "at": "",
+                "jira": "",
+            }],
+        }
+
+        class Fake:
+            def __init__(self):
+                self.calls = 0
+
+            def create_bug(self, draft):
+                self.calls += 1
+                return "ETCH-90100"
+
+        client = Fake()
+        filed = bug_report.file_fa_row(
+            report, "SN-F|hardware|http://pega4/f",
+            epic="ETCH-44407", client=client)
+        rebuilt = {
+            "day": "2026-09-24",
+            "stage": "fat",
+            "rows": [{
+                "sn": "SN-F",
+                "errorType": "hardware",
+                "test": "BmcCheck",
+                "url": "http://pega4/f",
+                "at": "",
+                "code": "NA",
+                "jira": "",
+            }],
+        }
+        again = bug_report.file_fa_row(
+            rebuilt, "SN-F|hardware|http://pega4/f",
+            epic="ETCH-44407", client=client)
+        self.assertEqual(client.calls, 1)
+        self.assertTrue(again["already"])
+        self.assertEqual(again["url"], filed["url"])
+        self.assertEqual(rebuilt["rows"][0]["jira"], filed["url"])
+
+    def test_an_existing_jira_summary_is_not_filed_again(self):
+        report = {
+            "day": "2026-09-24",
+            "stage": "fat",
+            "rows": [{
+                "sn": "SN-G",
+                "errorType": "hardware",
+                "test": "BmcCheck",
+                "url": "http://pega4/g",
+                "at": "",
+                "code": "NA",
+                "jira": "",
+            }],
+        }
+
+        class Fake:
+            def __init__(self):
+                self.calls = 0
+
+            def find_by_summary(self, summary):
+                self.summary = summary
+                return "ETCH-90177"
+
+            def create_bug(self, draft):
+                self.calls += 1
+                return "ETCH-SHOULD-NOT"
+
+        client = Fake()
+        filed = bug_report.file_fa_row(
+            report, "SN-G|hardware|http://pega4/g",
+            epic="ETCH-44407", client=client)
+        self.assertEqual(client.calls, 0)
+        self.assertTrue(filed["already"])
+        self.assertEqual(filed["key"], "ETCH-90177")
+        self.assertIn("SN-G", client.summary)
 
     def test_a_group_id_files_every_leaf_of_that_error_type(self):
         report = {

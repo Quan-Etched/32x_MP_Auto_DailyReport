@@ -25,8 +25,10 @@ import json
 import os
 import re
 import ssl
+import threading
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
@@ -670,6 +672,64 @@ class JiraClient:
                 break
         return self._epic_field
 
+    def find_by_summary(self, summary: str) -> Optional[str]:
+        """The existing issue with this exact summary, if Jira already has one."""
+        if not summary:
+            return None
+        escaped = summary.replace("\\", "\\\\").replace('"', '\\"')
+        payload = self.post("/rest/api/3/search/jql", {
+            "jql": 'summary = "{}" ORDER BY created ASC'.format(escaped),
+            "maxResults": 1,
+            "fields": ["summary"],
+        })
+        issues = payload.get("issues") or []
+        if not issues:
+            return None
+        return issues[0].get("key") or None
+
+    def list_filed_issues(self, epic: str) -> List[Dict[str, str]]:
+        """Bugs already opened for Daily FA.
+
+        ``parent`` is the team-managed epic. The summary fallback covers a
+        company-managed Epic Link, which does not appear as ``parent``.
+        """
+        queries = [
+            "parent = {} ORDER BY created DESC".format(epic),
+            'summary ~ "L10 FAT" OR summary ~ "L10 SFT" OR summary ~ "L10 RIN" '
+            "ORDER BY created DESC",
+        ]
+        out: List[Dict[str, str]] = []
+        seen = set()
+        for jql in queries:
+            token = None
+            for _ in range(6):
+                body: Dict[str, Any] = {
+                    "jql": jql, "maxResults": 50, "fields": ["summary"],
+                }
+                if token:
+                    body["nextPageToken"] = token
+                try:
+                    payload = self.post("/rest/api/3/search/jql", body)
+                except JiraError:
+                    break
+                for issue in payload.get("issues") or []:
+                    key = issue.get("key") or ""
+                    if not key or key in seen:
+                        continue
+                    seen.add(key)
+                    fields = issue.get("fields") or {}
+                    out.append({
+                        "key": key,
+                        "summary": fields.get("summary") or "",
+                        "url": daily_report.jira_url(key),
+                    })
+                token = payload.get("nextPageToken")
+                if not token:
+                    break
+            if out:
+                break
+        return out
+
     def create_bug(self, draft: Dict[str, Any]) -> str:
         """Create the bug under the epic. Returns the new issue key."""
         try:
@@ -973,6 +1033,162 @@ def preview_fa_row(report: Dict[str, Any], row_id: str,
     }
 
 
+def ledger_path() -> Path:
+    """Filed Daily FA tickets. Survives a bundle rebuild and a process restart."""
+    override = (os.environ.get("FA_JIRAS_PATH") or "").strip()
+    if override:
+        return Path(override)
+    return config.DATA_DIR / "fa_jiras.json"
+
+
+_LEDGER_LOCK = threading.Lock()
+
+
+def load_ledger() -> Dict[str, Any]:
+    """``rows`` keyed by the table group id, plus ``issues`` synced from Jira."""
+    path = ledger_path()
+    if not path.is_file():
+        return {"rows": {}, "issues": []}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"rows": {}, "issues": []}
+    if not isinstance(data, dict):
+        return {"rows": {}, "issues": []}
+    if not isinstance(data.get("rows"), dict):
+        data["rows"] = {}
+    if not isinstance(data.get("issues"), list):
+        data["issues"] = []
+    return data
+
+
+def save_ledger(book: Dict[str, Any]) -> None:
+    path = ledger_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(book, indent=2), encoding="utf-8")
+    tmp.replace(path)
+
+
+def _ticket_summary(report: Dict[str, Any], row: Dict[str, Any]) -> str:
+    """The same summary ``fa_draft`` files under, so a rebuild can find it."""
+    draft = fa_draft(report, row, DEFAULT_EPIC)
+    return draft.get("summary") or ""
+
+
+def _ledger_hit(book: Dict[str, Any], report: Dict[str, Any],
+                row: Dict[str, Any], row_id: str = "") -> str:
+    from .build_l10 import group_id
+
+    rows = book.get("rows") or {}
+    keys = [
+        row_id,
+        row.get("id") or "",
+        group_id(row.get("sn") or "", row.get("errorType") or "",
+                 row.get("url") or ""),
+    ]
+    for key in keys:
+        hit = rows.get(key) or {}
+        url = hit.get("url") or ""
+        if url:
+            return url
+    summary = _ticket_summary(report, row)
+    if not summary:
+        return ""
+    for issue in book.get("issues") or []:
+        if issue.get("summary") == summary and issue.get("url"):
+            return issue["url"]
+    return ""
+
+
+def remembered_url(report: Dict[str, Any], row_id: str,
+                   rows: Sequence[Dict[str, Any]]) -> str:
+    """A ticket filed earlier for this row, including after the bundle was rebuilt."""
+    book = load_ledger()
+    for row in rows:
+        url = _ledger_hit(book, report, row, row_id)
+        if url:
+            return url
+    return ""
+
+
+def remember_filed(report: Dict[str, Any], row_id: str,
+                   rows: Sequence[Dict[str, Any]],
+                   url: str, key: str, summary: str = "") -> None:
+    """Keep the link where a later rebuild of dailyfa.js cannot drop it."""
+    from .build_l10 import group_id
+
+    if not url:
+        return
+    entry = {
+        "url": url,
+        "key": key,
+        "day": report.get("day") or "",
+        "stage": report.get("stage") or "",
+    }
+    with _LEDGER_LOCK:
+        book = load_ledger()
+        stored = book.setdefault("rows", {})
+        if row_id:
+            stored[row_id] = entry
+        for row in rows:
+            gid = group_id(row.get("sn") or "", row.get("errorType") or "",
+                           row.get("url") or "")
+            if gid:
+                stored[gid] = dict(entry, summary=_ticket_summary(report, row))
+            if row.get("id"):
+                stored[row["id"]] = entry
+        issues = book.setdefault("issues", [])
+        if summary and not any(item.get("summary") == summary for item in issues):
+            issues.append({"key": key, "summary": summary, "url": url})
+        save_ledger(book)
+
+
+def apply_ledger_to_report(report: Dict[str, Any]) -> Dict[str, Any]:
+    """Fill empty ``jira`` fields from the ledger. Does not clear a link."""
+    book = load_ledger()
+    for row in report.get("rows") or []:
+        if row.get("jira"):
+            continue
+        url = _ledger_hit(book, report, row, row.get("id") or "")
+        if url:
+            row["jira"] = url
+    return report
+
+
+def sync_ledger(max_age_s: int = 300) -> Dict[str, Any]:
+    """Refresh the issue list from Jira so a restart still knows what was filed.
+
+    A missing token or a search failure leaves the ledger as it is. The page
+    still gets whatever was remembered locally.
+    """
+    with _LEDGER_LOCK:
+        book = load_ledger()
+        synced = book.get("syncedAt") or ""
+        if synced:
+            try:
+                stamp = datetime.fromisoformat(synced.replace("Z", "+00:00"))
+                age = (datetime.now(timezone.utc) - stamp).total_seconds()
+            except ValueError:
+                age = max_age_s + 1
+            if age < max_age_s:
+                return book
+        try:
+            email, token = credentials()
+        except JiraError:
+            return book
+        epic = os.environ.get("JIRA_EPIC", "").strip() or DEFAULT_EPIC
+        try:
+            issues = JiraClient(email, token).list_filed_issues(epic)
+        except JiraError:
+            return book
+        book["issues"] = issues
+        book["syncedAt"] = datetime.now(timezone.utc).replace(
+            microsecond=0).isoformat()
+        save_ledger(book)
+        return book
+
+
 def file_fa_row(report: Dict[str, Any], row_id: str,
                 epic: Optional[str] = None,
                 client: Optional["JiraClient"] = None,
@@ -983,8 +1199,34 @@ def file_fa_row(report: Dict[str, Any], row_id: str,
     """File one Jira for one table row. A second click returns the same ticket."""
     parent = (epic or os.environ.get("JIRA_EPIC", "").strip() or DEFAULT_EPIC)
     matches, row, already = _fa_row(report, row_id, dri=dri)
+    if not already:
+        already = remembered_url(report, row_id, matches)
+    if not already:
+        draft = apply_ticket_edits(fa_draft(report, row, parent),
+                                   summary=summary, markdown=markdown)
+        finder = client
+        if finder is None:
+            try:
+                email, token = credentials()
+            except JiraError:
+                finder = None
+            else:
+                finder = JiraClient(email, token)
+        if finder is not None and hasattr(finder, "find_by_summary"):
+            try:
+                found = finder.find_by_summary(draft["summary"])
+            except JiraError:
+                found = None
+            if found:
+                already = daily_report.jira_url(found)
+        if already:
+            client = finder
     if already:
         key = str(already).rstrip("/").rsplit("/", 1)[-1]
+        for item in matches:
+            item["jira"] = already
+        remember_filed(report, row_id, matches, already, key,
+                       _ticket_summary(report, row))
         return {
             "id": row_id,
             "sn": matches[0].get("sn") or "",
@@ -1009,6 +1251,8 @@ def file_fa_row(report: Dict[str, Any], row_id: str,
     }
     for item in matches:
         item["jira"] = filed["url"]
+    remember_filed(report, row_id, matches, filed["url"], key,
+                   draft.get("summary") or "")
     return filed
 
 

@@ -251,6 +251,8 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
             self._json({"ok": True, "canUpdate": True, "repo": config.REPO_ROOT.name})
         elif route == "/api/update":
             self._json(self._update_state())
+        elif route == "/api/fa-jiras":
+            self._json(self._fa_jira_ledger())
         elif route.startswith("/api/"):
             self._json({"error": "no such route"}, status=404)
         else:
@@ -362,6 +364,14 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
             return None
         return body, bundle, report, stage, row_id, dri
 
+    def _fa_jira_ledger(self) -> Dict[str, Any]:
+        from . import bug_report
+
+        try:
+            return bug_report.sync_ledger()
+        except Exception:                                 # noqa: BLE001
+            return bug_report.load_ledger()
+
     def _preview_fa_jira(self) -> None:
         loaded = self._fa_request()
         if loaded is None:
@@ -395,6 +405,9 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
         except bug_report.JiraError as exc:
             self._json({"error": str(exc)}, status=400)
             return
+        except Exception as exc:                          # noqa: BLE001
+            self._json({"error": str(exc)}, status=500)
+            return
         report_key = build_l10.REPORT_KEY[stage]
         for tab in bundle.get("tabs") or []:
             if tab.get("day") != report.get("day"):
@@ -405,9 +418,12 @@ class ControlHandler(http.server.SimpleHTTPRequestHandler):
                 break
         try:
             from . import build_dailyexcel
+            # Filing must not rescan every day's logs. A failed rewrite still
+            # leaves the ticket in the ledger, so the page can show the link.
             build_dailyexcel.write_bundle(
-                bundle, config.DASHBOARD_DATA_DIR / "dailyexcel.js")
-        except OSError:
+                bundle, config.DASHBOARD_DATA_DIR / "dailyexcel.js",
+                restamp=False)
+        except Exception:                                 # noqa: BLE001
             pass
         self._json({"day": report.get("day"), "stage": stage, "filed": filed})
 
